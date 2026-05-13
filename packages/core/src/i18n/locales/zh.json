@@ -30,7 +30,20 @@
     "failed": "失败",
     "testing": "测试中...",
     "minutes": "分钟",
-    "hours": "小时"
+    "hours": "小时",
+    "collapse": "收起",
+    "copyAll": "全部复制",
+    "downloadSuccess": "图表已下载",
+    "edit": "编辑",
+    "enterLinkUrl": "输入链接地址",
+    "error": "错误",
+    "expand": "放大",
+    "insertLink": "插入链接",
+    "linkText": "链接文字",
+    "paste": "粘贴",
+    "rename": "重命名",
+    "reset": "复原",
+    "writeYourThoughts": "写下你的想法..."
   },
   "sidebar": {
     "library": "书库",
@@ -67,13 +80,23 @@
     "daysUnit": "天",
     "avgDaily": "日均",
     "readingActivity": "阅读活动",
-    "viewDetails": "查看详情"
+    "viewDetails": "查看详情",
+    "version": "ReadAny Mobile v{{version}}"
   },
   "skills": {
     "title": "技能管理",
     "builtinSkills": "内置技能",
     "customSkills": "自定义技能",
-    "noCustomSkills": "还没有自定义技能，点击右上角创建"
+    "noCustomSkills": "还没有自定义技能，点击右上角创建",
+    "createSkill": "创建技能",
+    "deleteConfirm": "确定删除此技能？",
+    "description": "描述",
+    "descriptionPlaceholder": "简要描述...",
+    "editSkill": "编辑技能",
+    "name": "名称",
+    "namePlaceholder": "技能名称",
+    "prompt": "提示词",
+    "promptPlaceholder": "输入提示词..."
   },
   "about": {
     "title": "关于",
@@ -85,7 +108,8 @@
     "ebookRenderer": "电子书渲染",
     "localDatabase": "本地数据库",
     "feedback": "问题反馈",
-    "supportCenter": "帮助中心"
+    "supportCenter": "帮助中心",
+    "madeBy": "由 NicePkg 用 ❤️ 打造"
   },
   "feedback": {
     "title": "反馈建议",
@@ -222,7 +246,26 @@
     "deleteBookTitle": "删除这本书？",
     "deleteBookDescription": "书籍文件将从书架移除。",
     "preserveDeleteDataLabel": "保留笔记和阅读统计",
-    "preserveDeleteDataHint": "重新导入同一本书时可恢复"
+    "preserveDeleteDataHint": "重新导入同一本书时可恢复",
+    "batchDeleteConfirm": "确定要删除选中的 {{count}} 本书吗？",
+    "changeGroup": "更换分组",
+    "createGroup": "新建分组",
+    "deleteTagConfirm": "确定删除标签 \"{{tag}}\" 吗？",
+    "downloadFailed": "下载失败，请重试",
+    "downloading": "下载中",
+    "group": "分组",
+    "groupBookCount": "{{count}} 本",
+    "groupNamePlaceholder": "分组名称",
+    "groupNamePrompt": "分组名称",
+    "groupView": "分组",
+    "moveToGroup": "移入分组",
+    "passwordNotFound": "未找到同步密码，请重新配置",
+    "removeFromGroup": "移出分组",
+    "select": "选择",
+    "selectAll": "全选",
+    "selectedCount": "已选 {{count}} 本",
+    "sort": "排序",
+    "syncNotConfigured": "请先配置同步"
   },
   "home": {
     "library": "书库",
@@ -295,7 +338,22 @@
     "exportSuccess": "导出成功",
     "copiedSuccess": "已复制到剪贴板",
     "roleUser": "你",
-    "roleAI": "AI"
+    "roleAI": "AI",
+    "askAboutBook": "询问关于这本书的问题...",
+    "configRequired": "需要配置 AI",
+    "configRequiredMessage": "请先在设置中配置 AI 端点和模型",
+    "configureAI": "配置 AI",
+    "deleteThread": "删除对话",
+    "deleteThreadConfirm": "确定要删除这个对话吗？",
+    "inputPlaceholder": "输入消息...",
+    "newThread": "新对话",
+    "noContent": "...",
+    "noMessages": "暂无消息",
+    "noThreads": "还没有对话，点击上方创建",
+    "selectAndCopy": "长按选中文字复制",
+    "selectBooks": "选择书籍上下文",
+    "threads": "对话列表",
+    "untitled": "新对话"
   },
   "reader": {
     "untitled": "无标题",
@@ -358,7 +416,18 @@
     "fontThemeLiterary": "文学",
     "goBackToPreviousLocation": "返回上一位置",
     "pinToolbar": "固定工具栏",
-    "unpinToolbar": "取消固定工具栏"
+    "unpinToolbar": "取消固定工具栏",
+    "addNote": "添加笔记",
+    "bookNotFound": "书籍未找到",
+    "bookmarks": "书签",
+    "loading": "正在加载...",
+    "notePlaceholder": "写下你的想法...",
+    "notebook": "笔记本",
+    "notebookHint": "在阅读时选中文字来创建笔记和高亮",
+    "returnToOriginal": "是否返回搜索前的位置？",
+    "searchComplete": "搜索完成",
+    "unknownBook": "未命名书籍",
+    "viewNote": "查看笔记"
   },
   "translation": {
     "translateTo": "翻译为 {{lang}}",
@@ -387,7 +456,11 @@
     "showTranslation": "显示译文",
     "hideTranslation": "隐藏译文",
     "cancelTranslation": "取消翻译",
-    "noTextToTranslate": "没有可翻译的文本"
+    "noTextToTranslate": "没有可翻译的文本",
+    "error": "翻译出错",
+    "noApiKey": "请先配置 AI 设置",
+    "noResult": "翻译失败，请重试",
+    "translation": "译文"
   },
   "highlights": {
     "yellow": "黄色",
@@ -448,7 +521,9 @@
     "exportSuccess": "导出成功",
     "exportFailed": "导出失败",
     "copiedToClipboard": "已复制到剪贴板",
-    "downloaded": "已下载"
+    "downloaded": "已下载",
+    "deleteHighlightConfirm": "确定删除此高亮？",
+    "deleteNoteConfirm": "确定删除此笔记？"
   },
   "notebook": {
     "title": "笔记本",
@@ -879,7 +954,30 @@
     "storageMigrationFailed": "迁移失败：{{error}}",
     "storageChooseFolderFirst": "请先选择目标文件夹",
     "storageNoChange": "当前已经在这个目录",
-    "storageAlreadyDefault": "当前已经是默认目录"
+    "storageAlreadyDefault": "当前已经是默认目录",
+    "aiConfig": "AI 配置",
+    "aiProvider": "Provider",
+    "ai_models": "模型",
+    "ai_namePlaceholder": "例如：我的 OpenAI",
+    "configImported": "配置已导入",
+    "copiedToClipboard": "口令已复制到剪贴板",
+    "copyToken": "复制下方口令，在另一台设备导入",
+    "english": "English",
+    "exportConfig": "导出",
+    "exportFailed": "导出失败",
+    "importConfig": "导入",
+    "importFailed": "导入失败",
+    "invalidConfig": "配置格式无效",
+    "pasteConfig": "粘贴配置口令...",
+    "simplifiedChinese": "中文",
+    "syncConfig": "同步配置",
+    "transferConfig": "配置迁移",
+    "vectorConfig": "向量化配置",
+    "webdavAllowInsecure": "允许不安全连接",
+    "webdavUsername": "用户名",
+    "webdavPassword": "应用密码",
+    "autoSync": "自动同步",
+    "autoSyncDesc": "在后台自动同步数据"
   },
   "stats": {
     "title": "阅读统计",
@@ -1286,7 +1384,8 @@
     "prevChapter": "上一章",
     "nextChapter": "下一章",
     "systemVoiceNote": "系统音色请在设备系统设置中选择",
-    "browserVoiceNote": "系统音色请在设备系统设置中选择"
+    "browserVoiceNote": "系统音色请在设备系统设置中选择",
+    "stop": "停止"
   },
   "mindmap": {
     "title": "思维导图",
@@ -1296,7 +1395,12 @@
     "download": "下载思维导图",
     "mermaidChart": "Mermaid 图表",
     "zoomHint": "双击放大 · 双指缩放 · 拖动移动",
-    "zoomHintMindmap": "双指缩放 · 拖动移动 · 点击节点展开/收起"
+    "zoomHintMindmap": "双指缩放 · 拖动移动 · 点击节点展开/收起",
+    "hint": "双击放大 · 拖动移动 · 点击节点展开/收起"
+  },
+  "mermaid": {
+    "title": "Mermaid 图表",
+    "hint": "双击放大 · 滚轮缩放 · 拖动移动"
   },
   "commandPalette": {
     "placeholder": "搜索命令...",
@@ -1314,6 +1418,7 @@
     "welcome": {
       "title": "欢迎来到 ReadAny",
       "desc": "你的智能阅读伴侣。让我们一起来搭建最佳的阅读环境吧。",
+      "subtitle": "你的智能阅读伴侣。让我们一起来搭建最佳的阅读环境吧。",
       "ai": "AI 阅读助手",
       "aiDesc": "与书籍和角色自然对话",
       "search": "智能语义检索",
@@ -1439,6 +1544,9 @@
     "urlRequired": "请输入字体链接",
     "remote": "在线",
     "online": "在线",
-    "selectFont": "选择字体"
+    "selectFont": "选择字体",
+    "add": "添加",
+    "presets": "推荐字体（在线，点击即可添加）",
+    "systemDefault": "系统默认"
   }
 }
