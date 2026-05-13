@@ -30,7 +30,20 @@
     "failed": "Failed",
     "testing": "Testing...",
     "minutes": "minutes",
-    "hours": "hours"
+    "hours": "hours",
+    "collapse": "Collapse",
+    "copyAll": "Copy all",
+    "downloadSuccess": "Diagram downloaded",
+    "edit": "Edit",
+    "enterLinkUrl": "Enter link URL",
+    "error": "Error",
+    "expand": "Expand",
+    "insertLink": "Insert link",
+    "linkText": "Link text",
+    "paste": "Paste",
+    "rename": "Rename",
+    "reset": "Reset",
+    "writeYourThoughts": "Write your thoughts..."
   },
   "sidebar": {
     "library": "Library",
@@ -74,7 +87,16 @@
     "title": "Skills",
     "builtinSkills": "Built-in Skills",
     "customSkills": "Custom Skills",
-    "noCustomSkills": "No custom skills yet, tap top-right to create"
+    "noCustomSkills": "No custom skills yet, tap top-right to create",
+    "createSkill": "Create skill",
+    "deleteConfirm": "Delete this skill?",
+    "description": "Description",
+    "descriptionPlaceholder": "Brief description...",
+    "editSkill": "Edit skill",
+    "name": "Name",
+    "namePlaceholder": "Skill name",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Enter prompt..."
   },
   "about": {
     "title": "About",
@@ -195,7 +217,26 @@
     "deleteBookTitle": "Remove this book?",
     "deleteBookDescription": "The book file will be removed from your shelf.",
     "preserveDeleteDataLabel": "Keep notes and reading stats",
-    "preserveDeleteDataHint": "Can be restored when you re-import the same book"
+    "preserveDeleteDataHint": "Can be restored when you re-import the same book",
+    "batchDeleteConfirm": "Delete the {{count}} selected book(s)?",
+    "changeGroup": "Change group",
+    "createGroup": "New group",
+    "deleteTagConfirm": "Delete tag \"{{tag}}\"?",
+    "downloadFailed": "Download failed — please try again",
+    "downloading": "Downloading",
+    "group": "Group",
+    "groupBookCount": "{{count}} book(s)",
+    "groupNamePlaceholder": "Group name",
+    "groupNamePrompt": "Group name",
+    "groupView": "Groups",
+    "moveToGroup": "Move to group",
+    "passwordNotFound": "Sync password not found — please reconfigure",
+    "removeFromGroup": "Remove from group",
+    "select": "Select",
+    "selectAll": "Select all",
+    "selectedCount": "{{count}} selected",
+    "sort": "Sort",
+    "syncNotConfigured": "Please configure sync first"
   },
   "home": {
     "library": "Library",
@@ -268,7 +309,22 @@
     "exportSuccess": "Export successful",
     "copiedSuccess": "Copied to clipboard",
     "roleUser": "You",
-    "roleAI": "AI"
+    "roleAI": "AI",
+    "askAboutBook": "Ask anything about this book...",
+    "configRequired": "AI configuration required",
+    "configRequiredMessage": "Please configure an AI endpoint and model in settings first",
+    "configureAI": "Configure AI",
+    "deleteThread": "Delete conversation",
+    "deleteThreadConfirm": "Delete this conversation?",
+    "inputPlaceholder": "Type a message...",
+    "newThread": "New conversation",
+    "noContent": "...",
+    "noMessages": "No messages",
+    "noThreads": "No conversations yet — tap above to create one",
+    "selectAndCopy": "Long-press text to select and copy",
+    "selectBooks": "Select book context",
+    "threads": "Conversations",
+    "untitled": "Untitled"
   },
   "reader": {
     "untitled": "Untitled",
@@ -331,7 +387,18 @@
     "fontThemeLiterary": "Literary",
     "goBackToPreviousLocation": "Go back to previous location",
     "pinToolbar": "Pin toolbar",
-    "unpinToolbar": "Unpin toolbar"
+    "unpinToolbar": "Unpin toolbar",
+    "addNote": "Add note",
+    "bookNotFound": "Book not found",
+    "bookmarks": "Bookmarks",
+    "loading": "Loading...",
+    "notePlaceholder": "Write your thoughts...",
+    "notebook": "Notebook",
+    "notebookHint": "Select text while reading to create notes and highlights",
+    "returnToOriginal": "Return to the position before search?",
+    "searchComplete": "Search complete",
+    "unknownBook": "Untitled book",
+    "viewNote": "View note"
   },
   "translation": {
     "translateTo": "Translate to {{lang}}",
@@ -360,7 +427,11 @@
     "showTranslation": "Show Translation",
     "hideTranslation": "Hide Translation",
     "cancelTranslation": "Cancel Translation",
-    "noTextToTranslate": "No text to translate"
+    "noTextToTranslate": "No text to translate",
+    "error": "Translation error",
+    "noApiKey": "Please configure AI settings first",
+    "noResult": "Translation failed — please try again",
+    "translation": "Translation"
   },
   "highlights": {
     "yellow": "Yellow",
@@ -421,7 +492,9 @@
     "exportSuccess": "Export successful",
     "exportFailed": "Export failed",
     "copiedToClipboard": "Copied to clipboard",
-    "downloaded": "Downloaded"
+    "downloaded": "Downloaded",
+    "deleteHighlightConfirm": "Delete this highlight?",
+    "deleteNoteConfirm": "Delete this note?"
   },
   "notebook": {
     "title": "Notebook",
@@ -856,7 +929,26 @@
     "storageMigrationFailed": "Migration failed: {{error}}",
     "storageChooseFolderFirst": "Choose a target folder first",
     "storageNoChange": "This directory is already in use",
-    "storageAlreadyDefault": "Already using the default directory"
+    "storageAlreadyDefault": "Already using the default directory",
+    "aiConfig": "AI configuration",
+    "aiProvider": "Provider",
+    "ai_models": "models",
+    "ai_namePlaceholder": "e.g. My OpenAI",
+    "configImported": "Configuration imported",
+    "copiedToClipboard": "Token copied to clipboard",
+    "copyToken": "Copy the token below and import on another device",
+    "english": "English",
+    "exportConfig": "Export",
+    "exportFailed": "Export failed",
+    "importConfig": "Import",
+    "importFailed": "Import failed",
+    "invalidConfig": "Invalid configuration format",
+    "pasteConfig": "Paste configuration token...",
+    "simplifiedChinese": "Simplified Chinese",
+    "syncConfig": "Sync configuration",
+    "transferConfig": "Transfer configuration",
+    "vectorConfig": "Vector configuration",
+    "webdavAllowInsecure": "Allow insecure connections"
   },
   "tour": {
     "next": "Next",
@@ -901,7 +993,12 @@
     "download": "Download Mindmap",
     "mermaidChart": "Mermaid Chart",
     "zoomHint": "Double click to zoom · Pinch to zoom · Drag to move",
-    "zoomHintMindmap": "Pinch to zoom · Drag to move · Tap node to expand/collapse"
+    "zoomHintMindmap": "Pinch to zoom · Drag to move · Tap node to expand/collapse",
+    "hint": "Double-tap to zoom · drag to pan · tap node to expand/collapse"
+  },
+  "mermaid": {
+    "title": "Mermaid diagram",
+    "hint": "Double-tap to zoom · scroll to zoom · drag to pan"
   },
   "onboarding": {
     "skip": "Skip",
@@ -925,6 +1022,7 @@
         "desc": "Seamless split-screen translation for any text"
       },
       "title": "Welcome to ReadAny",
+      "desc": "Your intelligent reading companion. Let's set up the perfect reading environment.",
       "subtitle": "Your intelligent reading companion. Let's set up the perfect reading environment.",
       "translate": "Instant Bilingual Translation",
       "translateDesc": "Seamless side-by-side reading",
@@ -1377,7 +1475,8 @@
     "prevChapter": "Previous Chapter",
     "nextChapter": "Next Chapter",
     "systemVoiceNote": "Choose the system voice in your device settings",
-    "browserVoiceNote": "Choose the system voice in your device settings"
+    "browserVoiceNote": "Choose the system voice in your device settings",
+    "stop": "Stop"
   },
   "fonts": {
     "title": "Fonts",
@@ -1416,6 +1515,9 @@
     "urlRequired": "Please enter a font URL",
     "remote": "Online",
     "online": "Online",
-    "selectFont": "Select Font"
+    "selectFont": "Select Font",
+    "add": "Add",
+    "presets": "Recommended fonts (online, tap to add)",
+    "systemDefault": "System default"
   }
 }

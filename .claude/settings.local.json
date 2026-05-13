@@ -50,7 +50,13 @@
       "Bash(gh issue *)",
       "Bash(npm install *)",
       "Bash(awk '/async function openBook/,/^    \\\\}$/' /Users/tuntuntutu/Project/ReadAny/packages/app-expo/assets/reader/reader.template.html)",
-      "Bash(gh search *)"
+      "Bash(gh search *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(find node_modules packages/*/node_modules -name \"react-native-markdown-display\" -type d)",
+      "Bash(comm -23 /tmp/i18n_code_keys.txt /tmp/i18n_zh_keys.txt)",
+      "Bash(comm -23 /tmp/i18n_code_keys.txt /tmp/i18n_en_keys.txt)",
+      "Bash(comm -23 /tmp/i18n_zh_keys.txt /tmp/i18n_code_keys.txt)"
     ]
   }
 }
