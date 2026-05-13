@@ -524,8 +524,103 @@ export const deeplProvider: TranslationProvider = {
   },
 };
 
+// ─── Microsoft Edge Translate (Free, no API key required) ─────────────────────
+
+let _msToken: string | null = null;
+let _msTokenExpiry = 0;
+
+/** Language code mapping: our codes → Microsoft API codes */
+function toMicrosoftLangCode(lang: string): string {
+  const map: Record<string, string> = {
+    "zh-CN": "zh-Hans",
+    "zh-TW": "zh-Hant",
+  };
+  return map[lang] || lang;
+}
+
+/** Microsoft supported source languages (subset for validation) */
+const MS_SUPPORTED_LANGS = new Set([
+  "af", "am", "ar", "as", "az", "ba", "bg", "bn", "bo", "bs", "ca", "cs", "cy", "da", "de",
+  "dv", "el", "en", "es", "et", "eu", "fa", "fi", "fil", "fj", "fo", "fr", "ga", "gl", "gu",
+  "ha", "he", "hi", "hr", "ht", "hu", "hy", "id", "ig", "ikt", "is", "it", "iu", "ja", "ka",
+  "kk", "km", "kn", "ko", "ku", "ky", "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn",
+  "mr", "ms", "mt", "my", "nb", "ne", "nl", "no", "or", "pa", "pl", "ps", "pt", "ro", "ru",
+  "rw", "sd", "si", "sk", "sl", "sm", "sn", "so", "sq", "sr", "st", "sv", "sw", "ta", "te",
+  "th", "ti", "tk", "tl", "tn", "to", "tr", "tt", "ty", "ug", "uk", "ur", "uz", "vi", "xh",
+  "yo", "yue", "zh-Hans", "zh-Hant", "zu",
+]);
+
+/** Get or refresh the free Microsoft Edge translate JWT token */
+async function getMicrosoftToken(): Promise<string> {
+  if (_msToken && Date.now() < _msTokenExpiry) return _msToken;
+
+  const resp = await fetch("https://edge.microsoft.com/translate/auth");
+  if (!resp.ok) {
+    throw new Error(`Failed to get Microsoft translate token: ${resp.status}`);
+  }
+  _msToken = await resp.text();
+  // Token valid ~10 min, refresh at 8 min
+  _msTokenExpiry = Date.now() + 8 * 60 * 1000;
+  return _msToken;
+}
+
+/**
+ * Microsoft Edge Translate — free, no API key needed.
+ * Supports batch (multiple texts in one request).
+ */
+export async function microsoftTranslate(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string,
+): Promise<string[]> {
+  const token = await getMicrosoftToken();
+  const mappedSource = toMicrosoftLangCode(sourceLang);
+  // If source lang is "auto"/"AUTO", empty, or not recognized by Microsoft, omit it for auto-detection
+  const from = (!sourceLang || sourceLang.toLowerCase() === "auto" || !MS_SUPPORTED_LANGS.has(mappedSource)) ? "" : mappedSource;
+  const to = toMicrosoftLangCode(targetLang);
+
+  const body = texts.map((t) => ({ Text: t }));
+
+  const resp = await fetch(
+    `https://api-edge.cognitive.microsofttranslator.com/translate?from=${from}&to=${to}&api-version=3.0`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!resp.ok) {
+    // If 401, invalidate token for retry on next call
+    if (resp.status === 401) {
+      _msToken = null;
+      _msTokenExpiry = 0;
+    }
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`Microsoft translate failed: ${resp.status} ${errText}`);
+  }
+
+  const result = (await resp.json()) as Array<{
+    translations: Array<{ text: string }>;
+  }>;
+
+  return result.map((r) => r.translations?.[0]?.text ?? "");
+}
+
+export const microsoftProvider: TranslationProvider = {
+  name: "microsoft",
+  label: "微软翻译 (免费)",
+  translate: async (texts, sourceLang, targetLang) => {
+    return microsoftTranslate(texts, sourceLang, targetLang);
+  },
+};
+
 /** Get a translator by name */
 export function getTranslator(name: TranslatorName): TranslationProvider | undefined {
+  if (name === "microsoft") return microsoftProvider;
   if (name === "ai") return aiProvider;
   if (name === "deepl") return deeplProvider;
   return undefined;

@@ -47,7 +47,7 @@ export default function TranslationSettingsScreen() {
   const selectedEndpointId = translationConfig.provider.endpointId || aiConfig.activeEndpointId;
   const selectedModel = translationConfig.provider.model || aiConfig.activeModel;
 
-  const handleProviderChange = (providerId: "ai" | "deepl", providerName: string) => {
+  const handleProviderChange = (providerId: "ai" | "deepl" | "microsoft", providerName: string) => {
     updateTranslationConfig({
       provider: {
         ...translationConfig.provider,
@@ -110,6 +110,11 @@ export default function TranslationSettingsScreen() {
                           {t("translation.useAIModel", {
                             model: selectedModel || "AI",
                           })}
+                        </Text>
+                      )}
+                      {p.id === "microsoft" && (
+                        <Text style={styles.listItemSub}>
+                          {t("translation.microsoftHint", "免费，无需配置")}
                         </Text>
                       )}
                     </View>

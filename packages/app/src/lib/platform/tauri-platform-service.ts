@@ -338,8 +338,8 @@ export class TauriPlatformService implements IPlatformService {
       const { invoke } = await import("@tauri-apps/api/core");
       const ip = await invoke<string>("get_local_ip");
       if (ip) return ip;
-    } catch {
-      // Fallback to WebRTC
+    } catch (err) {
+      console.warn("[Platform] Rust get_local_ip failed, falling back to WebRTC:", err);
     }
 
     // Try WebRTC approach

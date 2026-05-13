@@ -45,23 +45,97 @@ const PROVIDER_OPTIONS: { value: AIProviderType; label: string }[] = [
   { value: "custom", label: "Custom (OpenAI Compatible)" },
 ];
 
+/** Searchable model list with filter input */
+function ModelSearchableList({
+  models,
+  activeModel,
+  isEndpointActive,
+  onSelect,
+  onRemove,
+}: {
+  models: string[];
+  activeModel?: string;
+  isEndpointActive: boolean;
+  onSelect: (model: string) => void;
+  onRemove: (model: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const filtered = search.trim()
+    ? models.filter((m) => m.toLowerCase().includes(search.toLowerCase()))
+    : models;
+  const currentActive = isEndpointActive ? activeModel : undefined;
+
+  return (
+    <div className="space-y-1.5">
+      {currentActive && models.includes(currentActive) && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground">当前:</span>
+          <span className="text-primary font-medium">{currentActive}</span>
+        </div>
+      )}
+      <input
+        type="text"
+        className="w-full h-7 px-2.5 text-xs border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        placeholder="搜索模型..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="max-h-36 overflow-y-auto border rounded-md bg-background">
+        {filtered.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground text-center">无匹配结果</div>
+        ) : (
+          filtered.map((m) => {
+            const isActive = m === currentActive;
+            return (
+              <div
+                key={m}
+                className={`flex items-center justify-between px-2.5 py-1.5 text-xs border-b last:border-b-0 cursor-pointer hover:bg-muted/50 transition-colors ${isActive ? "bg-primary/5" : ""}`}
+                onClick={() => onSelect(m)}
+                onKeyDown={() => {}}
+                role="button"
+                tabIndex={0}
+              >
+                <span className={`truncate ${isActive ? "text-primary font-medium" : "text-foreground"}`}>
+                  {m}
+                </span>
+                <button
+                  type="button"
+                  className="ml-2 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onRemove(m); }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <div className="text-[10px] text-muted-foreground">共 {models.length} 个模型</div>
+    </div>
+  );
+}
+
 function EndpointCard({
   endpoint,
   isActive,
   isExpanded,
+  activeModel,
   onUpdate,
   onRemove,
   onFetchModels,
   onSetActive,
+  onSetActiveModel,
   onToggleExpand,
 }: {
   endpoint: AIEndpoint;
   isActive: boolean;
   isExpanded: boolean;
+  activeModel?: string;
   onUpdate: (id: string, updates: Partial<AIEndpoint>) => void;
   onRemove: (id: string) => void;
   onFetchModels: (id: string) => void;
   onSetActive: (id: string) => void;
+  onSetActiveModel: (model: string) => void;
   onToggleExpand: () => void;
 }) {
   const { t } = useTranslation();
@@ -481,26 +555,18 @@ function EndpointCard({
               </Button>
             </div>
 
-            {/* Model tags */}
+            {/* Model list — searchable */}
             {endpoint.models.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {endpoint.models.map((model) => (
-                  <span
-                    key={model}
-                    className="inline-flex items-center gap-1 rounded-md bg-background border px-2 py-0.5 text-xs text-foreground"
-                  >
-                    {model}
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={() => handleRemoveModel(model)}
-                      title={t("settings.ai_removeModel")}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <ModelSearchableList
+                models={endpoint.models}
+                activeModel={activeModel}
+                isEndpointActive={isActive}
+                onSelect={(m) => {
+                  onSetActive(endpoint.id);
+                  onSetActiveModel(m);
+                }}
+                onRemove={handleRemoveModel}
+              />
             ) : (
               <p className="text-xs text-muted-foreground">{t("settings.ai_noModels")}</p>
             )}
@@ -598,10 +664,12 @@ export function AISettings() {
               endpoint={ep}
               isActive={ep.id === aiConfig.activeEndpointId}
               isExpanded={expandedId === ep.id}
+              activeModel={aiConfig.activeModel}
               onUpdate={updateEndpoint}
               onRemove={removeEndpoint}
               onFetchModels={handleFetchModels}
               onSetActive={setActiveEndpoint}
+              onSetActiveModel={setActiveModel}
               onToggleExpand={() => setExpandedId(expandedId === ep.id ? null : ep.id)}
             />
           ))}

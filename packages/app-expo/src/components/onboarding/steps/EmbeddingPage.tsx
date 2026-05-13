@@ -1,4 +1,5 @@
 import { DarkModeSvg } from "@/components/DarkModeSvg";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { useVectorModelStore } from "@/stores/vector-model-store";
 import { useTheme } from "@/styles/theme";
 import { useNavigation } from "@react-navigation/native";
@@ -10,7 +11,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -71,8 +71,8 @@ export function EmbeddingPage() {
       if (res.ok) {
         setSelectedVectorModelId(model.id);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("[Onboarding] Embedding model test failed:", err);
     } finally {
       setTestingId(null);
     }
@@ -85,7 +85,7 @@ export function EmbeddingPage() {
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Animated.View entering={SlideInRight.duration(500)} style={styles.container}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
             <View
               style={[
@@ -303,7 +303,7 @@ export function EmbeddingPage() {
               </Text>
             )}
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View
           style={[

@@ -70,7 +70,8 @@ export default function SkillsScreen() {
       });
       const customSkills = dbSkills.filter((s) => !s.builtIn);
       setSkills([...mergedSkills, ...customSkills]);
-    } catch {
+    } catch (err) {
+      console.warn("[AI] Failed to load skills from DB:", err);
       setSkills(builtinSkills);
     } finally {
       setLoading(false);

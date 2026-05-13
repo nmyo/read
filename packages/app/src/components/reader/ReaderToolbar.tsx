@@ -257,7 +257,9 @@ export function ReaderToolbar({
               const win = getCurrentWindow();
               const fs = await win.isFullscreen();
               await win.setFullscreen(!fs);
-            } catch {}
+            } catch (err) {
+              console.warn("[Reader] Failed to toggle fullscreen:", err);
+            }
           }}
         >
           <Maximize className="h-3.5 w-3.5" />

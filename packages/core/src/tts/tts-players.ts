@@ -275,8 +275,8 @@ export class DashScopeTTSPlayer implements ITTSPlayer {
 
             this.scheduleFlush();
           }
-        } catch {
-          // skip malformed JSON
+        } catch (err) {
+          console.warn("[TTS] Failed to parse DashScope stream JSON:", err);
         }
       }
     }

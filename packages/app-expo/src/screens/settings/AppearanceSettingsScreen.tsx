@@ -37,8 +37,8 @@ export default function AppearanceSettingsScreen() {
     try {
       const { changeAndPersistLanguage } = await import("@readany/core/i18n");
       await changeAndPersistLanguage(code);
-    } catch {
-      // fallback
+    } catch (err) {
+      console.warn("[Settings] Failed to change and persist language:", err);
     }
   }, []);
 

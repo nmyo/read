@@ -1,6 +1,7 @@
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { BookmarkRibbon } from "@/components/reader/BookmarkRibbon";
 import { ChapterTranslationSheet } from "@/components/reader/ChapterTranslationSheet";
+import { ReadingProgressSlider } from "@/components/reader/ReadingProgressSlider";
 import { SelectionPopover } from "@/components/reader/SelectionPopover";
 import { TTSPage } from "@/components/reader/TTSPage";
 import { TranslationPanel } from "@/components/reader/TranslationPanel";
@@ -16,9 +17,10 @@ import {
   SearchIcon,
   XIcon,
 } from "@/components/ui/Icon";
+import { SyncButton } from "@/components/ui/SyncButton";
 import { useReaderBridge } from "@/hooks/use-reader-bridge";
-import { startFileServer, stopFileServer } from "@/lib/reader/local-file-server";
 import type { RelocateEvent, SelectionEvent, VisibleTTSSegment } from "@/hooks/use-reader-bridge";
+import { startFileServer, stopFileServer } from "@/lib/reader/local-file-server";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
 import {
   useAnnotationStore,
@@ -30,7 +32,7 @@ import {
 } from "@/stores";
 import { useMissingBookPromptStore } from "@/stores/missing-book-prompt-store";
 import { useTheme } from "@/styles/ThemeContext";
-import { useColors } from "@/styles/theme";
+import { useColors, withOpacity } from "@/styles/theme";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { readingContextService } from "@readany/core/ai/reading-context-service";
 import { runWithDbRetry } from "@readany/core/db/write-retry";
@@ -157,7 +159,6 @@ import { useReaderSearch } from "./reader/useReaderSearch";
 import { useReaderSystemInfo } from "./reader/useReaderSystemInfo";
 import { useReaderTTS } from "./reader/useReaderTTS";
 import { useVolumeButtonPaging } from "./reader/useVolumeButtonPaging";
-import { SyncButton } from "@/components/ui/SyncButton";
 
 const READER_HTML_ASSET = Asset.fromModule(require("../../assets/reader/reader.html"));
 
@@ -291,12 +292,12 @@ export function ReaderScreen({ route, navigation }: Props) {
 
   // Chapter translation state
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const webViewRefForVisibility = useRef<WebView | null>(null);
   const chapterTranslationBridgeRef = useRef<{
     getChapterParagraphs: () => Promise<Array<{ id: string; text: string; tagName: string }>>;
     injectChapterTranslations: (
       results: Array<{ paragraphId: string; originalText: string; translatedText: string }>,
-    ) => void;
+      visibility?: { originalVisible: boolean; translationVisible: boolean },
+    ) => Promise<void>;
     removeChapterTranslations: () => void;
   } | null>(null);
 
@@ -447,8 +448,8 @@ export function ReaderScreen({ route, navigation }: Props) {
       if (!chapterTranslationBridgeRef.current) return [];
       return chapterTranslationBridgeRef.current.getChapterParagraphs();
     },
-    injectTranslations: (results) => {
-      chapterTranslationBridgeRef.current?.injectChapterTranslations(results);
+    injectTranslations: (results, visibility) => {
+      return chapterTranslationBridgeRef.current?.injectChapterTranslations(results, visibility);
     },
     removeTranslations: () => {
       chapterTranslationBridgeRef.current?.removeChapterTranslations();
@@ -457,7 +458,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       const translationHidden = !translationVisible;
       const originalHidden = !originalVisible;
       const solo = !originalVisible && translationVisible;
-      webViewRefForVisibility.current?.injectJavaScript(`
+      bridge.webViewRef.current?.injectJavaScript(`
         (function() {
           try {
             var doc = null;
@@ -490,6 +491,8 @@ export function ReaderScreen({ route, navigation }: Props) {
         true;
       `);
     },
+    getCurrentCfi: () => currentCfi,
+    goToCfi: (cfi) => bridgeRef.current?.goToCFI(cfi),
   });
 
   useEffect(() => {
@@ -1487,7 +1490,13 @@ export function ReaderScreen({ route, navigation }: Props) {
                   {currentChapter || bookTitle}
                 </Text>
               </View>
-              <View style={[s.topToolbarSideSlot, s.topToolbarMetaWrap, { flexDirection: "row", alignItems: "center", gap: 6 }]}>
+              <View
+                style={[
+                  s.topToolbarSideSlot,
+                  s.topToolbarMetaWrap,
+                  { flexDirection: "row", alignItems: "center", gap: 6 },
+                ]}
+              >
                 <SyncButton size={16} color={colors.foreground} />
                 <Text style={s.topToolbarMetaText}>
                   {currentPage > 0 && totalPages > 0
@@ -1725,9 +1734,17 @@ export function ReaderScreen({ route, navigation }: Props) {
               },
             ]}
           >
-            <View style={s.bottomToolbarProgressTrack}>
-              <View style={[s.bottomToolbarProgressFill, { width: `${percent}%` }]} />
-            </View>
+            <ReadingProgressSlider
+              progress={progress}
+              onDragStart={() => suppressProgressTracking(99999)}
+              onDragEnd={() => suppressProgressTracking(2000)}
+              onSeek={(fraction) => {
+                bridgeRef.current?.goToFraction(fraction);
+              }}
+              accentColor={colors.primary}
+              trackColor={withOpacity(colors.foreground, 0.12)}
+              textColor={withOpacity(colors.foreground, 0.6)}
+            />
             <View style={s.bottomDockRow}>
               <TouchableOpacity
                 style={s.bottomDockBtn}

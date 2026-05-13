@@ -2,7 +2,7 @@
  * Translation Types
  */
 
-export type TranslatorName = "ai" | "deepl";
+export type TranslatorName = "ai" | "deepl" | "microsoft";
 
 export interface TranslationProvider {
   id: TranslatorName;
@@ -41,6 +41,7 @@ export interface TranslationConfig {
 }
 
 export const TRANSLATOR_PROVIDERS: Array<{ id: TranslatorName; name: string }> = [
+  { id: "microsoft", name: "微软翻译 (免费)" },
   { id: "ai", name: "AI 翻译" },
   { id: "deepl", name: "DeepL" },
 ];

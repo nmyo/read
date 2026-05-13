@@ -822,7 +822,7 @@
           postToRN('ttsSegmentContext', getTTSSegmentContextFromEngine(msg.cfi, msg.before, msg.after));
           break;
         case 'injectChapterTranslations':
-          handleInjectChapterTranslations(msg.results || []);
+          await handleInjectChapterTranslations(msg.results || [], msg.visibility);
           break;
         case 'removeChapterTranslations':
           handleRemoveChapterTranslations();
@@ -859,18 +859,94 @@
             type: msg.mimeType || 'application/epub+zip'
           });
         } else if (msg.uri) {
-          const res = await fetch(msg.uri);
-          const isLocalFileStatus = res.status === 0 && /^file:\/\//i.test(msg.uri);
-          if (!res.ok && !isLocalFileStatus) throw new Error(`Failed to fetch: ${res.status}`);
-          const blob = await res.blob();
-          file = new File([blob], msg.fileName || 'book.epub', {
-            type: msg.mimeType || blob.type || 'application/octet-stream'
-          });
+          // Try Range-based lazy loading for ZIP-based formats (EPUB, CBZ, FBZ)
+          // This avoids loading the entire file into memory — only reads
+          // the ZIP central directory (~few KB) then fetches entries on demand.
+          const isZipFormat = /\.(epub|cbz|fb2\.zip|fbz)$/i.test(msg.fileName || '');
+          let lazyBook = null;
+
+          if (isZipFormat) {
+            try {
+              // HEAD request to get file size and check Range support
+              const headRes = await fetch(msg.uri, { method: 'HEAD' });
+              const acceptRanges = headRes.headers.get('Accept-Ranges');
+              const contentLength = parseInt(headRes.headers.get('Content-Length'), 10);
+
+              if (acceptRanges === 'bytes' && contentLength > 0) {
+                // Create a HttpRangeReader compatible with zip.js's ZipReader
+                const bookUri = msg.uri;
+                const rangeReader = {
+                  size: contentLength,
+                  async readUint8Array(offset, length) {
+                    const end = Math.min(offset + length - 1, contentLength - 1);
+                    const res = await fetch(bookUri, {
+                      headers: { 'Range': `bytes=${offset}-${end}` }
+                    });
+                    if (!res.ok && res.status !== 206) {
+                      throw new Error(`Range request failed: ${res.status}`);
+                    }
+                    return new Uint8Array(await res.arrayBuffer());
+                  }
+                };
+
+                // Use zip.js and EPUB from the bundled globals
+                const { configure, ZipReader, TextWriter, BlobWriter } = window._zipJs;
+                configure({ useWebWorkers: false });
+                const zipReader = new ZipReader(rangeReader);
+                const entries = await zipReader.getEntries();
+                const map = new Map(entries.map(entry => [entry.filename, entry]));
+
+                const load = (f) => (name, ...args) =>
+                  map.has(name) ? f(map.get(name), ...args) : null;
+                const loadText = load(entry => entry.getData(new TextWriter()));
+                const loadBlob = load((entry, type) => entry.getData(new BlobWriter(type)));
+                const getSize = (name) => map.get(name)?.uncompressedSize ?? 0;
+                const loader = { entries, loadText, loadBlob, getSize };
+
+                // Initialize EPUB from lazy loader
+                const EPUB = window._EPUB;
+                lazyBook = await new EPUB(loader).init();
+              }
+            } catch (lazyErr) {
+              console.warn('[Reader] Lazy loading failed, falling back to full fetch:', lazyErr);
+              lazyBook = null;
+            }
+          }
+
+          // Try Range-based lazy loading for PDF
+          // pdf.js natively supports Range requests via url + disableAutoFetch
+          if (!lazyBook && /\.pdf$/i.test(msg.fileName || '')) {
+            try {
+              const headRes = await fetch(msg.uri, { method: 'HEAD' });
+              const acceptRanges = headRes.headers.get('Accept-Ranges');
+              const contentLength = parseInt(headRes.headers.get('Content-Length'), 10);
+
+              if (acceptRanges === 'bytes' && contentLength > 0 && window._makePDFFromURL) {
+                lazyBook = await window._makePDFFromURL(msg.uri, msg.fileName || 'book.pdf');
+              }
+            } catch (pdfLazyErr) {
+              console.warn('[Reader] PDF lazy loading failed, falling back to full fetch:', pdfLazyErr);
+              lazyBook = null;
+            }
+          }
+
+          if (!lazyBook) {
+            const res = await fetch(msg.uri);
+            const isLocalFileStatus = res.status === 0 && /^file:\/\//i.test(msg.uri);
+            if (!res.ok && !isLocalFileStatus) throw new Error(`Failed to fetch: ${res.status}`);
+            const blob = await res.blob();
+            file = new File([blob], msg.fileName || 'book.epub', {
+              type: msg.mimeType || blob.type || 'application/octet-stream'
+            });
+          } else {
+            // Skip makeBook below — we already have the book object
+            file = lazyBook;
+          }
         } else {
           throw new Error('No book data provided');
         }
 
-        const book = await makeBook(file);
+        const book = (file && file.sections) ? file : await makeBook(file);
         currentBook = book;
 
         const el = document.createElement('foliate-view');
@@ -1154,8 +1230,8 @@
       if (settings.fontSize !== undefined || settings.lineHeight !== undefined || settings.fontTheme !== undefined || settings.paragraphSpacing !== undefined
           || settings.customFontFamily !== undefined || settings.customFontFaceCSS !== undefined) {
         const fontThemes = {
-          default: { cjk: 'system-ui', serif: 'system-ui' },
-          system: { cjk: 'system-ui', serif: 'system-ui' },
+          default: { cjk: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', serif: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif' },
+          system: { cjk: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif', serif: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif' },
           literata: { cjk: "'Noto Serif SC', 'Source Han Serif SC', serif", serif: "Literata, Georgia, serif" },
         };
 
@@ -1164,7 +1240,14 @@
           fontFamily = currentCustomFontFamily;
         } else {
           const theme = fontThemes[currentFontTheme] || fontThemes.default;
-          fontFamily = "'" + theme.cjk + "', '" + theme.serif + "', serif";
+          // For themes with multi-value font stacks (like system default), use as-is
+          // For named font themes (like literata), wrap in quotes
+          const needsQuotes = !theme.cjk.includes(',');
+          if (needsQuotes) {
+            fontFamily = "'" + theme.cjk + "', '" + theme.serif + "', serif";
+          } else {
+            fontFamily = theme.cjk;
+          }
         }
         const fSize = currentFontSize;
         const lh = currentLineHeight;
@@ -3104,8 +3187,8 @@ a { color: ${primary} !important; }
     window.doGetChapterParagraphs = function () {
       handleGetChapterParagraphs();
     };
-    window.doInjectChapterTranslations = function (results) {
-      handleInjectChapterTranslations(results);
+    window.doInjectChapterTranslations = function (results, visibility) {
+      return handleInjectChapterTranslations(results, visibility);
     };
     window.doRemoveChapterTranslations = function () {
       handleRemoveChapterTranslations();
@@ -3315,8 +3398,55 @@ a { color: ${primary} !important; }
       }
     }
 
-    function handleInjectChapterTranslations(results) {
+    function getReaderLayoutSignature(doc) {
+      var root = doc && doc.documentElement;
+      var body = doc && doc.body;
+      var renderer = view && view.renderer;
+      return [
+        root ? root.scrollWidth : 0,
+        root ? root.scrollHeight : 0,
+        body ? body.scrollWidth : 0,
+        body ? body.scrollHeight : 0,
+        renderer && typeof renderer.page !== 'undefined' ? renderer.page : '',
+        renderer && typeof renderer.pages !== 'undefined' ? renderer.pages : ''
+      ].join(':');
+    }
+
+    function waitForReaderLayoutStable(doc) {
+      return new Promise(function(resolve) {
+        var win = (doc && doc.defaultView) || window;
+        var requestFrame = win.requestAnimationFrame
+          ? win.requestAnimationFrame.bind(win)
+          : function(callback) { return setTimeout(function() { callback(Date.now()); }, 16); };
+        var previous = getReaderLayoutSignature(doc);
+        var stableFrames = 0;
+        var frames = 0;
+
+        function tick() {
+          frames += 1;
+          var next = getReaderLayoutSignature(doc);
+          if (next === previous) {
+            stableFrames += 1;
+          } else {
+            stableFrames = 0;
+            previous = next;
+          }
+
+          if (stableFrames >= 2 || frames >= 12) {
+            resolve();
+            return;
+          }
+
+          requestFrame(tick);
+        }
+
+        requestFrame(tick);
+      });
+    }
+
+    async function handleInjectChapterTranslations(results, visibility) {
       try {
+        visibility = visibility || { originalVisible: true, translationVisible: true };
         var doc = null;
         var renderer = view && view.renderer;
         if (renderer && renderer.getContents) {
@@ -3366,15 +3496,23 @@ a { color: ${primary} !important; }
           if (!r.translatedText) continue;
           var el = doc.querySelector('[data-translate-id="' + r.paragraphId + '"]');
           if (!el) continue;
+          el.setAttribute('data-original-hidden', String(!visibility.originalVisible));
           // Skip if already injected
-          if (el.nextElementSibling && el.nextElementSibling.classList.contains('readany-translation')) continue;
+          if (el.nextElementSibling && el.nextElementSibling.classList.contains('readany-translation')) {
+            el.nextElementSibling.setAttribute('data-hidden', String(!visibility.translationVisible));
+            el.nextElementSibling.setAttribute('data-solo', String(!visibility.originalVisible && visibility.translationVisible));
+            continue;
+          }
 
           var div = doc.createElement('div');
           div.className = 'readany-translation';
           div.setAttribute('data-para-id', r.paragraphId);
+          div.setAttribute('data-hidden', String(!visibility.translationVisible));
+          div.setAttribute('data-solo', String(!visibility.originalVisible && visibility.translationVisible));
           div.textContent = r.translatedText;
           el.parentNode.insertBefore(div, el.nextSibling);
         }
+        await waitForReaderLayoutStable(doc);
       } catch (err) {
         console.error('[WebView] Error injecting translations:', err);
       }

@@ -50,6 +50,61 @@ function getThemeColors(theme: AppTheme) {
   return THEME_COLORS[theme];
 }
 
+function getActiveContentDocument(view: FoliateView | null): Document | null {
+  const contents = view?.renderer?.getContents?.();
+  return (contents?.[0]?.doc as Document | undefined) ?? null;
+}
+
+function getLayoutSignature(view: FoliateView | null, doc: Document | null): string {
+  const root = doc?.documentElement;
+  const body = doc?.body;
+  const renderer = view?.renderer;
+  return [
+    root?.scrollWidth ?? 0,
+    root?.scrollHeight ?? 0,
+    body?.scrollWidth ?? 0,
+    body?.scrollHeight ?? 0,
+    renderer?.page ?? "",
+    renderer?.pages ?? "",
+  ].join(":");
+}
+
+function waitForReaderLayoutStable(view: FoliateView | null): Promise<void> {
+  const doc = getActiveContentDocument(view);
+  const win = doc?.defaultView ?? window;
+  const requestFrame =
+    typeof win.requestAnimationFrame === "function"
+      ? win.requestAnimationFrame.bind(win)
+      : (callback: FrameRequestCallback) =>
+          window.setTimeout(() => callback(performance.now()), 16);
+
+  return new Promise((resolve) => {
+    let previous = getLayoutSignature(view, doc);
+    let stableFrames = 0;
+    let frames = 0;
+
+    const tick = () => {
+      frames += 1;
+      const next = getLayoutSignature(view, doc);
+      if (next === previous) {
+        stableFrames += 1;
+      } else {
+        stableFrames = 0;
+        previous = next;
+      }
+
+      if (stableFrames >= 2 || frames >= 12) {
+        resolve();
+        return;
+      }
+
+      requestFrame(tick);
+    };
+
+    requestFrame(tick);
+  });
+}
+
 function getSelectionRange(selection?: Selection | null): Range | null {
   if (!selection?.rangeCount) return null;
   const range = selection.getRangeAt(0);
@@ -238,7 +293,7 @@ export interface FoliateViewerHandle {
   goPrev: () => void;
   goToHref: (href: string) => void;
   goToFraction: (fraction: number) => void;
-  goToCFI: (cfi: string) => void;
+  goToCFI: (cfi: string) => Promise<void>;
   goToIndex: (index: number) => void;
   highlightCFITemporarily: (cfi: string, duration?: number) => void;
   // biome-ignore lint: foliate-js annotation format
@@ -264,7 +319,10 @@ export interface FoliateViewerHandle {
   /** Extract all paragraphs from current section for chapter translation */
   getChapterParagraphs: () => ChapterParagraph[];
   /** Inject translated paragraphs below each original paragraph */
-  injectChapterTranslations: (results: ChapterTranslationResult[]) => void;
+  injectChapterTranslations: (
+    results: ChapterTranslationResult[],
+    visibility?: { originalVisible: boolean; translationVisible: boolean },
+  ) => Promise<void>;
   /** Remove all injected chapter translation elements */
   removeChapterTranslations: () => void;
   /** Apply visibility settings to original and translation elements */
@@ -798,8 +856,8 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         goToFraction: (fraction: number) => {
           viewRef.current?.goToFraction(fraction);
         },
-        goToCFI: (cfi: string) => {
-          viewRef.current?.goTo(cfi);
+        goToCFI: async (cfi: string) => {
+          await viewRef.current?.goTo(cfi);
         },
         goToIndex: (index: number) => {
           viewRef.current?.goTo(index);
@@ -1045,9 +1103,13 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             return [];
           }
         },
-        injectChapterTranslations: (results: ChapterTranslationResult[]) => {
+        injectChapterTranslations: async (
+          results: ChapterTranslationResult[],
+          visibility = { originalVisible: true, translationVisible: true },
+        ) => {
           try {
-            const renderer = viewRef.current?.renderer;
+            const view = viewRef.current;
+            const renderer = view?.renderer;
             const contents = renderer?.getContents?.();
             if (!contents?.[0]?.doc) return;
             const doc = contents[0].doc as Document;
@@ -1092,15 +1154,31 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
                 `[data-translate-id="${result.paragraphId}"]`,
               ) as HTMLElement | null;
               if (!el) continue;
+              el.setAttribute("data-original-hidden", String(!visibility.originalVisible));
               // Skip if already injected
-              if (el.nextElementSibling?.classList?.contains("readany-translation")) continue;
+              if (el.nextElementSibling?.classList?.contains("readany-translation")) {
+                const existing = el.nextElementSibling as HTMLElement;
+                existing.setAttribute("data-hidden", String(!visibility.translationVisible));
+                existing.setAttribute(
+                  "data-solo",
+                  String(!visibility.originalVisible && visibility.translationVisible),
+                );
+                continue;
+              }
 
               const div = doc.createElement("div");
               div.className = "readany-translation";
               div.setAttribute("data-para-id", result.paragraphId);
+              div.setAttribute("data-hidden", String(!visibility.translationVisible));
+              div.setAttribute(
+                "data-solo",
+                String(!visibility.originalVisible && visibility.translationVisible),
+              );
               div.textContent = result.translatedText;
               el.parentNode?.insertBefore(div, el.nextSibling);
             }
+
+            await waitForReaderLayoutStable(view);
           } catch (err) {
             console.error("[injectChapterTranslations] Error:", err);
           }

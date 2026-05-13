@@ -678,6 +678,22 @@ export async function initDatabase(): Promise<void> {
         // Older installs may fail to add the column on the first pass; don't block startup.
       }
 
+      // Migration: Create feedback table
+      await database.execute(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id TEXT PRIMARY KEY,
+      issue_number INTEGER NOT NULL,
+      issue_url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'other',
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      has_new_reply INTEGER NOT NULL DEFAULT 0,
+      comment_count INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
       const platform = getPlatformService();
       if (platform.isDesktop) {
         await cleanupOrphanedSyncRows(database);

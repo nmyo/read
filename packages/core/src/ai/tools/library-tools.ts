@@ -322,7 +322,8 @@ export function createClassifyBooksTool(): ToolDefinition {
           contentSample = contentSample.slice(0, 1500);
 
           return { toc, contentSample };
-        } catch {
+        } catch (err) {
+          console.warn("[AI] Failed to get book content info:", err);
           return { toc: [], contentSample: "" };
         }
       };

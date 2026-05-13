@@ -41,4 +41,4 @@ readese/*
 
 # Local WebDAV test server
 webdav-server/
-theme-studio/
+theme-studio/.claude/settings.local.json

@@ -534,7 +534,8 @@ async function inspectDeletedMobileBookCandidate(
         format: "epub",
         fileHash,
       };
-    } catch {
+    } catch (err) {
+      console.warn("[Library] TXT conversion failed during reimport inspection:", err);
       return {
         title: fileName.replace(/\.\w+$/i, "") || originalBook.meta.title,
         author: "",
@@ -555,8 +556,8 @@ async function inspectDeletedMobileBookCandidate(
     });
     if (meta.title) title = meta.title;
     if (meta.author) author = meta.author;
-  } catch {
-    // Fallback to filename only.
+  } catch (err) {
+    console.warn("[Library] Failed to extract metadata during reimport inspection:", err);
   }
 
   return { title, author, format, fileHash };
@@ -597,8 +598,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           allTags: computeTags(cached),
         });
       }
-    } catch {
-      /* cache miss */
+    } catch (err) {
+      console.warn("[Library] Failed to load cached books:", err);
     }
 
     try {
@@ -611,8 +612,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       try {
         const loaded = await loadFromFS<string[]>("library-tags");
         if (loaded) savedTags = loaded;
-      } catch {
-        /* no saved tags */
+      } catch (err) {
+        console.warn("[Library] Failed to load saved tags:", err);
       }
 
       // Remove deleted tags from savedTags
@@ -758,7 +759,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           }
 
           const deletedMatch = fileHash
-            ? await db.getDeletedBookByFileHash(fileHash).catch(() => null)
+            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => { console.warn("[Library] Failed to check deleted book by hash:", err); return null; })
             : null;
           const bookId = deletedMatch?.id ?? generateId();
 
@@ -1190,7 +1191,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     const books = get().books;
     for (const b of books) {
-      db.updateBook(b.id, { tags: b.tags }).catch(() => {});
+      db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
     }
   },
 
@@ -1210,7 +1211,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     for (const b of get().books) {
       if (b.tags.includes(trimmed)) {
-        db.updateBook(b.id, { tags: b.tags }).catch(() => {});
+        db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
       }
     }
   },

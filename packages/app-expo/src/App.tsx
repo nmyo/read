@@ -34,13 +34,14 @@ import { AnimatedSplash } from "@/components/splash/AnimatedSplash";
 import { rnSessionEventSource } from "@/hooks";
 import { setStreamingFetch } from "@readany/core/ai/llm-provider";
 import { initDatabase } from "@readany/core/db/database";
+import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
 import { setSessionEventSource } from "@readany/core/hooks/use-reading-session";
 import { i18nReady, initI18nLanguage } from "@readany/core/i18n";
 import i18n from "@readany/core/i18n";
 import { setPlatformService } from "@readany/core/services";
 import { setSyncAdapter } from "@readany/core/sync";
-import { I18nextProvider } from "react-i18next";
 import { Audio } from "expo-av";
+import { I18nextProvider } from "react-i18next";
 import TrackPlayer, { Event as TrackEvent, Capability } from "react-native-track-player";
 
 import { FloatingTTSBubble } from "@/components/tts/FloatingTTSBubble";
@@ -53,6 +54,12 @@ import { RootNavigator } from "@/navigation/RootNavigator";
 import { useLibraryStore } from "@/stores/library-store";
 import { ThemeProvider, useTheme } from "@/styles/ThemeContext";
 import { useAutoSync } from "@readany/core/hooks/use-auto-sync";
+
+installFeedbackLogCapture();
+
+const FEEDBACK_WORKER_FALLBACK = "https://feedback.readany.top";
+const feedbackWorkerUrl = process.env.EXPO_PUBLIC_FEEDBACK_WORKER_URL?.trim() || FEEDBACK_WORKER_FALLBACK;
+setFeedbackWorkerUrl(feedbackWorkerUrl);
 
 // Keep the native splash screen visible while we bootstrap
 SplashScreen.preventAutoHideAsync().catch(() => {});

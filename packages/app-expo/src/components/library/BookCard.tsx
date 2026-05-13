@@ -105,7 +105,8 @@ export const BookCard = memo(function BookCard({
         const appData = await platform.getAppDataDir();
         const absPath = await platform.joinPath(appData, raw);
         setResolvedCoverUrl(absPath);
-      } catch {
+      } catch (err) {
+        console.warn("[Library] Failed to resolve cover URL:", err);
         setResolvedCoverUrl(undefined);
       }
     })();

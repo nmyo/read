@@ -92,7 +92,8 @@ export function useStreamingChat(options?: StreamingChatOptions) {
       const customSkills = dbSkills.filter((s) => !s.builtIn && s.enabled);
 
       return [...mergedBuiltins, ...customSkills];
-    } catch {
+    } catch (err) {
+      console.warn("[AI] Failed to load enabled skills:", err);
       return [];
     }
   }, []);

@@ -99,6 +99,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
   const pendingChapterParagraphsResolveRef = useRef<
     ((paragraphs: Array<{ id: string; text: string; tagName: string }>) => void) | null
   >(null);
+  const pendingChapterTranslationInjectionResolveRef = useRef(new Map<string, () => void>());
 
   // ─── Send commands to WebView ───
 
@@ -563,20 +564,54 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
   }, []);
 
   const injectChapterTranslations = useCallback(
-    (results: Array<{ paragraphId: string; originalText: string; translatedText: string }>) => {
-      const payload = JSON.stringify(results);
-      webViewRef.current?.injectJavaScript(`
-        (function() {
-          try {
-            if (window.doInjectChapterTranslations) {
-              window.doInjectChapterTranslations(${payload});
+    (
+      results: Array<{ paragraphId: string; originalText: string; translatedText: string }>,
+      visibility = { originalVisible: true, translationVisible: true },
+    ) => {
+      return new Promise<void>((resolve) => {
+        const requestId = createRequestId("chapter-translation-inject");
+        pendingChapterTranslationInjectionResolveRef.current.set(requestId, resolve);
+
+        const payload = JSON.stringify(results);
+        const visibilityPayload = JSON.stringify(visibility);
+        webViewRef.current?.injectJavaScript(`
+          (function() {
+            var requestId = ${JSON.stringify(requestId)};
+            var done = function(error) {
+              try {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'chapterTranslationsInjected',
+                  requestId: requestId,
+                  error: error || null
+                }));
+              } catch(e) {}
+            };
+            try {
+              if (window.doInjectChapterTranslations) {
+                Promise.resolve(window.doInjectChapterTranslations(${payload}, ${visibilityPayload}))
+                  .then(function() { done(null); })
+                  .catch(function(e) { done(String(e)); });
+              } else {
+                done('doInjectChapterTranslations not defined');
+              }
+            } catch(e) {
+              done(String(e));
             }
-          } catch(e) { console.error('[WebView] injectChapterTranslations error:', e); }
-        })();
-        true;
-      `);
+          })();
+          true;
+        `);
+
+        setTimeout(() => {
+          const pendingResolve =
+            pendingChapterTranslationInjectionResolveRef.current.get(requestId);
+          if (pendingResolve === resolve) {
+            pendingChapterTranslationInjectionResolveRef.current.delete(requestId);
+            resolve();
+          }
+        }, 3000);
+      });
     },
-    [],
+    [createRequestId],
   );
 
   const removeChapterTranslations = useCallback(() => {
@@ -852,6 +887,25 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
               console.warn(
                 "[ChapterTranslation] No pending resolve for chapterParagraphs (timed out?)",
               );
+            }
+            break;
+          case "chapterTranslationsInjected":
+            {
+              const requestId = typeof msg.requestId === "string" ? msg.requestId : null;
+              const pendingResolve = requestId
+                ? pendingChapterTranslationInjectionResolveRef.current.get(requestId)
+                : pendingChapterTranslationInjectionResolveRef.current.values().next().value;
+              if (pendingResolve) {
+                if (msg.error) {
+                  console.warn("[ChapterTranslation] WebView injection error:", msg.error);
+                }
+                pendingResolve();
+                if (requestId) {
+                  pendingChapterTranslationInjectionResolveRef.current.delete(requestId);
+                } else {
+                  pendingChapterTranslationInjectionResolveRef.current.clear();
+                }
+              }
             }
             break;
           case "continuous-scroll":

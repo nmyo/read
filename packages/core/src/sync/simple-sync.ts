@@ -92,7 +92,8 @@ async function yieldToEventLoop(): Promise<void> {
 function shouldRunSyncCleanup(): boolean {
   try {
     return getPlatformService().isDesktop;
-  } catch {
+  } catch (err) {
+    console.warn("[Sync] Failed to check platform for sync cleanup:", err);
     return false;
   }
 }

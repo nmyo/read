@@ -477,10 +477,13 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     sectionIndex: currentSectionIndex,
     ready: translationReady,
     getParagraphs: () => foliateRef.current?.getChapterParagraphs() ?? [],
-    injectTranslations: (results) => foliateRef.current?.injectChapterTranslations(results),
+    injectTranslations: (results, visibility) =>
+      foliateRef.current?.injectChapterTranslations(results, visibility),
     removeTranslations: () => foliateRef.current?.removeChapterTranslations(),
     applyVisibility: (originalVisible, translationVisible) =>
       foliateRef.current?.applyChapterTranslationVisibility(originalVisible, translationVisible),
+    getCurrentCfi: () => readerTab?.currentCfi,
+    goToCfi: (cfi) => foliateRef.current?.goToCFI(cfi),
   });
 
   // Track which highlights have been rendered (id -> {cfi, note}) to detect changes
@@ -2760,6 +2763,10 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             isVisible={controlsVisible}
             onPrev={handleNavPrev}
             onNext={handleNavNext}
+            onSeek={(fraction) => {
+              suppressProgressTracking(3000);
+              foliateRef.current?.goToFraction(fraction);
+            }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           />

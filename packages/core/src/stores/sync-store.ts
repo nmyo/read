@@ -83,7 +83,8 @@ async function loadPersistedSyncRuntimeState(): Promise<PersistedSyncRuntimeStat
       lastSyncAt: typeof parsed.lastSyncAt === "number" ? parsed.lastSyncAt : null,
       lastResult: parsed.lastResult ?? null,
     };
-  } catch {
+  } catch (err) {
+    console.warn("[Sync] Failed to load persisted sync runtime state:", err);
     return { lastSyncAt: null, lastResult: null };
   }
 }
@@ -332,7 +333,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       };
       const backend = createSyncBackend(config, secretAccessKey);
       return backend.testConnection();
-    } catch {
+    } catch (err) {
+      console.warn("[Sync] S3 connection test failed:", err);
       return false;
     }
   },

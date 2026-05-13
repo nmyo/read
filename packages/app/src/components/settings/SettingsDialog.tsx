@@ -7,6 +7,7 @@ import { cn } from "@readany/core/utils";
 import { useTranslation } from "react-i18next";
 import { AISettings } from "./AISettings";
 import { AboutSettings } from "./AboutSettings";
+import { FeedbackSettings } from "./FeedbackSettings";
 import { FontSettings } from "./FontSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ReadSettingsPanel } from "./ReadSettings";
@@ -29,6 +30,7 @@ const TAB_IDS: SettingsTab[] = [
   "tts",
   "translation",
   "sync",
+  "feedback",
   "about",
 ];
 const TAB_KEYS: Record<SettingsTab, string> = {
@@ -40,6 +42,7 @@ const TAB_KEYS: Record<SettingsTab, string> = {
   tts: "settings.tts",
   translation: "settings.translationTab",
   sync: "settings.sync",
+  feedback: "feedback.title",
   about: "settings.about",
 };
 
@@ -92,6 +95,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             {settingsTab === "tts" && <TTSSettings />}
             {settingsTab === "translation" && <TranslationSettings />}
             {settingsTab === "sync" && <SyncSettings />}
+            {settingsTab === "feedback" && <FeedbackSettings />}
             {settingsTab === "about" && <AboutSettings />}
           </div>
         </div>

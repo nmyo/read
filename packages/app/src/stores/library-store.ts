@@ -407,8 +407,8 @@ async function restoreDeletedDesktopBook(bookId: string, filePath: string): Prom
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     fileHash = await invoke<string>("sync_hash_file", { path: filePath });
-  } catch {
-    // Hash calculation is best effort.
+  } catch (err) {
+    console.warn("[Library] File hash calculation failed:", err);
   }
 
   const { relativePath, destPath } =
@@ -497,8 +497,8 @@ async function restoreDeletedDesktopBook(bookId: string, filePath: string): Prom
         if (coverBlob) {
           coverUrl = await saveCoverToAppData(bookId, coverBlob);
         }
-      } catch {
-        // Non-critical.
+      } catch (err) {
+        console.warn("[Library] PDF cover generation failed:", err);
       }
     }
   }
@@ -558,8 +558,8 @@ async function inspectDeletedDesktopBookCandidate(
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     fileHash = await invoke<string>("sync_hash_file", { path: filePath });
-  } catch {
-    // Best effort.
+  } catch (err) {
+    console.warn("[Library] File hash calculation failed:", err);
   }
 
   if (ext === "txt") {
@@ -574,8 +574,8 @@ async function inspectDeletedDesktopBookCandidate(
       );
       const conversion = await new TxtToEpubConverter().convert({ file: txtFile });
       title = conversion.bookTitle || title;
-    } catch {
-      // Fallback to filename.
+    } catch (err) {
+      console.warn("[Library] TXT title extraction failed:", err);
     }
     return { title, author, format: "epub", fileHash };
   }
@@ -603,8 +603,8 @@ async function inspectDeletedDesktopBookCandidate(
       const rawAuthor = typeof meta.author === "string" ? meta.author : meta.author?.name || "";
       if (rawAuthor) author = rawAuthor;
     }
-  } catch {
-    // Fallback to filename only.
+  } catch (err) {
+    console.warn("[Library] Metadata extraction failed, using filename:", err);
   }
 
   return { title, author, format, fileHash };
@@ -646,8 +646,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           allTags: computeTags(cached),
         });
       }
-    } catch {
-      // cache miss is fine
+    } catch (err) {
+      console.warn("[Library] Failed to load cached books:", err);
     }
 
     // 2) Full path: init DB and load from SQLite (source of truth for books)
@@ -661,8 +661,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       try {
         const loaded = await loadFromFS<string[]>("library-tags");
         if (loaded) savedTags = loaded;
-      } catch {
-        /* no saved tags */
+      } catch (err) {
+        console.warn("[Library] Failed to load saved tags:", err);
       }
 
       // Remove deleted tags from savedTags
@@ -824,8 +824,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           try {
             const { invoke } = await import("@tauri-apps/api/core");
             fileHash = await invoke<string>("sync_hash_file", { path: filePath });
-          } catch {
-            // Hash calculation is best effort.
+          } catch (err) {
+            console.warn("[Library] File hash calculation failed:", err);
           }
 
           const existingDuplicate = findDuplicateBookByHash(duplicateIndex, fileHash);
@@ -838,11 +838,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           }
 
           let deletedMatch = fileHash
-            ? await db.getDeletedBookByFileHash(fileHash).catch(() => null)
+            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => { console.warn("[Library] Failed to check deleted book by hash:", err); return null; })
             : null;
           // Fallback: match by title if hash lookup failed (e.g. hash was null on first import)
           if (!deletedMatch && title) {
-            deletedMatch = await db.getDeletedBookByTitle(title).catch(() => null);
+            deletedMatch = await db.getDeletedBookByTitle(title).catch((err) => { console.warn("[Library] Failed to check deleted book by title:", err); return null; });
           }
           const bookId = deletedMatch?.id ?? crypto.randomUUID();
 
@@ -921,8 +921,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                 const pdfTitle = (metadata?.info as Record<string, unknown>)?.Title as string;
                 if (pdfTitle?.trim()) title = pdfTitle.trim();
                 pdfDoc.destroy();
-              } catch {
-                // PDF metadata extraction is best effort
+              } catch (err) {
+                console.warn("[Library] PDF metadata extraction failed:", err);
               }
             } else {
               // Other formats (MOBI/AZW/FB2/CBZ): need DocumentLoader, load file into memory
@@ -1185,7 +1185,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Persist book tag changes to DB
     const books = get().books;
     for (const b of books) {
-      db.updateBook(b.id, { tags: b.tags }).catch(() => {});
+      db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
     }
   },
 
@@ -1205,7 +1205,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     for (const b of get().books) {
       if (b.tags.includes(trimmed)) {
-        db.updateBook(b.id, { tags: b.tags }).catch(() => {});
+        db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
       }
     }
   },
@@ -1222,7 +1222,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       return { books, allTags };
     });
     const book = get().books.find((b) => b.id === bookId);
-    if (book) db.updateBook(bookId, { tags: book.tags }).catch(() => {});
+    if (book) db.updateBook(bookId, { tags: book.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
   },
 
   removeTagFromBook: (bookId, tag) => {
@@ -1234,6 +1234,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       return { books };
     });
     const book = get().books.find((b) => b.id === bookId);
-    if (book) db.updateBook(bookId, { tags: book.tags }).catch(() => {});
+    if (book) db.updateBook(bookId, { tags: book.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
   },
 }));

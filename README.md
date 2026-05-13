@@ -169,7 +169,14 @@
 | Windows | [Download .msi](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | Linux | [Download .AppImage](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | iOS | App Store (Coming Soon) |
-| Android | Google Play (Coming Soon) |
+| Android | [Download .apk](https://github.com/codedogQBY/ReadAny/releases/latest) |
+
+#### Homebrew (macOS)
+
+```bash
+brew tap codedogQBY/readany
+brew install --cask readany
+```
 
 ### 3 Steps to Get Started
 

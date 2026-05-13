@@ -181,7 +181,7 @@ export function NotesPage() {
   const handleOpenBook = async (bookId: string, _title: string, cfi?: string) => {
     const book =
       books.find((item) => item.id === bookId) ??
-      (await getBookRecord(bookId, { includeDeleted: true }).catch(() => null));
+      (await getBookRecord(bookId, { includeDeleted: true }).catch((err) => { console.warn("[Notes] Failed to get book record:", err); return null; }));
     if (!book) return;
 
     await openDesktopBook({

@@ -11,6 +11,7 @@ import {
   HelpCircleIcon,
   InfoIcon,
   LanguagesIcon,
+  MessageSquareIcon,
   PaletteIcon,
   PuzzleIcon,
   TypeIcon,
@@ -387,6 +388,11 @@ export function ProfileScreen() {
       {
         title: t("settings.other", "更多"),
         items: [
+          {
+            icon: MessageSquareIcon,
+            label: t("feedback.title", "反馈建议"),
+            route: "Feedback" as const,
+          },
           {
             icon: HelpCircleIcon,
             label: t("about.supportCenter", "帮助中心"),

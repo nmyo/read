@@ -267,8 +267,8 @@ async function fetchDeepSeekModels(endpoint: AIEndpoint): Promise<string[]> {
         .sort((a: string, b: string) => a.localeCompare(b));
       if (models.length > 0) return models;
     }
-  } catch {
-    // Fall through to fallback
+  } catch (err) {
+    console.warn("[Settings] Failed to fetch DeepSeek models, using fallback:", err);
   }
   return ["deepseek-chat", "deepseek-reasoner"];
 }

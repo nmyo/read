@@ -87,8 +87,8 @@ export function EmbeddingPage({ onNext, onPrev, step, totalSteps }: any) {
         if (res.ok) {
           setSelectedVectorModelId(model.id);
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn("[Onboarding] Embedding model test failed:", err);
       } finally {
         setTestingId(null);
       }
