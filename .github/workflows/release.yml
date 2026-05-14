@@ -262,7 +262,9 @@ jobs:
 
       - name: Update Homebrew formula
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Cross-repo write needs a PAT with contents:write on codedogQBY/homebrew-readany;
+          # the default GITHUB_TOKEN is scoped to this repo only.
+          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           SHA_ARM="${{ steps.sha.outputs.arm }}"
