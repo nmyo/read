@@ -22,6 +22,7 @@ import { Bug, Check, Lightbulb, MessageSquare } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Constants from "expo-constants";
 import {
   ActivityIndicator,
   Alert,
@@ -118,7 +119,7 @@ function SubmitTab({ colors, t, locale }: FeedbackTabProps & { locale: string })
       collectDeviceInfo({
         platform: Platform.OS as DeviceInfo["platform"],
         osVersion: `${Platform.OS} ${Platform.Version}`,
-        appVersion: "1.2.1", // TODO: dynamic
+        appVersion: Constants.expoConfig?.version ?? "unknown",
         locale,
       }),
     [locale],
