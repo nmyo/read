@@ -4,7 +4,7 @@
 
 import { getDB } from "../db/database";
 import { getSyncAdapter } from "./sync-adapter";
-import type { ISyncBackend } from "./sync-backend";
+import type { ISyncBackend, RemoteFile } from "./sync-backend";
 import { parallelLimit } from "./sync-transfer";
 import { REMOTE_COVERS, REMOTE_FILES, type SyncProgress } from "./sync-types";
 
@@ -120,11 +120,19 @@ export async function syncFiles(
   const localExistsMap = new Map<string, boolean>();
   allLocalPaths.forEach((p, i) => localExistsMap.set(p, existsResults[i]));
 
-  // --- Fetch remote file/cover listings in parallel ---
-  const [remoteFiles, remoteCovers] = await Promise.all([
-    backend.listDir(REMOTE_FILES),
-    backend.listDir(REMOTE_COVERS),
-  ]);
+  // --- Fetch remote file/cover listings in parallel (tolerate individual failures) ---
+  let remoteFiles: RemoteFile[] = [];
+  let remoteCovers: RemoteFile[] = [];
+  try {
+    remoteFiles = await backend.listDir(REMOTE_FILES);
+  } catch (e) {
+    console.warn(`[Sync] Failed to list remote files directory, assuming empty:`, e);
+  }
+  try {
+    remoteCovers = await backend.listDir(REMOTE_COVERS);
+  } catch (e) {
+    console.warn(`[Sync] Failed to list remote covers directory, assuming empty:`, e);
+  }
   const remoteFileNames = new Set(remoteFiles.filter((f) => !f.isDirectory).map((f) => f.name));
   const remoteCoverNames = new Set(remoteCovers.filter((f) => !f.isDirectory).map((f) => f.name));
 
@@ -244,6 +252,13 @@ export async function syncFiles(
       });
     }
   }
+
+  console.log(
+    `[Sync] Task summary: ${bookFileInfos.length} books (${bookFileInfos.filter((i) => localExistsMap.get(i.localPath)).length} local), ` +
+    `${coverFileInfos.length} covers (${coverFileInfos.filter((i) => localExistsMap.get(i.coverLocalPath)).length} local), ` +
+    `remote: ${remoteFileNames.size} files / ${remoteCoverNames.size} covers, ` +
+    `upload: ${uploadTasks.length}, download: ${downloadTasks.length}`,
+  );
 
   // Execute uploads in parallel (limit: 5 concurrent)
   if (uploadTasks.length > 0) {
