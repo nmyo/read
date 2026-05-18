@@ -36,6 +36,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 
 const FEEDBACK_TYPES: {
   key: FeedbackType;
@@ -65,16 +66,25 @@ export function FeedbackSettings() {
   );
   const remaining = getRemainingSubmissions();
 
-  const deviceInfo: DeviceInfo = useMemo(
-    () =>
-      collectDeviceInfo({
-        platform: "macos",
-        osVersion: navigator.userAgent,
-        appVersion: "1.2.1",
-        locale: navigator.language,
-      }),
-    [],
-  );
+  const [appVersion, setAppVersion] = useState("...");
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
+  }, []);
+
+  const deviceInfo: DeviceInfo = useMemo(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    const platform: DeviceInfo["platform"] = ua.includes("win")
+      ? "windows"
+      : ua.includes("linux")
+        ? "linux"
+        : "macos";
+    return collectDeviceInfo({
+      platform,
+      osVersion: navigator.userAgent,
+      appVersion,
+      locale: navigator.language,
+    });
+  }, [appVersion]);
 
   const loadRecords = useCallback(async (refreshStatus = false) => {
     const history = await getFeedbackHistory();
