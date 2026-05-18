@@ -308,7 +308,7 @@ export class LANServer {
       this.qrData = createLANQRData(localIp, this.port, this.deviceName, this.pairCode);
 
       this.setStatus("running");
-      console.log(`[LAN Server] Started on ${localIp}:${this.port}`);
+      console.log(`[LAN Server] Started on port ${this.port}`);
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       this.setStatus("error");
@@ -356,7 +356,7 @@ export class LANServer {
     const pairCodeKey = Object.keys(headers).find(k => k.toLowerCase() === "x-pair-code");
     const clientPairCode = pairCodeKey ? headers[pairCodeKey] : undefined;
     if (clientPairCode !== this.pairCode) {
-      console.warn(`[LAN Server] Pair code mismatch: got "${clientPairCode}", expected "${this.pairCode}"`);
+      console.warn(`[LAN Server] Pair code mismatch from client`);
       return { status: 403, body: new TextEncoder().encode("Forbidden") };
     }
 

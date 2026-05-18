@@ -166,6 +166,57 @@ export function appendStructuredLog(
   appendLog(`[${level}] [event:${event}]${payload}`);
 }
 
+/**
+ * Sanitize a single log line to redact sensitive information before
+ * the log is submitted as feedback or exposed externally.
+ *
+ * Handles:
+ * - Base64-encoded credentials (Basic auth pattern)
+ * - "encodedPreview" fields
+ * - URLs containing userinfo (user:pass@host)
+ * - Explicit password/secret/token values in JSON-like structures
+ */
+function sanitizeLogLine(line: string): string {
+  // Redact Base64-encoded Basic auth credentials (e.g. "YWRtaW46cGFzc3dvcmQ=")
+  // Match base64 strings that look like "user:pass" encoded (contains colon when decoded)
+  line = line.replace(
+    /("encodedPreview"\s*:\s*)"[A-Za-z0-9+/=]+"/g,
+    '$1"[REDACTED]"',
+  );
+
+  // Redact full URLs (https://host.example.com/path) — keep only the path portion
+  line = line.replace(
+    /https?:\/\/[^/\s"]+(\/?[^\s"]*)/g,
+    (_, path) => `https://[REDACTED_HOST]${path || "/"}`,
+  );
+
+  // Redact "password":"value" or "secret":"value" patterns in JSON
+  line = line.replace(
+    /("(?:password|secret|token|apiKey|api_key|secretAccessKey|accessToken|refreshToken)")\s*:\s*"[^"]*"/gi,
+    '$1:"[REDACTED]"',
+  );
+
+  // Redact standalone base64 strings that are clearly credentials (contain ":" when decoded, typically short)
+  // Pattern: sequences of base64 chars that match user:pass encoding
+  line = line.replace(
+    /\b[A-Za-z0-9+/]{8,}={0,2}\b/g,
+    (match) => {
+      try {
+        const decoded = Buffer.from(match, "base64").toString("utf8");
+        // If it looks like credentials (contains ":" and both parts are printable)
+        if (decoded.includes(":") && /^[\x20-\x7e]+$/.test(decoded)) {
+          return "[REDACTED_CREDENTIAL]";
+        }
+      } catch {
+        // Not valid base64, leave as-is
+      }
+      return match;
+    },
+  );
+
+  return line;
+}
+
 /** Collect logs for feedback submission. Reads today's + yesterday's log files. */
 export async function collectLogs(options?: { sinceMs?: number }): Promise<string> {
   // First flush any pending lines
@@ -209,7 +260,8 @@ export async function collectLogs(options?: { sinceMs?: number }): Promise<strin
     return match[1] >= sinceTime;
   });
 
-  return lines.join("\n");
+  // Sanitize sensitive data before exposing logs externally
+  return lines.map(sanitizeLogLine).join("\n");
 }
 
 /** Clear all log files */

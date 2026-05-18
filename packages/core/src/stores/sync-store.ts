@@ -213,7 +213,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         const secretKey = config.type !== "lan" ? getSecretKeyForBackend(config.type) : null;
         const secret = secretKey ? await platform.kvGetItem(secretKey) : null;
         console.log(
-          `[SyncStore] loadConfig: secretKey = ${secretKey}, secret = ${secret ? "found" : "not found"}`,
+          `[SyncStore] loadConfig: secret = ${secret ? "found" : "not found"}`,
         );
 
         const isConfigured =
@@ -267,17 +267,14 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       notifyOnComplete:
         (existing as WebDavConfig)?.notifyOnComplete ?? DEFAULT_SYNC_CONFIG.notifyOnComplete,
     };
-    console.log(`[SyncStore] saveWebDavConfig: saving config and password...`);
-    console.log(
-      `[SyncStore] saveWebDavConfig: SYNC_CONFIG_KEY = "${SYNC_CONFIG_KEY}", SYNC_SECRET_KEYS.webdav = "${SYNC_SECRET_KEYS.webdav}"`,
-    );
+    console.log(`[SyncStore] saveWebDavConfig: saving config...`);
     await platform.kvSetItem(SYNC_CONFIG_KEY, JSON.stringify(config));
     await platform.kvSetItem(SYNC_SECRET_KEYS.webdav, password);
 
     // Verify save
     const savedPassword = await platform.kvGetItem(SYNC_SECRET_KEYS.webdav);
     console.log(
-      `[SyncStore] saveWebDavConfig: password verification = ${savedPassword ? "SUCCESS" : "FAILED"}`,
+      `[SyncStore] saveWebDavConfig: credential save = ${savedPassword ? "ok" : "FAILED"}`,
     );
 
     set({ config, isConfigured: true, backendType: "webdav" });

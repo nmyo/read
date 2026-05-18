@@ -226,11 +226,9 @@ export class WebDavClient {
     // Use UTF-8 safe base64 encoding; btoa is unreliable in React Native/Android.
     const encoded = Buffer.from(credentials, "utf8").toString("base64");
     this.authHeader = `Basic ${encoded}`;
-    console.log("[WebDAV] auth debug", {
-      username,
+    console.log("[WebDAV] auth configured", {
+      username: username.length > 2 ? `${username[0]}***${username[username.length - 1]}` : "***",
       passwordLength: password.length,
-      encodedPreview:
-        encoded.length > 24 ? `${encoded.slice(0, 12)}...${encoded.slice(-8)}` : encoded,
     });
     this.allowInsecure = allowInsecure ?? false;
   }
@@ -272,7 +270,8 @@ export class WebDavClient {
       headers["Content-Type"] = options.contentType;
     }
 
-    console.log(`[WebDAV] ${method} ${url}`);
+    const logPath = path.startsWith("/") ? path : `/${path}`;
+    console.log(`[WebDAV] ${method} ${logPath}`);
     const startTime = Date.now();
 
     try {
@@ -287,7 +286,7 @@ export class WebDavClient {
       });
       const elapsed = Date.now() - startTime;
       console.log(
-        `[WebDAV] ${method} ${url} completed in ${elapsed}ms (status: ${response.status})`,
+        `[WebDAV] ${method} ${logPath} completed in ${elapsed}ms (status: ${response.status})`,
       );
       return response;
     } catch (error: unknown) {
@@ -299,7 +298,7 @@ export class WebDavClient {
         this.getTimeout(method, options.timeoutMs),
       );
       console.error(
-        `[WebDAV] ${method} ${url} failed (${webDavError.kind}) after ${elapsed}ms:`,
+        `[WebDAV] ${method} ${logPath} failed (${webDavError.kind}) after ${elapsed}ms:`,
         error,
       );
       throw webDavError;
