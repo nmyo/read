@@ -795,6 +795,8 @@
     "sync": "Sync",
     "syncTitle": "WebDAV Sync",
     "syncDesc": "Sync reading data across devices via WebDAV",
+    "syncLayoutMigrationTitle": "Remote file layout updated",
+    "syncLayoutMigrationDesc": "Starting in this version, each book has its own remote folder named \"{title}-{id}\", with the file and cover both named after the book. Please upgrade every syncing device to this version or later; older clients sharing the same account may upload duplicates or fail to download newly added books.",
     "syncConnection": "Connection Settings",
     "syncUrl": "Server URL",
     "syncUrlPlaceholder": "https://dav.example.com",

@@ -720,6 +720,15 @@ export function SyncSettings() {
 
   return (
     <div className="space-y-6 p-4 pt-3">
+      <section className="rounded-lg border border-orange-400/40 bg-orange-50/40 p-4 dark:bg-orange-950/20">
+        <h2 className="mb-1 text-sm font-medium text-foreground">
+          {t("settings.syncLayoutMigrationTitle")}
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.syncLayoutMigrationDesc")}
+        </p>
+      </section>
+
       {renderBackendSelector()}
 
       {selectedBackend === "webdav" && renderWebDavConfig()}

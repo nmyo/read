@@ -335,6 +335,14 @@ export default function SyncSettingsScreen() {
           keyboardDismissMode="on-drag"
         >
           <View style={[styles.contentColumn, { width: "100%", maxWidth: layout.centeredContentWidth }]}>
+            {/* Layout migration notice */}
+            <View style={styles.section}>
+              <View style={styles.conflictCard}>
+                <Text style={styles.conflictTitle}>{t("settings.syncLayoutMigrationTitle")}</Text>
+                <Text style={styles.conflictDesc}>{t("settings.syncLayoutMigrationDesc")}</Text>
+              </View>
+            </View>
+
             {/* Backend Type Selector */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t("settings.syncBackendType")}</Text>
