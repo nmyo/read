@@ -20,6 +20,10 @@ export interface SyncResult {
   direction: SyncDirection;
   filesUploaded: number;
   filesDownloaded: number;
+  /** Number of book/cover files that failed to upload to the remote in the file-sync phase. */
+  filesUploadFailed: number;
+  /** Number of book/cover files that failed to download from the remote in the file-sync phase. */
+  filesDownloadFailed: number;
   durationMs: number;
   error?: string;
 }

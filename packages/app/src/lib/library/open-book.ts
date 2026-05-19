@@ -108,10 +108,19 @@ export async function openDesktopBook({
 
     try {
       const backend = createSyncBackend(syncStore.config, password);
-      const success = await downloadBookFile(backend, book.id, book.filePath);
+      const outcome = await downloadBookFile(backend, book.id, book.filePath);
       await loadBooks();
 
-      if (!success) {
+      if (outcome === "not-found") {
+        toast.error(
+          t(
+            "library.downloadNotFound",
+            "远端没有这本书的文件，可能源设备还未上传成功。请回到那台设备重新打开/同步一次，或在此处重新导入。",
+          ),
+        );
+        return false;
+      }
+      if (outcome === "error") {
         toast.error(t("library.downloadFailed", "下载失败，请重试"));
         return false;
       }

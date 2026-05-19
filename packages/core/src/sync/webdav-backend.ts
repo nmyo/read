@@ -72,7 +72,21 @@ export class WebDavBackend implements ISyncBackend {
   }
 
   async put(path: string, data: Uint8Array): Promise<void> {
-    await this.client.put(this.resolvePath(path), data);
+    const resolved = this.resolvePath(path);
+    try {
+      await this.client.put(resolved, data);
+    } catch (e) {
+      // Some WebDAV servers (Synology, QNAP, 飞牛, etc.) return 403/404/409 when
+      // PUT-ing into a directory that doesn't exist yet. Ensure the parent and
+      // retry once — most uploads land on an existing dir, so this catch path
+      // only fires for first-time uploads into a brand-new per-book folder.
+      const message = e instanceof Error ? e.message : String(e);
+      if (!/\b(403|404|409)\b/.test(message)) throw e;
+      const parent = resolved.substring(0, resolved.lastIndexOf("/"));
+      if (!parent || parent === "/") throw e;
+      await this.client.ensureDirectory(parent);
+      await this.client.put(resolved, data);
+    }
   }
 
   async get(path: string): Promise<Uint8Array> {

@@ -206,8 +206,17 @@ export default function SyncSettingsScreen() {
   ]);
 
   const handleSync = useCallback(async () => {
-    await syncNow();
-  }, [syncNow]);
+    const result = await syncNow();
+    if (result?.success && (result.filesUploadFailed > 0 || result.filesDownloadFailed > 0)) {
+      Alert.alert(
+        t("common.warning", "提示"),
+        t("settings.syncFilesPartialFailed", {
+          uploadFailed: result.filesUploadFailed,
+          downloadFailed: result.filesDownloadFailed,
+        }),
+      );
+    }
+  }, [syncNow, t]);
 
   const handleConflict = useCallback(
     (direction: "upload" | "download") => { syncNow(direction); },
@@ -335,13 +344,7 @@ export default function SyncSettingsScreen() {
           keyboardDismissMode="on-drag"
         >
           <View style={[styles.contentColumn, { width: "100%", maxWidth: layout.centeredContentWidth }]}>
-            {/* Layout migration notice */}
-            <View style={styles.section}>
-              <View style={styles.conflictCard}>
-                <Text style={styles.conflictTitle}>{t("settings.syncLayoutMigrationTitle")}</Text>
-                <Text style={styles.conflictDesc}>{t("settings.syncLayoutMigrationDesc")}</Text>
-              </View>
-            </View>
+            <Text style={styles.layoutNotice}>{t("settings.syncLayoutMigrationNotice")}</Text>
 
             {/* Backend Type Selector */}
             <View style={styles.section}>
@@ -514,6 +517,14 @@ export default function SyncSettingsScreen() {
                             {isLanContext
                               ? t("settings.syncLANImportedFiles", { count: lastResult.filesDownloaded })
                               : t("settings.syncFilesDown", { count: lastResult.filesDownloaded })}
+                          </Text>
+                        )}
+                        {(lastResult.filesUploadFailed > 0 || lastResult.filesDownloadFailed > 0) && (
+                          <Text style={styles.errorText}>
+                            {t("settings.syncFilesPartialFailed", {
+                              uploadFailed: lastResult.filesUploadFailed,
+                              downloadFailed: lastResult.filesDownloadFailed,
+                            })}
                           </Text>
                         )}
                       </>

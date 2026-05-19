@@ -60,7 +60,12 @@ describe("sync-files", () => {
       const backend = createMockBackend();
 
       const result = await syncFiles(backend);
-      expect(result).toEqual({ filesUploaded: 0, filesDownloaded: 0 });
+      expect(result).toEqual({
+        filesUploaded: 0,
+        filesDownloaded: 0,
+        filesUploadFailed: 0,
+        filesDownloadFailed: 0,
+      });
     });
 
     it("uploads local book files to the new per-book layout when remote is empty", async () => {
@@ -357,7 +362,7 @@ describe("sync-files", () => {
         "books/book-1.epub",
       );
 
-      expect(result).toBe(true);
+      expect(result).toBe("ok");
       expect(backend.get).toHaveBeenCalledWith(
         `${REMOTE_BOOKS_ROOT}/Test Book-book-1/Test Book.epub`,
       );
@@ -387,12 +392,12 @@ describe("sync-files", () => {
         "books/book-1.epub",
       );
 
-      expect(result).toBe(true);
+      expect(result).toBe("ok");
       expect(getMock).toHaveBeenCalledWith(`${REMOTE_FILES}/book-1.epub`);
       expect(mockSetBookSyncStatus).toHaveBeenCalledWith("book-1", "local");
     });
 
-    it("returns false and marks book as remote when neither path has the file", async () => {
+    it("returns 'not-found' and marks book as remote when neither path has the file", async () => {
       mockSelect.mockResolvedValue([{ id: "book-1", title: "Test Book" }]);
 
       const backend = createMockBackend({
@@ -405,7 +410,7 @@ describe("sync-files", () => {
         "books/book-1.epub",
       );
 
-      expect(result).toBe(false);
+      expect(result).toBe("not-found");
       expect(mockSetBookSyncStatus).toHaveBeenCalledWith("book-1", "remote");
     });
 
@@ -422,7 +427,7 @@ describe("sync-files", () => {
       expect(onProgress).toHaveBeenCalledWith({ downloaded: 100, total: 100 });
     });
 
-    it("handles network error gracefully", async () => {
+    it("returns 'error' on transient network failure", async () => {
       mockSelect.mockResolvedValue([{ id: "book-1", title: "Test Book" }]);
       const backend = createMockBackend({
         get: vi.fn().mockRejectedValue(new Error("network error")),
@@ -434,7 +439,7 @@ describe("sync-files", () => {
         "books/book-1.epub",
       );
 
-      expect(result).toBe(false);
+      expect(result).toBe("error");
       expect(mockSetBookSyncStatus).toHaveBeenCalledWith("book-1", "remote");
     });
   });

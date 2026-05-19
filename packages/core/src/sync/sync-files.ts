@@ -105,6 +105,8 @@ export async function syncFiles(
 ): Promise<{
   filesUploaded: number;
   filesDownloaded: number;
+  filesUploadFailed: number;
+  filesDownloadFailed: number;
 }> {
   const syncFilesStart = Date.now();
   console.log("[Sync] 📁 Starting file sync...");
@@ -121,9 +123,11 @@ export async function syncFiles(
   } = options;
   let filesUploaded = 0;
   let filesDownloaded = 0;
+  let filesUploadFailed = 0;
+  let filesDownloadFailed = 0;
 
   const books = await db.select<BookRow>(
-    "SELECT id, file_path, file_hash, cover_url, title FROM books",
+    "SELECT id, file_path, file_hash, cover_url, title FROM books WHERE deleted_at IS NULL",
     [],
   );
 
@@ -214,11 +218,14 @@ export async function syncFiles(
           console.warn(`[Sync] Failed to mark book as remote: ${e}`);
         }
       } else if (!localExists && !remoteExists) {
-        try {
-          await setBookSyncStatus(book.id, "remote");
-        } catch (e) {
-          console.warn(`[Sync] Failed to mark book as remote: ${e}`);
-        }
+        // File is missing locally AND remotely — metadata-only orphan. Don't
+        // lie to peers by flipping to "remote"; that's the bug that causes
+        // mobile to show a download button for a file that doesn't exist
+        // anywhere, leading to 404s. Leave syncStatus alone so the row is
+        // visible as broken rather than as "downloadable".
+        console.warn(
+          `[Sync] Book "${book.title}" (${book.id}) has no file locally or remotely — keeping syncStatus as-is. Likely the local file was removed externally before it could be uploaded.`,
+        );
       }
     }
 
@@ -262,9 +269,9 @@ export async function syncFiles(
     });
     const uploadResults = await parallelLimit(tasksWithProgress, 5);
     filesUploaded = uploadResults.filter((r) => r).length;
-    const uploadFailed = uploadResults.length - filesUploaded;
+    filesUploadFailed = uploadResults.length - filesUploaded;
     console.log(
-      `[Sync] ✅ Upload completed: ${filesUploaded} succeeded, ${uploadFailed} failed in ${Date.now() - uploadStart}ms`,
+      `[Sync] ✅ Upload completed: ${filesUploaded} succeeded, ${filesUploadFailed} failed in ${Date.now() - uploadStart}ms`,
     );
   }
 
@@ -288,9 +295,9 @@ export async function syncFiles(
     });
     const downloadResults = await parallelLimit(tasksWithProgress, 8);
     filesDownloaded = downloadResults.filter((r) => r).length;
-    const downloadFailed = downloadResults.length - filesDownloaded;
+    filesDownloadFailed = downloadResults.length - filesDownloaded;
     console.log(
-      `[Sync] ✅ Download completed: ${filesDownloaded} succeeded, ${downloadFailed} failed in ${Date.now() - downloadStart}ms`,
+      `[Sync] ✅ Download completed: ${filesDownloaded} succeeded, ${filesDownloadFailed} failed in ${Date.now() - downloadStart}ms`,
     );
   }
 
@@ -301,7 +308,7 @@ export async function syncFiles(
   await cleanupLocalOrphans(adapter, appDataDir, currentBookIds);
 
   console.log(`[Sync] ✅ File sync completed in ${Date.now() - syncFilesStart}ms`);
-  return { filesUploaded, filesDownloaded };
+  return { filesUploaded, filesDownloaded, filesUploadFailed, filesDownloadFailed };
 }
 
 /* ─────────────────────────  helpers  ───────────────────────── */
@@ -697,6 +704,18 @@ async function cleanupLocalOrphans(
 }
 
 /**
+ * Outcome of an on-demand download.
+ *
+ * - `"ok"`        — file downloaded and written locally.
+ * - `"not-found"` — exhausted every candidate path on the remote; the file
+ *                   isn't there. Most likely the desktop never uploaded it
+ *                   (e.g. the local copy was missing at push time).
+ * - `"error"`     — transient failure (network, permission, disk). Retrying
+ *                   later may succeed.
+ */
+export type DownloadBookOutcome = "ok" | "not-found" | "error";
+
+/**
  * Download a single book file on-demand.
  * Tries the new layout first; falls back to the legacy flat path so devices that have not yet
  * pushed (and therefore not yet migrated) can still serve the book.
@@ -706,7 +725,7 @@ export async function downloadBookFile(
   bookId: string,
   filePath: string,
   onProgress?: (progress: { downloaded: number; total: number }) => void,
-): Promise<boolean> {
+): Promise<DownloadBookOutcome> {
   const adapter = getSyncAdapter();
   const { setBookSyncStatus } = await import("../db/database");
 
@@ -736,12 +755,22 @@ export async function downloadBookFile(
       return backend.get(p);
     };
 
+    // Track whether *every* failure we saw was a 404. If so, the remote
+    // genuinely doesn't have the file. If at least one attempt failed with
+    // some other error, it's an "error" outcome — the caller can retry.
+    let sawNon404Error = false;
+    const noteFailure = (e: unknown) => {
+      const msg = (e as { message?: string })?.message ?? "";
+      if (!/404|not found/i.test(msg)) sawNon404Error = true;
+    };
+
     let data: Uint8Array | null = null;
     if (newPath) {
       try {
         data = await getWithProgress(newPath);
         console.log(`[Sync] Downloaded ${newPath} (new layout)`);
       } catch (e) {
+        noteFailure(e);
         const msg = (e as { message?: string })?.message ?? "";
         if (!/404|not found/i.test(msg)) {
           console.warn(`[Sync] New-layout fetch failed (${msg}); trying legacy path`);
@@ -753,10 +782,59 @@ export async function downloadBookFile(
         data = await getWithProgress(legacyPath);
         console.log(`[Sync] Downloaded ${legacyPath} (legacy layout)`);
       } catch (e) {
-        console.log(`[Sync] Book file not found on remote (new=${newPath}, legacy=${legacyPath})`);
-        await setBookSyncStatus(bookId, "remote");
-        return false;
+        noteFailure(e);
+        const msg = (e as { message?: string })?.message ?? "";
+        if (!/404|not found/i.test(msg)) {
+          console.warn(`[Sync] Legacy fetch failed (${msg}); trying title-based fallback`);
+        }
       }
+    }
+    // Title-based fallback: same book imported separately on each device gets different UUIDs.
+    // The DB sync brings both rows over, but the file is only on one id. Match by sanitized title.
+    if (!data && book?.title) {
+      try {
+        const sanitizedTitle = sanitizeBookTitleForFs(book.title);
+        const entries = await backend.listDir(REMOTE_BOOKS_ROOT);
+        const candidates = entries.filter(
+          (e) =>
+            e.isDirectory &&
+            e.name.startsWith(`${sanitizedTitle}-`) &&
+            parseBookFolderName(e.name) !== null,
+        );
+        for (const folder of candidates) {
+          const folderPath = `${REMOTE_BOOKS_ROOT}/${folder.name}`;
+          const guess = `${folderPath}/${sanitizedTitle}.${ext}`;
+          try {
+            data = await getWithProgress(guess);
+            console.log(`[Sync] Downloaded via title match: ${guess}`);
+            break;
+          } catch {
+            // Try scanning inside the folder for any file with matching extension
+            try {
+              const inside = await backend.listDir(folderPath);
+              const hit = inside.find(
+                (f) => !f.isDirectory && getExt(f.name).toLowerCase() === ext.toLowerCase(),
+              );
+              if (hit) {
+                const hitPath = `${folderPath}/${hit.name}`;
+                data = await getWithProgress(hitPath);
+                console.log(`[Sync] Downloaded via folder scan: ${hitPath}`);
+                break;
+              }
+            } catch {}
+          }
+        }
+      } catch (e) {
+        noteFailure(e);
+        console.warn(`[Sync] Title-based fallback failed:`, e);
+      }
+    }
+    if (!data) {
+      console.log(
+        `[Sync] Book file not found on remote (new=${newPath}, legacy=${legacyPath}, title=${book?.title ?? "?"})`,
+      );
+      await setBookSyncStatus(bookId, "remote");
+      return sawNon404Error ? "error" : "not-found";
     }
 
     const sizeMB = (data.length / 1024 / 1024).toFixed(2);
@@ -773,10 +851,10 @@ export async function downloadBookFile(
     onProgress?.({ downloaded: 100, total: 100 });
     await setBookSyncStatus(bookId, "local");
     console.log(`[Sync] ✓ Book ${bookId} downloaded and marked as local`);
-    return true;
+    return "ok";
   } catch (e) {
     console.error(`[Sync] Failed to download book ${bookId}:`, e);
     await setBookSyncStatus(bookId, "remote");
-    return false;
+    return "error";
   }
 }

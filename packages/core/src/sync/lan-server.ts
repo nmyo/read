@@ -182,7 +182,7 @@ class LocalFsBackend implements ISyncBackend {
       try {
         const db = await getDB();
         const books = await db.select<{ id: string; title: string }>(
-          "SELECT id, title FROM books",
+          "SELECT id, title FROM books WHERE deleted_at IS NULL",
           [],
         );
         return books.map((b) => {
@@ -212,7 +212,7 @@ class LocalFsBackend implements ISyncBackend {
           title: string;
           file_path: string | null;
           cover_url: string | null;
-        }>("SELECT id, title, file_path, cover_url FROM books WHERE id = ?", [bookId]);
+        }>("SELECT id, title, file_path, cover_url FROM books WHERE id = ? AND deleted_at IS NULL", [bookId]);
         if (rows.length === 0) return [];
         const book = rows[0];
         const stem = sanitizeBookTitleForFs(book.title);
