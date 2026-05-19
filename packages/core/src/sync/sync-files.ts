@@ -16,6 +16,20 @@ export interface SyncFilesOptions {
   disableRemoteDeletes?: boolean;
 }
 
+/** Retry an async operation once after a short delay if it fails with a retryable error (401/403) */
+async function withRetry<T>(fn: () => Promise<T>, delayMs = 800): Promise<T> {
+  try {
+    return await fn();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("401") || msg.includes("403")) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      return fn();
+    }
+    throw e;
+  }
+}
+
 function isAbsoluteOrProtocolPath(path: string): boolean {
   return (
     path.startsWith("/") ||
@@ -153,7 +167,7 @@ export async function syncFiles(
           console.log(`[Sync] 📤 Uploading book: ${bookTitle} (${remoteName})`);
           const data = await adapter.readFileBytes(localPath);
           const sizeMB = (data.length / 1024 / 1024).toFixed(2);
-          await backend.put(`${REMOTE_FILES}/${remoteName}`, data);
+          await withRetry(() => backend.put(`${REMOTE_FILES}/${remoteName}`, data));
           console.log(
             `[Sync] ✓ Uploaded "${bookTitle}" (${sizeMB} MB) in ${Date.now() - taskStart}ms`,
           );
@@ -171,7 +185,7 @@ export async function syncFiles(
         const bookTitle = book.title || "未知书籍";
         try {
           console.log(`[Sync] 📥 Downloading book: ${bookTitle} (${remoteName})`);
-          const data = await backend.get(`${REMOTE_FILES}/${remoteName}`);
+          const data = await withRetry(() => backend.get(`${REMOTE_FILES}/${remoteName}`));
           const sizeMB = (data.length / 1024 / 1024).toFixed(2);
           const dir = localPath.substring(0, localPath.lastIndexOf("/"));
           if (dir) await adapter.ensureDir(dir);
@@ -218,7 +232,7 @@ export async function syncFiles(
           console.log(`[Sync] 📤 Uploading cover: ${bookTitle} (${coverRemoteName})`);
           const data = await adapter.readFileBytes(coverLocalPath);
           const sizeKB = (data.length / 1024).toFixed(2);
-          await backend.put(`${REMOTE_COVERS}/${coverRemoteName}`, data);
+          await withRetry(() => backend.put(`${REMOTE_COVERS}/${coverRemoteName}`, data));
           console.log(
             `[Sync] ✓ Uploaded cover "${bookTitle}" (${sizeKB} KB) in ${Date.now() - taskStart}ms`,
           );
@@ -236,7 +250,7 @@ export async function syncFiles(
         const bookTitle = book.title || "未知书籍";
         try {
           console.log(`[Sync] 📥 Downloading cover: ${bookTitle} (${coverRemoteName})`);
-          const data = await backend.get(`${REMOTE_COVERS}/${coverRemoteName}`);
+          const data = await withRetry(() => backend.get(`${REMOTE_COVERS}/${coverRemoteName}`));
           const sizeKB = (data.length / 1024).toFixed(2);
           const dir = coverLocalPath.substring(0, coverLocalPath.lastIndexOf("/"));
           if (dir) await adapter.ensureDir(dir);
@@ -260,9 +274,15 @@ export async function syncFiles(
     `upload: ${uploadTasks.length}, download: ${downloadTasks.length}`,
   );
 
-  // Execute uploads in parallel (limit: 5 concurrent)
+  // Concurrency limits: WebDAV servers (especially NAS devices like fnOS)
+  // often fail with 401 under concurrent requests due to poor session handling.
+  const isWebDav = backend.type === "webdav";
+  const uploadConcurrency = isWebDav ? 2 : 5;
+  const downloadConcurrency = isWebDav ? 2 : 8;
+
+  // Execute uploads in parallel (limit: uploadConcurrency concurrent)
   if (uploadTasks.length > 0) {
-    console.log(`[Sync] 📤 Starting upload of ${uploadTasks.length} files (5 concurrent)...`);
+    console.log(`[Sync] 📤 Starting upload of ${uploadTasks.length} files (${uploadConcurrency} concurrent)...`);
     const uploadStart = Date.now();
     let completed = 0;
     const total = uploadTasks.length;
@@ -279,7 +299,7 @@ export async function syncFiles(
       completed++;
       return result;
     });
-    const uploadResults = await parallelLimit(tasksWithProgress, 5);
+    const uploadResults = await parallelLimit(tasksWithProgress, uploadConcurrency);
     filesUploaded = uploadResults.filter((r) => r).length;
     const uploadFailed = uploadResults.length - filesUploaded;
     console.log(
@@ -287,9 +307,9 @@ export async function syncFiles(
     );
   }
 
-  // Execute downloads in parallel (limit: 8 concurrent)
+  // Execute downloads in parallel (limit: downloadConcurrency concurrent)
   if (downloadTasks.length > 0) {
-    console.log(`[Sync] 📥 Starting download of ${downloadTasks.length} files (8 concurrent)...`);
+    console.log(`[Sync] 📥 Starting download of ${downloadTasks.length} files (${downloadConcurrency} concurrent)...`);
     const downloadStart = Date.now();
     let completed = 0;
     const total = downloadTasks.length;
@@ -306,7 +326,7 @@ export async function syncFiles(
       completed++;
       return result;
     });
-    const downloadResults = await parallelLimit(tasksWithProgress, 8);
+    const downloadResults = await parallelLimit(tasksWithProgress, downloadConcurrency);
     filesDownloaded = downloadResults.filter((r) => r).length;
     const downloadFailed = downloadResults.length - filesDownloaded;
     console.log(
@@ -437,7 +457,7 @@ export async function downloadBookFile(
     console.log(`[Sync] Downloading book file: ${remoteName}`);
     onProgress?.({ downloaded: 0, total: 100 });
 
-    const data = await backend.get(remotePath);
+    const data = await withRetry(() => backend.get(remotePath));
     const sizeMB = (data.length / 1024 / 1024).toFixed(2);
     console.log(`[Sync] Downloaded ${remoteName} (${sizeMB} MB)`);
 
