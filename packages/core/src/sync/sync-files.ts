@@ -72,14 +72,14 @@ export async function syncFiles(
   let filesUploaded = 0;
   let filesDownloaded = 0;
 
-  // Get all books from DB
+  // Get all books from DB (exclude soft-deleted books)
   const books = await db.select<{
     id: string;
     file_path: string;
     file_hash: string;
     cover_url: string;
     title: string;
-  }>("SELECT id, file_path, file_hash, cover_url, title FROM books", []);
+  }>("SELECT id, file_path, file_hash, cover_url, title FROM books WHERE deleted_at IS NULL", []);
 
   const appDataDir = await adapter.getAppDataDir();
   const currentBookIds = new Set(books.map((book) => book.id));
