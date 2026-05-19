@@ -113,6 +113,7 @@ jobs:
       - name: Build Android APK (Local)
         env:
           EXPO_PUBLIC_FEEDBACK_WORKER_URL: ${{ secrets.FEEDBACK_WORKER_URL }}
+          APP_VARIANT: production
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           cd packages/app-expo
