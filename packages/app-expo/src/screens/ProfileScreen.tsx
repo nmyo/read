@@ -448,7 +448,7 @@ export function ProfileScreen() {
 
       <ScrollView
         style={s.scrollView}
-        contentContainerStyle={{ paddingTop: 20, paddingBottom: tabBarHeight }}
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Stats cards */}
