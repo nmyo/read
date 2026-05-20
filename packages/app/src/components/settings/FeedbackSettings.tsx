@@ -36,6 +36,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 import { getVersion } from "@tauri-apps/api/app";
 
 const FEEDBACK_TYPES: {
@@ -82,7 +83,7 @@ export function FeedbackSettings() {
       platform,
       osVersion: navigator.userAgent,
       appVersion,
-      locale: navigator.language,
+      locale: i18n.language || navigator.language,
     });
   }, [appVersion]);
 
