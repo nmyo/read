@@ -66,7 +66,7 @@ export async function aiTranslate(
         messages: [
           {
             role: "system",
-            content: `You are a professional translator. Translate the following text to ${targetLangName}. Only output the translation, no explanations or additional text.`,
+            content: `You are a professional translator. Translate the following text to ${targetLangName}. Only output the translation, no explanations or additional text. Important: Even if the source text appears similar to the target language (e.g. Traditional Chinese to Simplified Chinese), you must still perform the conversion.`,
           },
           { role: "user", content: texts[0] },
         ],
@@ -172,7 +172,7 @@ export async function aiTranslateBatch(
         messages: [
           {
             role: "system",
-            content: `You are a professional translator. Translate each numbered paragraph to ${targetLangName}. Output translations only, keep the same numbering format "N. translation". Do not add any explanation.`,
+            content: `You are a professional translator. Translate each numbered paragraph to ${targetLangName}. Output translations only, keep the same numbering format "N. translation". Do not add any explanation. Important: Even if the source text appears similar to the target language (e.g. Traditional Chinese to Simplified Chinese), you must still perform the full conversion.`,
           },
           { role: "user", content: numberedInput },
         ],
@@ -576,8 +576,14 @@ export async function microsoftTranslate(
   const token = await getMicrosoftToken();
   const mappedSource = toMicrosoftLangCode(sourceLang);
   // If source lang is "auto"/"AUTO", empty, or not recognized by Microsoft, omit it for auto-detection
-  const from = (!sourceLang || sourceLang.toLowerCase() === "auto" || !MS_SUPPORTED_LANGS.has(mappedSource)) ? "" : mappedSource;
+  // Exception: for zh-Hans/zh-Hant targets, explicitly set the opposite as source
+  // to prevent Microsoft from detecting them as the same language and skipping translation
+  let from = (!sourceLang || sourceLang.toLowerCase() === "auto" || !MS_SUPPORTED_LANGS.has(mappedSource)) ? "" : mappedSource;
   const to = toMicrosoftLangCode(targetLang);
+
+  if (!from && (to === "zh-Hans" || to === "zh-Hant")) {
+    from = to === "zh-Hans" ? "zh-Hant" : "zh-Hans";
+  }
 
   const body = texts.map((t) => ({ Text: t }));
 
