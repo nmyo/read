@@ -448,7 +448,7 @@ export function ProfileScreen() {
 
       <ScrollView
         style={s.scrollView}
-        contentContainerStyle={{ paddingTop: 20, paddingBottom: tabBarHeight + 24 }}
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: tabBarHeight }}
         showsVerticalScrollIndicator={false}
       >
         {/* Stats cards */}
@@ -475,6 +475,7 @@ export function ProfileScreen() {
                     unit={card.unit}
                     metaLabel={card.metaLabel}
                     metaValue={card.metaValue}
+                    onPress={() => nav.navigate("Stats")}
                     style={{ width: "100%" }}
                   />
                 </View>
@@ -723,7 +724,7 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: fontSize.xs,
       lineHeight: fontSize.xs * 1.6,
       color: colors.mutedForeground,
-      marginTop: 32,
-      marginBottom: 8,
+      marginTop: 16,
+      marginBottom: 4,
     },
   });
