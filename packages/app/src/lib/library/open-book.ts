@@ -106,10 +106,13 @@ export async function openDesktopBook({
       books.map((item) => (item.id === book.id ? { ...item, syncStatus: "downloading" } : item)),
     );
     await setBookSyncStatus(book.id, "downloading");
+    const { setProgress, clearProgress } = useDownloadProgressStore.getState();
 
     try {
       const backend = createSyncBackend(syncStore.config, password);
-      const outcome = await downloadBookFile(backend, book.id, book.filePath);
+      const outcome = await downloadBookFile(backend, book.id, book.filePath, (progress) => {
+        setProgress(book.id, progress.downloaded, progress.total);
+      });
       await loadBooks();
 
       if (outcome === "not-found") {
@@ -125,6 +128,7 @@ export async function openDesktopBook({
         toast.error(t("library.downloadFailed", "下载失败，请重试"));
         return false;
       }
+      return true;
     } catch (error) {
       console.error("[openDesktopBook] Failed to download remote book:", error);
       await setBookSyncStatus(book.id, "remote");
@@ -133,6 +137,7 @@ export async function openDesktopBook({
       return false;
     } finally {
       pendingDownloads.delete(book.id);
+      clearProgress(book.id);
     }
   }
 
