@@ -613,6 +613,7 @@
     "general_desc": "App appearance and behavior",
     "theme": "Theme",
     "themeDesc": "Choose your preferred theme",
+    "system": "System",
     "light": "Light",
     "dark": "Dark",
     "sepia": "Sepia",

@@ -81,7 +81,10 @@ i18nReady.then(() => {
 
   // Restore saved theme from localStorage
   const savedTheme = localStorage.getItem("readany-theme");
-  if (savedTheme && ["light", "dark", "sepia"].includes(savedTheme)) {
+  if (savedTheme === "system") {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  } else if (savedTheme && ["light", "dark", "sepia"].includes(savedTheme)) {
     document.documentElement.setAttribute("data-theme", savedTheme);
   } else {
     // Default to sepia theme

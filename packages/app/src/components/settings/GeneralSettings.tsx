@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Coffee, FolderOpen, HardDrive, Moon, RotateCcw, Sun } from "lucide-react";
+import { Coffee, FolderOpen, HardDrive, Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 /**
  * GeneralSettings — app-level settings
  */
@@ -21,9 +21,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-type ThemeMode = "light" | "dark" | "sepia";
+type ThemeMode = "light" | "dark" | "sepia" | "system";
 
 const THEME_CONFIG: Record<ThemeMode, { icon: typeof Sun; labelKey: string }> = {
+  system: { icon: Monitor, labelKey: "settings.system" },
   light: { icon: Sun, labelKey: "settings.light" },
   dark: { icon: Moon, labelKey: "settings.dark" },
   sepia: { icon: Coffee, labelKey: "settings.sepia" },
@@ -43,6 +44,19 @@ export function GeneralSettings() {
       setThemeState(saved);
     }
   }, []);
+
+  // Listen for system theme changes when in "system" mode
+  useEffect(() => {
+    if (theme !== "system") return;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => {
+      document.documentElement.setAttribute("data-theme", e.matches ? "dark" : "light");
+    };
+    // Apply immediately
+    document.documentElement.setAttribute("data-theme", mediaQuery.matches ? "dark" : "light");
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,8 +86,13 @@ export function GeneralSettings() {
 
   const handleThemeChange = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
     localStorage.setItem("readany-theme", newTheme);
+    if (newTheme === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+    } else {
+      document.documentElement.setAttribute("data-theme", newTheme);
+    }
   };
 
   const handleChooseLibraryFolder = async () => {
