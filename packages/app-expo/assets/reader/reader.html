@@ -1545,6 +1545,12 @@ a { color: ${primary} !important; }
           return;
         }
 
+        // In scroll mode, only toggle toolbar (center tap) — no page navigation
+        if (currentViewMode === 'scroll') {
+          postToRN('tap', {});
+          return;
+        }
+
         armTapNavigationLock();
         e.preventDefault();
         e.stopPropagation();
