@@ -50,6 +50,19 @@
         "APP_VARIANT": "production",
         "EXPO_NO_METRO_WORKSPACE_ROOT": "1"
       }
+    },
+    "production-apk": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a"
+      },
+      "node": "20.18.0",
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_NO_METRO_WORKSPACE_ROOT": "1"
+      }
     }
   },
   "submit": {

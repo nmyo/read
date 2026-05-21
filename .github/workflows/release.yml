@@ -117,7 +117,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           cd packages/app-expo
-          npx eas-cli build --platform android --profile preview --local --non-interactive --output=../../ReadAny-${VERSION}.apk
+          npx eas-cli build --platform android --profile production-apk --local --non-interactive --output=../../ReadAny-${VERSION}.apk
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1

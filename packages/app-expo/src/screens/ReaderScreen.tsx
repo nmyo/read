@@ -1521,6 +1521,10 @@ export function ReaderScreen({ route, navigation }: Props) {
           onCopy={() => {
             setSelection(null);
           }}
+          onSpeak={(text, cfi) => {
+            tts.startSelectionTTS(text, cfi);
+            setSelection(null);
+          }}
           onAIChat={() => {
             const selectedText = selectionPopoverSelection.text;
             const chapter = currentChapter;

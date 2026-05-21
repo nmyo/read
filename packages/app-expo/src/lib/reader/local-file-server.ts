@@ -73,7 +73,14 @@ async function _startNativeServer(cleanRoot: string): Promise<string> {
       port: 0,
       stopInBackground: false,
     });
-    const origin = await server.start();
+    // Cap server.start() so a hung Lighttpd init can't pin the reader on a spinner.
+    // On timeout we treat it the same as a throw: stop and fall back to TCP below.
+    const origin = await Promise.race([
+      server.start(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Lighttpd startup timeout (8s)")), 8000),
+      ),
+    ]);
     _nativeServer = server;
     _serverDocRoot = cleanRoot;
     _serverUrl = origin;

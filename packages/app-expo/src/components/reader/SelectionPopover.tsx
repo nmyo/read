@@ -13,7 +13,6 @@ import type { SelectionEvent } from "@/hooks/use-reader-bridge";
 import { radius, spacing, useColors } from "@/styles/theme";
 import type { ThemeColors } from "@/styles/theme";
 import * as Clipboard from "expo-clipboard";
-import * as Speech from "expo-speech";
 /**
  * SelectionPopover — floating action bar shown when text is selected in the reader.
  * Provides highlight (5 colors), note, copy, translate, AI chat, TTS, and delete actions.
@@ -58,6 +57,7 @@ interface Props {
   onDismiss: () => void;
   onCopy: () => void;
   onAIChat: () => void;
+  onSpeak?: (text: string, cfi: string) => void;
   onNote?: (text: string, cfi: string) => void;
   onTranslate?: (text: string) => void;
   onRemoveHighlight?: () => void;
@@ -70,6 +70,7 @@ export function SelectionPopover({
   onDismiss,
   onCopy,
   onAIChat,
+  onSpeak,
   onNote,
   onTranslate,
   onRemoveHighlight,
@@ -87,7 +88,11 @@ export function SelectionPopover({
   }, [existingHighlight?.id, existingHighlight?.note, selection.cfi]);
 
   const buttonCount =
-    5 + (onNote ? 1 : 0) + (onTranslate ? 1 : 0) + (existingHighlight && onRemoveHighlight ? 1 : 0);
+    4 +
+    (onNote ? 1 : 0) +
+    (onTranslate ? 1 : 0) +
+    (onSpeak ? 1 : 0) +
+    (existingHighlight && onRemoveHighlight ? 1 : 0);
   const colorRowHeight = showColors ? 40 : 0;
   const popoverHeight = 44 + colorRowHeight + POPOVER_PADDING * 2 + GAP;
   const popoverWidth = Math.min(
@@ -132,9 +137,12 @@ export function SelectionPopover({
   }, [selection.text, onCopy]);
 
   const handleSpeak = useCallback(() => {
-    Speech.speak(selection.text, { language: undefined });
+    const text = selection.text.trim();
+    if (text && onSpeak) {
+      onSpeak(text, selection.cfi);
+    }
     onDismiss();
-  }, [selection.text, onDismiss]);
+  }, [selection.text, selection.cfi, onSpeak, onDismiss]);
 
   const handleNote = useCallback(() => {
     setShowNoteModal(true);
@@ -214,9 +222,11 @@ export function SelectionPopover({
             <SparklesIcon size={18} color={colors.foreground} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.iconBtn} onPress={handleSpeak}>
-            <Volume2Icon size={18} color={colors.foreground} />
-          </TouchableOpacity>
+          {onSpeak && (
+            <TouchableOpacity style={s.iconBtn} onPress={handleSpeak}>
+              <Volume2Icon size={18} color={colors.foreground} />
+            </TouchableOpacity>
+          )}
 
           {existingHighlight && onRemoveHighlight && (
             <TouchableOpacity style={s.iconBtn} onPress={handleRemove}>

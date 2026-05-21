@@ -1887,7 +1887,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
       ttsSetOnEnd(null);
       ttsSetCurrentBook(book?.meta.title ?? "", readerTab?.chapterTitle ?? "", bookId);
       ttsSetCurrentLocation(readerTab?.selectionCfi || readerTab?.currentCfi || "");
-      setShowTTS(true);
       ttsPlay(segments.length > 0 ? segments.map((segment) => segment.text) : normalized);
     },
     [
@@ -2030,10 +2029,14 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     const isPlaying = ttsPlayState === "playing" || ttsPlayState === "loading";
     const chapterChanged =
       ttsStartChapterRef.current !== "" && ttsStartChapterRef.current !== readerTab?.chapterTitle;
+    // Selection sessions only cover the snippet the user picked. When they
+    // open the full listen page, promote to a page-level session so the
+    // queue isn't just a single sentence.
+    const isSelectionSession = ttsSourceKind === "selection";
 
     // If playing, always just re-show (don't interrupt playback)
     // If stopped/paused with active session and same chapter, also just re-show
-    if (hasActiveSession && (isPlaying || !chapterChanged)) {
+    if (hasActiveSession && (isPlaying || !chapterChanged) && !isSelectionSession) {
       setShowTTS(true);
       return;
     }
@@ -2050,6 +2053,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     ttsCurrentText,
     ttsLastText,
     ttsPlayState,
+    ttsSourceKind,
     readerTab?.chapterTitle,
   ]);
 
