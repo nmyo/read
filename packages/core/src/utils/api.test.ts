@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildOpenAICompatibleUrl,
   buildProviderModelsUrl,
+  ensureUrlProtocol,
+  formatApiHost,
   providerSupportsExactRequestUrl,
   resolveProviderBaseUrl,
 } from "./api";
@@ -79,5 +81,46 @@ describe("AI API URL helpers", () => {
     expect(
       buildProviderModelsUrl("google", "https://generativelanguage.googleapis.com", "AIza-test"),
     ).toBe("https://generativelanguage.googleapis.com/v1beta/models?key=AIza-test");
+  });
+
+  describe("ensureUrlProtocol / scheme-less inputs", () => {
+    it("prepends https:// when a remote URL has no scheme", () => {
+      expect(ensureUrlProtocol("api.openai.com/v1")).toBe("https://api.openai.com/v1");
+      expect(ensureUrlProtocol("openrouter.ai/api/v1")).toBe("https://openrouter.ai/api/v1");
+    });
+
+    it("prepends http:// for localhost / loopback hosts", () => {
+      expect(ensureUrlProtocol("localhost:11434")).toBe("http://localhost:11434");
+      expect(ensureUrlProtocol("127.0.0.1:8080/api")).toBe("http://127.0.0.1:8080/api");
+    });
+
+    it("leaves already-protocoled URLs alone", () => {
+      expect(ensureUrlProtocol("https://api.openai.com")).toBe("https://api.openai.com");
+      expect(ensureUrlProtocol("http://localhost:1234")).toBe("http://localhost:1234");
+      expect(ensureUrlProtocol("  https://api.openai.com  ")).toBe("https://api.openai.com");
+    });
+
+    it("returns empty string for empty / whitespace input", () => {
+      expect(ensureUrlProtocol("")).toBe("");
+      expect(ensureUrlProtocol("   ")).toBe("");
+    });
+
+    it("strips leading slashes that would survive concatenation", () => {
+      expect(ensureUrlProtocol("//api.example.com")).toBe("//api.example.com");
+      expect(ensureUrlProtocol("/api.example.com")).toBe("https://api.example.com");
+    });
+
+    it("flows through the provider URL builders so requests escape the webview", () => {
+      expect(resolveProviderBaseUrl("openai", "api.openai.com")).toBe(
+        "https://api.openai.com/v1",
+      );
+      expect(buildProviderModelsUrl("custom", "api.example.com")).toBe(
+        "https://api.example.com/v1/models",
+      );
+      expect(buildProviderModelsUrl("ollama", "localhost:11434")).toBe(
+        "http://localhost:11434/api/tags",
+      );
+      expect(formatApiHost("api.openai.com")).toBe("https://api.openai.com/v1/");
+    });
   });
 });

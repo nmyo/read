@@ -106,7 +106,31 @@ async function fetchJson(
       contentType: response.headers.get("content-type"),
     });
   }
-  return response.json();
+  const rawBody = await response.text();
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    const contentType = response.headers.get("content-type") || "";
+    if (debug) {
+      logAIEndpointDebug("error", debug.endpoint, {
+        action: debug.action,
+        method: init?.method || "GET",
+        requestUrl: url,
+        model: debug.model,
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        responseLength: rawBody.length,
+        responseBodyPreview: summarizeDebugText(rawBody),
+      });
+    }
+    const lookedLikeHtml = /^\s*<(!doctype|html)/i.test(rawBody) || contentType.includes("html");
+    throw new Error(
+      lookedLikeHtml
+        ? `Endpoint returned an HTML page instead of JSON (${url}). Make sure the base URL starts with http:// or https:// and points to the API root.`
+        : `Endpoint did not return JSON (${url}). Make sure the base URL starts with http:// or https:// and points to the API root.`,
+    );
+  }
 }
 
 async function listOpenAICompatibleModels(endpoint: AIEndpoint): Promise<string[]> {
