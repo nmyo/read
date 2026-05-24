@@ -29,6 +29,7 @@ export type { TimeGroup, GroupedThreads } from "./time-group";
 export {
   formatApiHost,
   trimApiUrl,
+  ensureUrlProtocol,
   providerSupportsExactRequestUrl,
   resolveProviderBaseUrl,
   buildProviderModelsUrl,

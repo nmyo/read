@@ -214,7 +214,7 @@ const VERSION_PATTERN = /\/(v[1-9]\d*|api\/v[1-9]\d*|api\/paas\/v[1-9]\d*|compat
 export function formatApiHost(host: string): string {
   if (!host) return host;
 
-  host = host.trim();
+  host = ensureUrlProtocol(host.trim());
 
   if (host.endsWith("/")) {
     return host;
@@ -235,6 +235,24 @@ export function formatApiHost(host: string): string {
 
 export function trimApiUrl(url: string): string {
   return url.replace(/\/+$/, "");
+}
+
+/**
+ * If the URL has no scheme, prepend https:// (or http:// for localhost / loopback).
+ * Without this, scheme-less inputs like "api.openai.com/v1" get resolved by the
+ * Tauri webview as relative paths against tauri://localhost and fall through to
+ * the SPA's own index.html, producing the confusing "Unexpected token '<'" /
+ * "endpoint did not return JSON" error chain on connect.
+ */
+export function ensureUrlProtocol(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return trimmed;
+  const stripped = trimmed.replace(/^\/+/, "");
+  const isLoopback =
+    /^(localhost(?:[:/]|$)|127\.\d+\.\d+\.\d+|0\.0\.0\.0(?:[:/]|$)|\[::1?\])/i.test(stripped);
+  return `${isLoopback ? "http://" : "https://"}${stripped}`;
 }
 
 function sanitizeOpenAICompatibleBaseUrl(url: string): string {
@@ -271,7 +289,7 @@ export function resolveProviderBaseUrl(
   baseUrl?: string,
   exactRequestUrl = false,
 ): string {
-  const rawBaseUrl = (baseUrl || getDefaultBaseUrl(providerId) || "").trim();
+  const rawBaseUrl = ensureUrlProtocol((baseUrl || getDefaultBaseUrl(providerId) || "").trim());
   if (!rawBaseUrl) return "";
   const providerConfig = getProviderConfig(providerId);
   const trimmedRawBaseUrl = trimApiUrl(rawBaseUrl);
@@ -298,7 +316,7 @@ export function buildProviderModelsUrl(
   apiKey?: string,
   exactRequestUrl = false,
 ): string {
-  const rawBaseUrl = (baseUrl || getDefaultBaseUrl(providerId) || "").trim();
+  const rawBaseUrl = ensureUrlProtocol((baseUrl || getDefaultBaseUrl(providerId) || "").trim());
   if (!rawBaseUrl) return "";
 
   if (exactRequestUrl && providerSupportsExactRequestUrl(providerId)) {
