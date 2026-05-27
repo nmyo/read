@@ -7,6 +7,7 @@ import {
   providerRequiresApiKey,
 } from "../utils";
 import { logAIEndpointDebug, summarizeDebugText } from "../ai/request-debug";
+import { getEndpointFetch } from "../ai/llm-provider";
 import { withPersist } from "./persist";
 
 export interface SettingsState {
@@ -124,7 +125,9 @@ async function fetchOpenAIModels(endpoint: AIEndpoint): Promise<string[]> {
     method: "GET",
     requestUrl,
   });
-  const response = await fetch(requestUrl, {
+  // 使用跨域适配fetch，和AI对话逻辑一致
+  const endpointFetch = getEndpointFetch(endpoint);
+  const response = await endpointFetch(requestUrl, {
     headers: { Authorization: `Bearer ${endpoint.apiKey}` },
   });
   if (!response.ok) {
@@ -296,7 +299,9 @@ async function fetchOllamaModels(endpoint: AIEndpoint): Promise<string[]> {
     endpoint.apiKey,
     endpoint.useExactRequestUrl,
   );
-  const response = await fetch(requestUrl);
+  // 使用跨域适配fetch，和AI对话逻辑一致
+  const endpointFetch = getEndpointFetch(endpoint);
+  const response = await endpointFetch(requestUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch Ollama models: ${response.status} ${response.statusText}`);
   }
@@ -313,7 +318,9 @@ async function fetchLMStudioModels(endpoint: AIEndpoint): Promise<string[]> {
     endpoint.apiKey,
     endpoint.useExactRequestUrl,
   );
-  const response = await fetch(requestUrl);
+  // 使用跨域适配fetch，和AI对话逻辑一致
+  const endpointFetch = getEndpointFetch(endpoint);
+  const response = await endpointFetch(requestUrl);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch LM Studio models: ${response.status} ${response.statusText}`,
