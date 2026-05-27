@@ -228,6 +228,7 @@ export function GeneralSettings() {
             <SelectContent>
               <SelectItem value="en">English</SelectItem>
               <SelectItem value="zh">简体中文</SelectItem>
+              <SelectItem value="zh-TW">繁體中文</SelectItem>
               <SelectItem value="ja">日本語</SelectItem>
               <SelectItem value="ko">한국어</SelectItem>
               <SelectItem value="fr">Français</SelectItem>
