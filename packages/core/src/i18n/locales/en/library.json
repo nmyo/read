@@ -111,6 +111,7 @@
     "vectorizing": "Vectorizing: {{pct}}%",
     "vec_vectorize": "Vectorize",
     "vec_reindex": "Re-vectorize",
+    "vec_reindexConfirm": "This book is already indexed. Re-indexing will reset the existing data. Continue?",
     "vec_indexed": "Indexed",
     "vec_chunking": "Chunking...",
     "vec_indexing": "Indexing...",
