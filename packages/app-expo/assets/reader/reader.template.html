@@ -983,6 +983,10 @@
           if (ttsHighlightState.cfi) {
             setTTSHighlight(ttsHighlightState.cfi, ttsHighlightState.color);
           }
+          // Auto-inject ruby annotations if enabled
+          if (_rubyMode && (_rubyWordDict || _rubyCharDict)) {
+            try { doInjectRubyAnnotations(doc, _rubyMode); } catch(e) {}
+          }
         });
 
         var snippetTimer = null;
@@ -2215,6 +2219,7 @@ a { color: ${primary} !important; }
             var parent = node.parentElement;
             var tag = parent && parent.tagName && parent.tagName.toLowerCase();
             if (tag === 'script' || tag === 'style') return NodeFilter.FILTER_REJECT;
+            if (tag === 'rt' || tag === 'rp') return NodeFilter.FILTER_REJECT;
             if (parent && parent.closest && parent.closest('.readany-translation')) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
           }
@@ -2283,6 +2288,7 @@ a { color: ${primary} !important; }
             var parent = node.parentElement;
             var tag = parent && parent.tagName && parent.tagName.toLowerCase();
             if (tag === 'script' || tag === 'style') return NodeFilter.FILTER_REJECT;
+            if (tag === 'rt' || tag === 'rp') return NodeFilter.FILTER_REJECT;
             if (parent && parent.closest && parent.closest('.readany-translation')) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
           }
@@ -3583,11 +3589,26 @@ a { color: ${primary} !important; }
       }
     }
 
+    function isInsideRubyAnnotation(node) {
+      var p = node.parentNode;
+      while (p && p.nodeType === 1) {
+        var name = p.tagName && p.tagName.toLowerCase();
+        if (name === 'rt' || name === 'rp') return true;
+        p = p.parentNode;
+      }
+      return false;
+    }
+
     function getTextNodes(element) {
       const walker = element.ownerDocument.createTreeWalker(
         element,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+          acceptNode: function (node) {
+            if (isInsideRubyAnnotation(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
       );
       const nodes = [];
       let node;
@@ -3603,7 +3624,12 @@ a { color: ${primary} !important; }
       const walker = block.ownerDocument.createTreeWalker(
         block,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+          acceptNode: function (node) {
+            if (isInsideRubyAnnotation(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
       );
       const texts = [];
       let node;
@@ -3613,6 +3639,220 @@ a { color: ${primary} !important; }
       }
       return texts.join(" ");
     }
+
+    // ─── Ruby Annotation (Pinyin/Zhuyin) ───
+    var _rubyWordDict = null; // { "word": ["pinyin", freq] }
+    var _rubyCharDict = null; // { "char": "pinyin" }
+    var _rubyMode = null;     // "zh-pinyin" | "zh-zhuyin" | null
+
+    var CJK_RE = /[一-鿿㐀-䶿豈-﫿]/;
+    var RUBY_STYLE_ID = 'readany-ruby-style';
+    var RUBY_PROCESSED_ATTR = 'data-ruby-processed';
+
+    function rubyAnnotateChinese(text) {
+      if ((!_rubyWordDict && !_rubyCharDict) || !text) return [{ char: text, reading: '', needsRuby: false }];
+      var tokens = [];
+      var i = 0;
+      while (i < text.length) {
+        var ch = text[i];
+        if (!CJK_RE.test(ch)) {
+          var j = i + 1;
+          while (j < text.length && !CJK_RE.test(text[j])) j++;
+          tokens.push({ char: text.slice(i, j), reading: '', needsRuby: false });
+          i = j;
+          continue;
+        }
+        var matched = false;
+        if (_rubyWordDict) {
+          for (var len = Math.min(4, text.length - i); len >= 2; len--) {
+            var word = text.slice(i, i + len);
+            var entry = _rubyWordDict[word];
+            if (entry) {
+              var reading = entry[0];
+              var readings = reading.split(' ');
+              if (readings.length === word.length) {
+                for (var k = 0; k < word.length; k++) {
+                  tokens.push({ char: word[k], reading: readings[k], needsRuby: true });
+                }
+              } else {
+                tokens.push({ char: word, reading: reading, needsRuby: true });
+              }
+              i += len;
+              matched = true;
+              break;
+            }
+          }
+        }
+        if (matched) continue;
+        var singleReading = '';
+        if (_rubyWordDict && _rubyWordDict[ch]) {
+          singleReading = _rubyWordDict[ch][0];
+        } else if (_rubyCharDict && _rubyCharDict[ch]) {
+          singleReading = _rubyCharDict[ch];
+        }
+        tokens.push({ char: ch, reading: singleReading, needsRuby: true });
+        i++;
+      }
+      return tokens;
+    }
+
+    function rubyInjectStyles(doc) {
+      if (doc.getElementById(RUBY_STYLE_ID)) return;
+      var style = doc.createElement('style');
+      style.id = RUBY_STYLE_ID;
+      style.textContent = [
+        '.readany-ruby rt { font-size: 0.5em; line-height: 1; color: var(--readany-ruby-color, #888); font-weight: normal; user-select: none; -webkit-user-select: none; }',
+        '.readany-ruby { ruby-align: center; }',
+        '.readany-ruby-container { ruby-position: over; -webkit-ruby-position: before; }'
+      ].join('\n');
+      if (doc.head) doc.head.appendChild(style);
+    }
+
+    function rubyShouldSkip(el) {
+      if (el.closest && el.closest('.readany-translation')) return true;
+      if (el.closest && el.closest('ruby')) return true;
+      if (el.closest && el.closest('rt')) return true;
+      if (el.closest && el.closest('[' + RUBY_PROCESSED_ATTR + ']')) return true;
+      var tag = el.tagName && el.tagName.toLowerCase();
+      if (tag === 'script' || tag === 'style') return true;
+      return false;
+    }
+
+    function rubyExtractOriginalText(el) {
+      var result = '';
+      for (var ci = 0; ci < el.childNodes.length; ci++) {
+        var child = el.childNodes[ci];
+        if (child.nodeType === 3) { result += child.nodeValue || ''; }
+        else if (child.nodeType === 1) {
+          var tag = child.tagName && child.tagName.toLowerCase();
+          if (tag === 'rt' || tag === 'rp') continue;
+          result += rubyExtractOriginalText(child);
+        }
+      }
+      return result;
+    }
+
+    function doInjectRubyAnnotations(doc, mode) {
+      if (!mode || !doc) return 0;
+      if (!_rubyWordDict && !_rubyCharDict) return 0;
+      rubyInjectStyles(doc);
+      var blocks = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, dd, dt, figcaption, div');
+      var count = 0;
+      for (var bi = 0; bi < blocks.length; bi++) {
+        var block = blocks[bi];
+        if (!block.textContent || !block.textContent.trim()) continue;
+        if (rubyShouldSkip(block)) continue;
+        if (block.querySelector && block.querySelector('[' + RUBY_PROCESSED_ATTR + ']')) continue;
+        if (!CJK_RE.test(block.textContent)) continue;
+
+        var walker = doc.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+          acceptNode: function(node) {
+            if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_SKIP;
+            if (!CJK_RE.test(node.nodeValue)) return NodeFilter.FILTER_SKIP;
+            var parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_ACCEPT;
+            if (rubyShouldSkip(parent)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        var textNodes = [];
+        var tn = walker.nextNode();
+        while (tn) { textNodes.push(tn); tn = walker.nextNode(); }
+
+        for (var ti = 0; ti < textNodes.length; ti++) {
+          var node = textNodes[ti];
+          var text = node.nodeValue || '';
+          if (!text.trim() || !CJK_RE.test(text)) continue;
+          var tokens = rubyAnnotateChinese(text);
+          var span = doc.createElement('span');
+          span.setAttribute(RUBY_PROCESSED_ATTR, 'true');
+          span.className = 'readany-ruby-container';
+          for (var tki = 0; tki < tokens.length; tki++) {
+            var token = tokens[tki];
+            if (token.needsRuby && token.reading) {
+              var ruby = doc.createElement('ruby');
+              ruby.className = 'readany-ruby';
+              ruby.textContent = token.char;
+              var rt = doc.createElement('rt');
+              rt.textContent = token.reading;
+              ruby.appendChild(rt);
+              span.appendChild(ruby);
+            } else {
+              span.appendChild(doc.createTextNode(token.char));
+            }
+          }
+          if (node.parentNode) node.parentNode.replaceChild(span, node);
+          count++;
+        }
+      }
+      return count;
+    }
+
+    function doRemoveRubyAnnotations(doc) {
+      if (!doc) return;
+      var style = doc.getElementById(RUBY_STYLE_ID);
+      if (style) style.remove();
+      var processed = doc.querySelectorAll('[' + RUBY_PROCESSED_ATTR + ']');
+      for (var i = 0; i < processed.length; i++) {
+        var el = processed[i];
+        var originalText = rubyExtractOriginalText(el);
+        var textNode = doc.createTextNode(originalText);
+        if (el.parentNode) el.parentNode.replaceChild(textNode, el);
+      }
+    }
+
+    // Called from RN to set dict data
+    window.setRubyDicts = function(wordDictJson, charDictJson) {
+      try {
+        _rubyWordDict = wordDictJson ? (typeof wordDictJson === 'string' ? JSON.parse(wordDictJson) : wordDictJson) : null;
+        _rubyCharDict = charDictJson ? (typeof charDictJson === 'string' ? JSON.parse(charDictJson) : charDictJson) : null;
+        return true;
+      } catch(e) {
+        console.error('[Ruby] Failed to parse dicts:', e);
+        return false;
+      }
+    };
+
+    // Called from RN to inject ruby on current page
+    window.injectRuby = function(mode) {
+      _rubyMode = mode || null;
+      if (!_rubyMode) { window.removeRuby(); return; }
+      var doc = null;
+      if (view && view.renderer && view.renderer.getContents) {
+        var contents = view.renderer.getContents();
+        if (contents && contents.length && contents[0] && contents[0].doc) doc = contents[0].doc;
+      }
+      if (!doc) {
+        var iframes = document.querySelectorAll('iframe');
+        for (var fi = 0; fi < iframes.length; fi++) {
+          try {
+            var iframeDoc = iframes[fi].contentDocument || (iframes[fi].contentWindow && iframes[fi].contentWindow.document);
+            if (iframeDoc && iframeDoc.body) { doc = iframeDoc; break; }
+          } catch(e) {}
+        }
+      }
+      if (doc) doInjectRubyAnnotations(doc, _rubyMode);
+    };
+
+    // Called from RN to remove ruby
+    window.removeRuby = function() {
+      _rubyMode = null;
+      var doc = null;
+      if (view && view.renderer && view.renderer.getContents) {
+        var contents = view.renderer.getContents();
+        if (contents && contents.length && contents[0] && contents[0].doc) doc = contents[0].doc;
+      }
+      if (!doc) {
+        var iframes = document.querySelectorAll('iframe');
+        for (var fi = 0; fi < iframes.length; fi++) {
+          try {
+            var iframeDoc = iframes[fi].contentDocument || (iframes[fi].contentWindow && iframes[fi].contentWindow.document);
+            if (iframeDoc && iframeDoc.body) { doc = iframeDoc; break; }
+          } catch(e) {}
+        }
+      }
+      if (doc) doRemoveRubyAnnotations(doc);
+    };
   </script>
 
   <!-- __READANY_FOLIATE_BUNDLE_INSERT_POINT_7f3a9b2e__ -->

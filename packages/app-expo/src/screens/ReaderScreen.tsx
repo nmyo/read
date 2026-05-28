@@ -159,6 +159,7 @@ import { useReaderSearch } from "./reader/useReaderSearch";
 import { useReaderSystemInfo } from "./reader/useReaderSystemInfo";
 import { useReaderTTS } from "./reader/useReaderTTS";
 import { useVolumeButtonPaging } from "./reader/useVolumeButtonPaging";
+import { useRubyStore } from "@readany/core/stores/ruby-store";
 
 const READER_HTML_ASSET = Asset.fromModule(require("../../assets/reader/reader.html"));
 
@@ -582,6 +583,26 @@ export function ReaderScreen({ route, navigation }: Props) {
         customFontFaceCSS: fontCSS,
         customFontFamily: fontFamily,
       });
+
+      // Auto-restore ruby annotations if enabled for this book
+      const rubyMode = useRubyStore.getState().getBookRuby(bookId);
+      if (rubyMode) {
+        void (async () => {
+          try {
+            const { checkExistingDictMobile, readDictStrings } = await import("@/lib/ruby/dict-service-mobile");
+            const exists = await checkExistingDictMobile();
+            if (exists) {
+              const { wordDict, charDict } = await readDictStrings();
+              if (wordDict || charDict) {
+                bridge.setRubyDicts(wordDict, charDict);
+                setTimeout(() => bridge.injectRuby(rubyMode), 150);
+              }
+            }
+          } catch (err) {
+            console.error("[ReaderScreen] Ruby auto-restore failed:", err);
+          }
+        })();
+      }
     },
     onBookTextMetrics: ({ totalCharacters }) => {
       totalBookCharactersRef.current = totalCharacters > 0 ? totalCharacters : null;
@@ -1917,8 +1938,27 @@ export function ReaderScreen({ route, navigation }: Props) {
       <ReaderSettingsPanel
         visible={showSettings}
         readSettings={readSettings}
+        bookId={bookId}
         onClose={() => setShowSettings(false)}
         onUpdateSetting={updateSetting}
+        onRubyModeChange={async (mode) => {
+          if (mode) {
+            // Load dicts into WebView if not already done
+            try {
+              const { readDictStrings } = await import("@/lib/ruby/dict-service-mobile");
+              const { wordDict, charDict } = await readDictStrings();
+              if (wordDict || charDict) {
+                bridge.setRubyDicts(wordDict, charDict);
+                // Small delay to let WebView process the dict
+                setTimeout(() => bridge.injectRuby(mode), 100);
+              }
+            } catch (err) {
+              console.error("[ReaderScreen] Ruby dict load failed:", err);
+            }
+          } else {
+            bridge.removeRuby();
+          }
+        }}
       />
 
       {/* ─── Notebook Panel ─── */}
