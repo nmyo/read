@@ -330,6 +330,10 @@ export interface FoliateViewerHandle {
     originalVisible: boolean,
     translationVisible: boolean,
   ) => void;
+  /** Inject ruby (pinyin/furigana) annotations into current document */
+  injectRuby: (mode: "zh-pinyin" | "zh-zhuyin" | "ja") => Promise<void>;
+  /** Remove all ruby annotations from current document */
+  removeRuby: () => void;
 }
 
 interface FoliateViewerProps {
@@ -1250,6 +1254,31 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             console.error("[applyChapterTranslationVisibility] Error:", err);
           }
         },
+        injectRuby: async (mode: "zh-pinyin" | "zh-zhuyin" | "ja") => {
+          try {
+            const renderer = viewRef.current?.renderer;
+            const contents = renderer?.getContents?.();
+            if (!contents?.[0]?.doc) return;
+            const doc = contents[0].doc as Document;
+            const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
+            injectRubyAnnotations(doc, mode);
+          } catch (err) {
+            console.warn("[injectRuby] Error:", err);
+          }
+        },
+        removeRuby: () => {
+          try {
+            const renderer = viewRef.current?.renderer;
+            const contents = renderer?.getContents?.();
+            if (!contents?.[0]?.doc) return;
+            const doc = contents[0].doc as Document;
+            import("@/lib/ruby/ruby-injector").then(({ removeRubyAnnotations }) => {
+              removeRubyAnnotations(doc);
+            });
+          } catch (err) {
+            console.warn("[removeRuby] Error:", err);
+          }
+        },
       }),
       [viewReady],
     );
@@ -1328,6 +1357,23 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         if (detail.index !== undefined) {
           onSectionLoad?.(detail.index);
         }
+
+        // Inject ruby annotations if enabled for this book
+        void (async () => {
+          try {
+            const { useRubyStore } = await import("@readany/core/stores/ruby-store");
+            const rubyMode = useRubyStore.getState().getBookRuby(bookKey);
+            if (rubyMode && rubyMode.startsWith("zh")) {
+              const { isPinyinDictLoaded } = await import("@/lib/ruby/pinyin-processor");
+              if (isPinyinDictLoaded()) {
+                const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
+                injectRubyAnnotations(detail.doc as Document, rubyMode);
+              }
+            }
+          } catch (err) {
+            console.warn("[FoliateViewer] Ruby injection failed:", err);
+          }
+        })();
       },
       [bookKey, viewSettings, onLoaded, onSectionLoad, isFixedLayout],
     );
