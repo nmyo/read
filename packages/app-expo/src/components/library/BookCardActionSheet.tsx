@@ -12,6 +12,7 @@ import type { Book } from "@readany/core/types";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   type LayoutRectangle,
   Modal,
   Pressable,
@@ -87,7 +88,18 @@ export function BookCardActionSheet({
             : t("home.vec_vectorize", "向量化"),
           onPress: () => {
             onClose();
-            onVectorize(book);
+            if (book.isVectorized) {
+              Alert.alert(
+                t("home.vec_reindex", "重新索引"),
+                t("home.vec_reindexConfirm", "该书已完成索引，重新索引将重置现有数据，确定继续吗？"),
+                [
+                  { text: t("common.cancel"), style: "cancel" },
+                  { text: t("common.confirm"), onPress: () => onVectorize(book) },
+                ],
+              );
+            } else {
+              onVectorize(book);
+            }
           },
         }
       : null,

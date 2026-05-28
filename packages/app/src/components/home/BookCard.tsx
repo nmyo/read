@@ -71,6 +71,7 @@ export const BookCard = memo(function BookCard({
   const [vectorProgress, setVectorProgress] = useState<VectorizeProgress | null>(null);
   const [configGuide, setConfigGuide] = useState<ConfigGuideType>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showReindexConfirm, setShowReindexConfirm] = useState(false);
   const [preserveDataOnDelete, setPreserveDataOnDelete] = useState(true);
   const coverRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -99,7 +100,7 @@ export const BookCard = memo(function BookCard({
       onSelect?.(book.id);
       return;
     }
-    if (showMenu || showDeleteDialog || Date.now() < suppressOpenUntilRef.current) {
+    if (showMenu || showDeleteDialog || showReindexConfirm || Date.now() < suppressOpenUntilRef.current) {
       return;
     }
     await openDesktopBook({ book, t });
@@ -114,6 +115,20 @@ export const BookCard = memo(function BookCard({
     setShowDeleteDialog(true);
   }, []);
 
+  const doVectorize = useCallback(async () => {
+    setVectorizing(true);
+    try {
+      await triggerVectorizeBook(book.id, book.filePath, (progress) => {
+        setVectorProgress({ ...progress });
+      });
+    } catch (err) {
+      console.error("[BookCard] Vectorization failed:", err);
+    } finally {
+      setVectorizing(false);
+      setVectorProgress(null);
+    }
+  }, [book.id, book.filePath]);
+
   const handleVectorize = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -127,19 +142,15 @@ export const BookCard = memo(function BookCard({
         return;
       }
 
-      setVectorizing(true);
-      try {
-        await triggerVectorizeBook(book.id, book.filePath, (progress) => {
-          setVectorProgress({ ...progress });
-        });
-      } catch (err) {
-        console.error("[BookCard] Vectorization failed:", err);
-      } finally {
-        setVectorizing(false);
-        setVectorProgress(null);
+      // Confirm before re-vectorizing an already indexed book
+      if (book.isVectorized) {
+        setShowReindexConfirm(true);
+        return;
       }
+
+      doVectorize();
     },
-    [book.id, book.filePath, hasVectorCapability, vectorizing],
+    [book.isVectorized, hasVectorCapability, vectorizing, doVectorize],
   );
 
   const handleMoveGroup = useCallback(
@@ -602,6 +613,38 @@ export const BookCard = memo(function BookCard({
               }}
             >
               {t("common.remove", "删除")}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-index confirmation dialog */}
+      <Dialog open={showReindexConfirm} onOpenChange={setShowReindexConfirm}>
+        <DialogContent className="max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>{t("home.vec_reindex")}</DialogTitle>
+            <DialogDescription>
+              {t("home.vec_reindexConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted"
+              onClick={(e) => { e.stopPropagation(); setShowReindexConfirm(false); }}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReindexConfirm(false);
+                doVectorize();
+              }}
+            >
+              {t("common.confirm")}
             </button>
           </DialogFooter>
         </DialogContent>
