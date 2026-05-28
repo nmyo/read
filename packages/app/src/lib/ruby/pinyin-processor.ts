@@ -24,7 +24,8 @@ export interface RubyToken {
 }
 
 // Singleton dictionary cache
-let _pinyinDict: Record<string, string> | null = null;
+// Format: { "word": ["pinyin reading", frequency] }
+let _pinyinDict: Record<string, [string, number]> | null = null;
 
 /**
  * Load pinyin dictionary from a local file path.
@@ -49,7 +50,7 @@ export async function loadPinyinDict(dictPath: string): Promise<void> {
 /**
  * Set the dictionary directly (for testing or alternative loading)
  */
-export function setPinyinDict(dict: Record<string, string>): void {
+export function setPinyinDict(dict: Record<string, [string, number]>): void {
   _pinyinDict = dict;
 }
 
@@ -93,8 +94,9 @@ export function annotateChinese(
     let matched = false;
     for (let len = Math.min(4, text.length - i); len >= 1; len--) {
       const word = text.slice(i, i + len);
-      const reading = _pinyinDict[word];
-      if (reading) {
+      const entry = _pinyinDict[word];
+      if (entry) {
+        const reading = entry[0]; // entry format: [pinyin, frequency]
         // For multi-char words, split reading by space and assign per char
         const readings = reading.split(" ");
         if (readings.length === word.length) {

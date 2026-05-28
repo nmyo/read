@@ -1260,6 +1260,14 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             const contents = renderer?.getContents?.();
             if (!contents?.[0]?.doc) return;
             const doc = contents[0].doc as Document;
+            // Ensure dict is loaded
+            if (mode.startsWith("zh")) {
+              const { isPinyinDictLoaded } = await import("@/lib/ruby/pinyin-processor");
+              if (!isPinyinDictLoaded()) {
+                const { tryLoadExistingDict } = await import("@/lib/ruby/dict-service");
+                await tryLoadExistingDict("zh");
+              }
+            }
             const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
             injectRubyAnnotations(doc, mode);
           } catch (err) {
@@ -1365,6 +1373,11 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             const rubyMode = useRubyStore.getState().getBookRuby(bookKey);
             if (rubyMode && rubyMode.startsWith("zh")) {
               const { isPinyinDictLoaded } = await import("@/lib/ruby/pinyin-processor");
+              // Ensure dict is loaded into memory (may have been downloaded in a previous session)
+              if (!isPinyinDictLoaded()) {
+                const { tryLoadExistingDict } = await import("@/lib/ruby/dict-service");
+                await tryLoadExistingDict("zh");
+              }
               if (isPinyinDictLoaded()) {
                 const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
                 injectRubyAnnotations(detail.doc as Document, rubyMode);
