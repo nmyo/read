@@ -627,6 +627,50 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
     `);
   }, []);
 
+  // ─── Ruby Annotation Commands ───
+  const setRubyDicts = useCallback(
+    (wordDictJson: string | null, charDictJson: string | null) => {
+      const wordArg = wordDictJson ? JSON.stringify(wordDictJson) : "null";
+      const charArg = charDictJson ? JSON.stringify(charDictJson) : "null";
+      webViewRef.current?.injectJavaScript(`
+        (function() {
+          try {
+            if (window.setRubyDicts) {
+              window.setRubyDicts(${wordArg}, ${charArg});
+            }
+          } catch(e) { console.error('[WebView] setRubyDicts error:', e); }
+        })();
+        true;
+      `);
+    },
+    [],
+  );
+
+  const injectRuby = useCallback(
+    (mode: string) => {
+      webViewRef.current?.injectJavaScript(`
+        (function() {
+          try {
+            if (window.injectRuby) window.injectRuby(${JSON.stringify(mode)});
+          } catch(e) { console.error('[WebView] injectRuby error:', e); }
+        })();
+        true;
+      `);
+    },
+    [],
+  );
+
+  const removeRuby = useCallback(() => {
+    webViewRef.current?.injectJavaScript(`
+      (function() {
+        try {
+          if (window.removeRuby) window.removeRuby();
+        } catch(e) { console.error('[WebView] removeRuby error:', e); }
+      })();
+      true;
+    `);
+  }, []);
+
   // ─── Handle continuous scroll for chapter navigation ───
   const scrollTransitioningRef = useRef(false);
 
@@ -959,6 +1003,9 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       getChapterParagraphs,
       injectChapterTranslations,
       removeChapterTranslations,
+      setRubyDicts,
+      injectRuby,
+      removeRuby,
     }),
     [
       handleMessage,
@@ -992,6 +1039,9 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       getChapterParagraphs,
       injectChapterTranslations,
       removeChapterTranslations,
+      setRubyDicts,
+      injectRuby,
+      removeRuby,
     ],
   );
 }
