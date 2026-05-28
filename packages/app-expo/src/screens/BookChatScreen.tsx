@@ -590,9 +590,15 @@ export function BookChatScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {showSidebar && !isTabletLandscape && (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 20 }]} pointerEvents="box-none">
-          <Animated.View style={[s.sidebarBackdrop, { opacity: backdropAnim }]}>
+      {!isTabletLandscape && (
+        <View
+          style={[StyleSheet.absoluteFill, { zIndex: 20 }]}
+          pointerEvents={showSidebar ? "box-none" : "none"}
+        >
+          <Animated.View
+            style={[s.sidebarBackdrop, { opacity: backdropAnim }]}
+            pointerEvents={showSidebar ? "auto" : "none"}
+          >
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} />
           </Animated.View>
           <Animated.View
