@@ -3589,11 +3589,26 @@ a { color: ${primary} !important; }
       }
     }
 
+    function isInsideRubyAnnotation(node) {
+      var p = node.parentNode;
+      while (p && p.nodeType === 1) {
+        var name = p.tagName && p.tagName.toLowerCase();
+        if (name === 'rt' || name === 'rp') return true;
+        p = p.parentNode;
+      }
+      return false;
+    }
+
     function getTextNodes(element) {
       const walker = element.ownerDocument.createTreeWalker(
         element,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+          acceptNode: function (node) {
+            if (isInsideRubyAnnotation(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
       );
       const nodes = [];
       let node;
@@ -3609,7 +3624,12 @@ a { color: ${primary} !important; }
       const walker = block.ownerDocument.createTreeWalker(
         block,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+          acceptNode: function (node) {
+            if (isInsideRubyAnnotation(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
       );
       const texts = [];
       let node;
