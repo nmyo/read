@@ -1421,16 +1421,78 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
 
         // Update reading context service
         if (detail.tocItem?.label && detail.fraction !== undefined) {
-          // Extract visible text from the current page
+          // Extract visible text from the current page using precise viewport detection
           let surroundingText = "";
           try {
-            const view = viewRef.current;
-            const contents = view?.renderer?.getContents?.();
+            const renderer = viewRef.current?.renderer;
+            const contents = renderer?.getContents?.();
             if (contents?.[0]?.doc) {
               const doc = contents[0].doc as Document;
-              const rawText = doc.body?.textContent || "";
-              // Trim and limit to ~2000 chars to avoid overly large context
-              surroundingText = rawText.replace(/\s+/g, " ").trim().slice(0, 2000);
+              const isPaginated = !renderer.scrolled;
+              const pSize = renderer.size;
+              const pStart = renderer.start;
+
+              if (isPaginated && pSize > 0) {
+                const visibleLeft = pStart - pSize;
+                const visibleRight = pStart;
+                const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+                  acceptNode: (node: Node) => {
+                    if (!node.nodeValue?.trim()) return NodeFilter.FILTER_SKIP;
+                    const parent = (node as Text).parentElement;
+                    const tag = parent?.tagName?.toLowerCase();
+                    if (tag === "script" || tag === "style" || tag === "rt" || tag === "rp") return NodeFilter.FILTER_REJECT;
+                    if (parent?.closest?.(".readany-translation")) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                  },
+                });
+                const visibleTexts: string[] = [];
+                let textNode = walker.nextNode();
+                while (textNode) {
+                  const range = doc.createRange();
+                  range.selectNodeContents(textNode);
+                  const rect = range.getBoundingClientRect();
+                  if (rect.right > visibleLeft && rect.left < visibleRight && rect.width > 0) {
+                    const text = textNode.nodeValue?.trim();
+                    if (text) visibleTexts.push(text);
+                  }
+                  textNode = walker.nextNode();
+                }
+                surroundingText = visibleTexts.join(" ").trim().slice(0, 2000);
+              } else {
+                const win = doc.defaultView;
+                if (win) {
+                  const vw = win.innerWidth;
+                  const vh = win.innerHeight;
+                  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (node: Node) => {
+                      if (!node.nodeValue?.trim()) return NodeFilter.FILTER_SKIP;
+                      const parent = (node as Text).parentElement;
+                      const tag = parent?.tagName?.toLowerCase();
+                      if (tag === "script" || tag === "style" || tag === "rt" || tag === "rp") return NodeFilter.FILTER_REJECT;
+                      return NodeFilter.FILTER_ACCEPT;
+                    },
+                  });
+                  const visibleTexts: string[] = [];
+                  let textNode = walker.nextNode();
+                  while (textNode) {
+                    const range = doc.createRange();
+                    range.selectNodeContents(textNode);
+                    const rect = range.getBoundingClientRect();
+                    if (rect.right > 0 && rect.left < vw && rect.bottom > 0 && rect.top < vh && rect.width > 0) {
+                      const text = textNode.nodeValue?.trim();
+                      if (text) visibleTexts.push(text);
+                    }
+                    textNode = walker.nextNode();
+                  }
+                  surroundingText = visibleTexts.join(" ").trim().slice(0, 2000);
+                }
+              }
+
+              // Fallback: if no visible text detected, use section text
+              if (!surroundingText) {
+                const rawText = doc.body?.textContent || "";
+                surroundingText = rawText.replace(/\s+/g, " ").trim().slice(0, 2000);
+              }
             }
           } catch {
             // Ignore extraction errors
