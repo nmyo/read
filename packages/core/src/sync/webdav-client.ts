@@ -150,12 +150,9 @@ function createRequestWebDavError(
 ): WebDavError {
   const err = error as { name?: string; message?: string; cause?: { code?: string } };
   const lowerMessage = err.message?.toLowerCase() ?? "";
-  const connectionMessage = i18n.t(
-    "settings.syncWebdavNetworkError",
-    {
-      defaultValue: "无法连接到 WebDAV 服务器，请检查网络、地址、端口或证书配置。",
-    },
-  );
+  const connectionMessage = i18n.t("settings.syncWebdavNetworkError", {
+    defaultValue: "无法连接到 WebDAV 服务器，请检查网络、地址、端口或证书配置。",
+  });
 
   if (
     err.name === "AbortError" ||
@@ -263,6 +260,10 @@ export class WebDavClient {
       .map((segment) => encodeURIComponent(segment))
       .join("/");
     return `${this.baseUrl}${encoded}`;
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    return { Authorization: this.authHeader };
   }
 
   /** True if the status code indicates a transient, retry-worthy failure. */
@@ -432,6 +433,32 @@ export class WebDavClient {
     }
   }
 
+  async putFile(
+    path: string,
+    localFilePath: string,
+    onProgress?: (loaded: number, total: number) => void,
+  ): Promise<void> {
+    const platform = getPlatformService();
+    if (!platform.uploadFile) {
+      throw new Error("Platform does not support direct file upload");
+    }
+
+    const url = this.buildUrl(path);
+    const logPath = path.startsWith("/") ? path : `/${path}`;
+    console.log(`[WebDAV] PUT ${logPath} (file upload)`);
+    const startTime = Date.now();
+    await platform.uploadFile(url, localFilePath, {
+      headers: {
+        ...this.getAuthHeaders(),
+        "Content-Type": "application/octet-stream",
+      },
+      allowInsecure: this.allowInsecure,
+      onProgress,
+    });
+    this.hadAuthSuccess = true;
+    console.log(`[WebDAV] PUT ${logPath} completed in ${Date.now() - startTime}ms`);
+  }
+
   /** Upload a JSON object */
   async putJSON(path: string, data: unknown): Promise<void> {
     await this.put(path, JSON.stringify(data), "application/json");
@@ -497,6 +524,29 @@ export class WebDavClient {
       }
       throw error;
     }
+  }
+
+  async getFileToPath(
+    path: string,
+    localFilePath: string,
+    onProgress?: (loaded: number, total: number) => void,
+  ): Promise<void> {
+    const platform = getPlatformService();
+    if (!platform.downloadFile) {
+      throw new Error("Platform does not support direct file download");
+    }
+
+    const url = this.buildUrl(path);
+    const logPath = path.startsWith("/") ? path : `/${path}`;
+    console.log(`[WebDAV] GET ${logPath} (file download)`);
+    const startTime = Date.now();
+    await platform.downloadFile(url, localFilePath, {
+      headers: this.getAuthHeaders(),
+      allowInsecure: this.allowInsecure,
+      onProgress,
+    });
+    this.hadAuthSuccess = true;
+    console.log(`[WebDAV] GET ${logPath} completed in ${Date.now() - startTime}ms`);
   }
 
   /** Download text content from a path (GET) */
@@ -589,7 +639,9 @@ export class WebDavClient {
     });
     if (!resp.ok && resp.status !== 207) {
       if (resp.status === 404 || resp.status === 409) return [];
-      throw new Error(`WebDAV PROPFIND failed for ${path}: ${resp.status} ${resp.statusText || ""}`);
+      throw new Error(
+        `WebDAV PROPFIND failed for ${path}: ${resp.status} ${resp.statusText || ""}`,
+      );
     }
     const xml = await resp.text();
     return parsePropfindResponse(xml, path);
