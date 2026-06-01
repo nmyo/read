@@ -51,14 +51,23 @@ export function SelectionPopover({
   onClose: _onClose,
 }: SelectionPopoverProps) {
   const { t } = useTranslation();
-  const [showColors, setShowColors] = useState(annotated); // Show colors immediately for existing annotations
+  const [showColors, setShowColors] = useState(!isPdf);
   const [selectedColor, setSelectedColor] = useState<HighlightColor>(currentColor || defaultColor);
 
   const handleHighlightClick = () => {
     // PDF doesn't support highlighting
     if (isPdf) return;
 
-    setShowColors(!showColors);
+    if (annotated) {
+      setShowColors(!showColors);
+      return;
+    }
+
+    if (showColors) {
+      onHighlight(selectedColor);
+    } else {
+      setShowColors(true);
+    }
   };
 
   const handleColorSelect = (color: HighlightColor) => {

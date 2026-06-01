@@ -20,7 +20,7 @@ import * as Clipboard from "expo-clipboard";
  * Provides highlight (5 colors), note, copy, translate, AI chat, TTS, and delete actions.
  * Matches app-mobile styling with icon buttons and expandable color picker.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dimensions,
@@ -75,18 +75,23 @@ export function SelectionPopover({
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [showNoteModal, setShowNoteModal] = useState(false);
-  const [showColors, setShowColors] = useState(!!existingHighlight);
+  const [showColors, setShowColors] = useState(true);
   const [noteContent, setNoteContent] = useState(existingHighlight?.note || "");
   const existingHighlightNote = existingHighlight?.note || "";
   const hasExistingHighlight = !!existingHighlight;
+  const activeHighlightColor = existingHighlight?.color ?? defaultColor;
+  const previousSelectionCfiRef = useRef(selection.cfi);
 
   useEffect(() => {
     setNoteContent(existingHighlightNote);
   }, [existingHighlightNote]);
 
   useEffect(() => {
-    setShowColors(hasExistingHighlight);
-  }, [hasExistingHighlight]);
+    if (previousSelectionCfiRef.current !== selection.cfi || hasExistingHighlight) {
+      previousSelectionCfiRef.current = selection.cfi;
+      setShowColors(true);
+    }
+  }, [selection.cfi, hasExistingHighlight]);
 
   const buttonCount =
     4 +
@@ -168,8 +173,18 @@ export function SelectionPopover({
   }, [onRemoveHighlight, onDismiss]);
 
   const handleHighlightPress = useCallback(() => {
-    setShowColors((prev) => !prev);
-  }, []);
+    if (hasExistingHighlight) {
+      setShowColors((prev) => !prev);
+      return;
+    }
+
+    if (showColors) {
+      onHighlight(defaultColor);
+      return;
+    }
+
+    setShowColors(true);
+  }, [defaultColor, hasExistingHighlight, onHighlight, showColors]);
 
   return (
     <View style={[s.overlay]} pointerEvents="box-none">
@@ -183,7 +198,7 @@ export function SelectionPopover({
                 style={[
                   s.colorDot,
                   { backgroundColor: HIGHLIGHT_COLOR_HEX[color] },
-                  (existingHighlight?.color ?? defaultColor) === color && s.colorDotActive,
+                  activeHighlightColor === color && s.colorDotActive,
                 ]}
                 onPress={() => onHighlight(color)}
               />
