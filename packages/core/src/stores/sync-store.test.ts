@@ -247,6 +247,56 @@ describe("useSyncStore", () => {
     });
   });
 
+  it("keeps WebDAV and S3 configs in separate persisted slots", async () => {
+    const storage = new Map<string, string>();
+    mockPlatformService.kvGetItem.mockImplementation(
+      async (key: string) => storage.get(key) ?? null,
+    );
+    mockPlatformService.kvSetItem.mockImplementation(async (key: string, value: string) => {
+      storage.set(key, value);
+    });
+
+    await useSyncStore
+      .getState()
+      .saveWebDavConfig("https://dav.example.com/root", "alice", "webdav-secret", true, "dav-root");
+    await useSyncStore.getState().saveS3Config(
+      {
+        endpoint: "https://s3.example.com",
+        region: "auto",
+        bucket: "readany",
+        remoteRoot: "s3-root",
+        accessKeyId: "access-key",
+        pathStyle: true,
+      },
+      "s3-secret",
+    );
+
+    expect(JSON.parse(storage.get("sync_webdav_config") ?? "{}")).toMatchObject({
+      type: "webdav",
+      url: "https://dav.example.com/root",
+      username: "alice",
+      remoteRoot: "dav-root",
+      allowInsecure: true,
+    });
+    expect(JSON.parse(storage.get("sync_s3_config") ?? "{}")).toMatchObject({
+      type: "s3",
+      endpoint: "https://s3.example.com",
+      bucket: "readany",
+      remoteRoot: "s3-root",
+      accessKeyId: "access-key",
+      pathStyle: true,
+    });
+    expect(storage.get("sync_active_backend")).toBe("s3");
+
+    const savedWebDav = await useSyncStore.getState().loadBackendConfig("webdav");
+    expect(savedWebDav).toMatchObject({
+      type: "webdav",
+      url: "https://dav.example.com/root",
+      username: "alice",
+      remoteRoot: "dav-root",
+    });
+  });
+
   it("sanitizes persisted WebDAV URL when loading config", async () => {
     mockPlatformService.kvGetItem.mockImplementation(async (key: string) => {
       if (key === "sync_config") {
@@ -332,6 +382,12 @@ describe("useSyncStore", () => {
 
     expect(syncMocks.runSimpleSync).toHaveBeenCalledWith(mockLanBackend, expect.any(Function), {
       receiveOnly: true,
+      forceApply: true,
+      fileSyncOptions: {
+        downloadRemoteBooks: true,
+        disableUploads: true,
+        disableRemoteDeletes: true,
+      },
     });
     expect(result).toMatchObject({
       success: true,
@@ -353,6 +409,62 @@ describe("useSyncStore", () => {
       "sync:completed",
       expect.objectContaining({ timestamp: expect.any(Number) }),
     );
+  });
+
+  it("syncNow download passes receive-only options through to simple sync", async () => {
+    useSyncStore.setState({
+      config: baseConfig,
+      isConfigured: true,
+      backendType: "webdav",
+    });
+    mockPlatformService.kvGetItem.mockImplementation(async (key: string) =>
+      key === "sync_webdav_password" ? "secret" : null,
+    );
+
+    const result = await useSyncStore.getState().syncNow("download");
+
+    expect(syncMocks.runSimpleSync).toHaveBeenCalledWith(mockBackend, expect.any(Function), {
+      receiveOnly: true,
+      forceApply: true,
+      fileSyncOptions: {
+        downloadRemoteBooks: true,
+        disableUploads: true,
+        disableRemoteDeletes: true,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      direction: "download",
+      filesUploaded: 2,
+      filesDownloaded: 1,
+    });
+    expect(useSyncStore.getState().lastResult).toMatchObject({
+      success: true,
+      direction: "download",
+    });
+  });
+
+  it("syncNow upload passes force-upload options through to simple sync", async () => {
+    useSyncStore.setState({
+      config: baseConfig,
+      isConfigured: true,
+      backendType: "webdav",
+    });
+    mockPlatformService.kvGetItem.mockImplementation(async (key: string) =>
+      key === "sync_webdav_password" ? "secret" : null,
+    );
+
+    const result = await useSyncStore.getState().syncNow("upload");
+
+    expect(syncMocks.runSimpleSync).toHaveBeenCalledWith(mockBackend, expect.any(Function), {
+      fileSyncOptions: {
+        forceUploadAll: true,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      direction: "upload",
+    });
   });
 
   it("forceFullSync download keeps file transfer receive-only", async () => {

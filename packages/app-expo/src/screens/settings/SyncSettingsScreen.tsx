@@ -66,6 +66,7 @@ export default function SyncSettingsScreen() {
     progress,
     pendingDirection,
     loadConfig,
+    loadBackendConfig,
     testWebDavConnection,
     saveWebDavConfig,
     testS3Connection,
@@ -91,8 +92,10 @@ export default function SyncSettingsScreen() {
   const [s3Endpoint, setS3Endpoint] = useState("");
   const [s3Region, setS3Region] = useState("auto");
   const [s3Bucket, setS3Bucket] = useState("");
+  const [s3RemoteRoot, setS3RemoteRoot] = useState("readany");
   const [s3AccessKeyId, setS3AccessKeyId] = useState("");
   const [s3SecretAccessKey, setS3SecretAccessKey] = useState("");
+  const [s3PathStyle, setS3PathStyle] = useState(false);
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
@@ -142,7 +145,9 @@ export default function SyncSettingsScreen() {
         setS3Endpoint(config.endpoint);
         setS3Region(config.region);
         setS3Bucket(config.bucket);
+        setS3RemoteRoot(config.remoteRoot ?? "readany");
         setS3AccessKeyId(config.accessKeyId);
+        setS3PathStyle(config.pathStyle ?? false);
         setSyncIntervalInput(String(config.syncIntervalMins ?? 30));
         getPlatformService()
           .kvGetItem("sync_s3_secret_key")
@@ -152,6 +157,43 @@ export default function SyncSettingsScreen() {
       }
     }
   }, [config]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const platform = getPlatformService();
+
+    if (selectedBackend === "webdav") {
+      loadBackendConfig("webdav").then((savedConfig) => {
+        if (cancelled || savedConfig?.type !== "webdav") return;
+        setUrl(savedConfig.url);
+        setUsername(savedConfig.username);
+        setRemoteRoot(savedConfig.remoteRoot ?? "readany");
+        setAllowInsecure(savedConfig.allowInsecure ?? false);
+        setSyncIntervalInput(String(savedConfig.syncIntervalMins ?? 30));
+        platform.kvGetItem(SYNC_SECRET_KEYS.webdav).then((pw) => {
+          if (!cancelled && pw) setPassword(pw);
+        });
+      });
+    } else if (selectedBackend === "s3") {
+      loadBackendConfig("s3").then((savedConfig) => {
+        if (cancelled || savedConfig?.type !== "s3") return;
+        setS3Endpoint(savedConfig.endpoint);
+        setS3Region(savedConfig.region);
+        setS3Bucket(savedConfig.bucket);
+        setS3RemoteRoot(savedConfig.remoteRoot ?? "readany");
+        setS3AccessKeyId(savedConfig.accessKeyId);
+        setS3PathStyle(savedConfig.pathStyle ?? false);
+        setSyncIntervalInput(String(savedConfig.syncIntervalMins ?? 30));
+        platform.kvGetItem(SYNC_SECRET_KEYS.s3).then((key) => {
+          if (!cancelled && key) setS3SecretAccessKey(key);
+        });
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBackend, loadBackendConfig]);
 
   const handleTest = useCallback(async () => {
     setTesting(true);
@@ -169,7 +211,14 @@ export default function SyncSettingsScreen() {
         success = await testWebDavConnection(url, username, password, allowInsecure, remoteRoot);
       } else if (selectedBackend === "s3") {
         success = await testS3Connection(
-          { endpoint: s3Endpoint, region: s3Region, bucket: s3Bucket, accessKeyId: s3AccessKeyId },
+          {
+            endpoint: s3Endpoint,
+            region: s3Region,
+            bucket: s3Bucket,
+            remoteRoot: s3RemoteRoot,
+            accessKeyId: s3AccessKeyId,
+            pathStyle: s3PathStyle,
+          },
           s3SecretAccessKey,
         );
       }
@@ -191,8 +240,10 @@ export default function SyncSettingsScreen() {
     s3Endpoint,
     s3Region,
     s3Bucket,
+    s3RemoteRoot,
     s3AccessKeyId,
     s3SecretAccessKey,
+    s3PathStyle,
     testWebDavConnection,
     testS3Connection,
     t,
@@ -205,7 +256,14 @@ export default function SyncSettingsScreen() {
         await saveWebDavConfig(url, username, password, allowInsecure, remoteRoot);
       } else if (selectedBackend === "s3") {
         await saveS3Config(
-          { endpoint: s3Endpoint, region: s3Region, bucket: s3Bucket, accessKeyId: s3AccessKeyId },
+          {
+            endpoint: s3Endpoint,
+            region: s3Region,
+            bucket: s3Bucket,
+            remoteRoot: s3RemoteRoot,
+            accessKeyId: s3AccessKeyId,
+            pathStyle: s3PathStyle,
+          },
           s3SecretAccessKey,
         );
       }
@@ -222,8 +280,10 @@ export default function SyncSettingsScreen() {
     s3Endpoint,
     s3Region,
     s3Bucket,
+    s3RemoteRoot,
     s3AccessKeyId,
     s3SecretAccessKey,
+    s3PathStyle,
     saveWebDavConfig,
     saveS3Config,
   ]);
@@ -264,8 +324,10 @@ export default function SyncSettingsScreen() {
           setS3Endpoint("");
           setS3Region("auto");
           setS3Bucket("");
+          setS3RemoteRoot("readany");
           setS3AccessKeyId("");
           setS3SecretAccessKey("");
+          setS3PathStyle(false);
           void resetSync();
         },
       },
@@ -464,8 +526,10 @@ export default function SyncSettingsScreen() {
                 s3Endpoint={s3Endpoint}
                 s3Region={s3Region}
                 s3Bucket={s3Bucket}
+                s3RemoteRoot={s3RemoteRoot}
                 s3AccessKeyId={s3AccessKeyId}
                 s3SecretAccessKey={s3SecretAccessKey}
+                s3PathStyle={s3PathStyle}
                 testing={testing}
                 testResult={testResult}
                 testError={testError}
@@ -473,8 +537,10 @@ export default function SyncSettingsScreen() {
                 onChangeEndpoint={setS3Endpoint}
                 onChangeRegion={setS3Region}
                 onChangeBucket={setS3Bucket}
+                onChangeRemoteRoot={setS3RemoteRoot}
                 onChangeAccessKeyId={setS3AccessKeyId}
                 onChangeSecretAccessKey={setS3SecretAccessKey}
+                onTogglePathStyle={() => setS3PathStyle(!s3PathStyle)}
                 onTest={handleTest}
                 onSave={handleSave}
               />
