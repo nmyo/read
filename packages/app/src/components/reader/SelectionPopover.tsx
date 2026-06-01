@@ -58,12 +58,7 @@ export function SelectionPopover({
     // PDF doesn't support highlighting
     if (isPdf) return;
 
-    if (annotated) {
-      // For existing annotation, toggle color picker
-      setShowColors(!showColors);
-    } else {
-      onHighlight(selectedColor);
-    }
+    setShowColors(!showColors);
   };
 
   const handleColorSelect = (color: HighlightColor) => {

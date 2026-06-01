@@ -168,12 +168,8 @@ export function SelectionPopover({
   }, [onRemoveHighlight, onDismiss]);
 
   const handleHighlightPress = useCallback(() => {
-    if (hasExistingHighlight) {
-      setShowColors((prev) => !prev);
-      return;
-    }
-    onHighlight(defaultColor);
-  }, [defaultColor, hasExistingHighlight, onHighlight]);
+    setShowColors((prev) => !prev);
+  }, []);
 
   return (
     <View style={[s.overlay]} pointerEvents="box-none">
