@@ -70,6 +70,8 @@
     "reasoningDone": "思考過程",
     "scrollToBottom": "回到底部",
     "loadingMindmap": "載入心智圖...",
+    "toolFailed": "呼叫失敗",
+    "toolFailedDetail": "工具呼叫失敗",
     "aborted": "使用者取消了產生"
   },
   "toolLabels": {
@@ -92,7 +94,10 @@
     "searchAllNotes": "搜尋所有筆記",
     "getReadingStats": "取得閱讀統計",
     "getSkills": "查詢技能",
-    "mindmap": "產生心智圖"
+    "mindmap": "產生心智圖",
+    "fallbackToc": "讀取原始目錄",
+    "fallbackSearch": "掃描原始檔案",
+    "fallbackChapterContext": "讀取章節內容"
   },
   "mindmap": {
     "title": "心智圖",

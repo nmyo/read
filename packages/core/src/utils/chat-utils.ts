@@ -84,6 +84,7 @@ export function convertToMessageV2(messages: any[]): MessageV2[] {
                 name: tc.name,
                 args: tc.args,
                 result: tc.result,
+                error: tc.error,
                 status: tc.status || "completed",
                 createdAt: m.createdAt,
               });
@@ -151,6 +152,7 @@ export function convertToMessageV2(messages: any[]): MessageV2[] {
           name: tc.name,
           args: tc.args,
           result: tc.result,
+          error: tc.error,
           status: tc.status || "completed",
           createdAt: m.createdAt,
         });

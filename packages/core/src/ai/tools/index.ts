@@ -23,6 +23,11 @@ import {
 import { createAddCitationTool, createGetAnnotationsTool } from "./annotation-tools";
 import { getContextTools } from "./context-tools";
 import {
+  createFallbackChapterContextTool,
+  createFallbackSearchTool,
+  createFallbackTocTool,
+} from "./fallback-content-tools";
+import {
   createClassifyBooksTool,
   createListBooksTool,
   createManageBookGroupsTool,
@@ -89,6 +94,12 @@ export function getAvailableTools(options: {
         createAnalyzeArgumentsTool(options.bookId),
         createFindQuotesTool(options.bookId),
         createCompareSectionsTool(options.bookId),
+      );
+    } else {
+      tools.push(
+        createFallbackTocTool(options.bookId),
+        createFallbackSearchTool(options.bookId),
+        createFallbackChapterContextTool(options.bookId),
       );
     }
 

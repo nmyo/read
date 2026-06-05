@@ -866,7 +866,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           }
 
           const deletedMatch = fileHash
-            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => { console.warn("[Library] Failed to check deleted book by hash:", err); return null; })
+            ? await db.getDeletedBookByFileHash(fileHash).catch((err) => {
+                console.warn("[Library] Failed to check deleted book by hash:", err);
+                return null;
+              })
             : null;
           const bookId = deletedMatch?.id ?? generateId();
 
@@ -983,13 +986,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               try {
                 const vmState = useVectorModelStore.getState();
                 if (
+                  vmState.autoVectorizeOnImport &&
                   vmState.vectorModelEnabled &&
                   vmState.hasVectorCapability() &&
                   shouldAutoVectorizeMobile("txt", conversion.epubBytes.byteLength)
                 ) {
                   const base64 = bytesToBase64(conversion.epubBytes);
                   queueAutoVectorize(book, base64, "application/epub+zip");
-                } else if (vmState.vectorModelEnabled && vmState.hasVectorCapability()) {
+                } else if (
+                  vmState.autoVectorizeOnImport &&
+                  vmState.vectorModelEnabled &&
+                  vmState.hasVectorCapability()
+                ) {
                   console.warn(
                     `[importBooks] Skip auto-vectorize for large TXT conversion: ${fileName} (${conversion.epubBytes.byteLength} bytes)`,
                   );
@@ -1107,6 +1115,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               try {
                 const vmState = useVectorModelStore.getState();
                 if (
+                  vmState.autoVectorizeOnImport &&
                   vmState.vectorModelEnabled &&
                   vmState.hasVectorCapability() &&
                   shouldAutoVectorizeMobile("umd", conversion.epubBytes.byteLength)
@@ -1225,6 +1234,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           try {
             const vmState = useVectorModelStore.getState();
             if (
+              vmState.autoVectorizeOnImport &&
               vmState.vectorModelEnabled &&
               vmState.hasVectorCapability() &&
               shouldAutoVectorizeMobile(format, fileSize)
@@ -1245,7 +1255,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               };
               const mimeType = mimeTypes[format] || "application/epub+zip";
               queueAutoVectorize(book, base64, mimeType);
-            } else if (vmState.vectorModelEnabled && vmState.hasVectorCapability()) {
+            } else if (
+              vmState.autoVectorizeOnImport &&
+              vmState.vectorModelEnabled &&
+              vmState.hasVectorCapability()
+            ) {
               console.warn(
                 `[importBooks] Skip auto-vectorize for large/unsupported mobile import: ${fileName} (${fileSize} bytes, format=${format})`,
               );
@@ -1418,7 +1432,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     const books = get().books;
     for (const b of books) {
-      db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+      db.updateBook(b.id, { tags: b.tags }).catch((err) =>
+        console.warn("[Library] Failed to update book tags:", err),
+      );
     }
   },
 
@@ -1438,7 +1454,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
     for (const b of get().books) {
       if (b.tags.includes(trimmed)) {
-        db.updateBook(b.id, { tags: b.tags }).catch((err) => console.warn("[Library] Failed to update book tags:", err));
+        db.updateBook(b.id, { tags: b.tags }).catch((err) =>
+          console.warn("[Library] Failed to update book tags:", err),
+        );
       }
     }
   },

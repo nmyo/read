@@ -1096,7 +1096,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
           // Auto-vectorize if enabled
           const vmState = useVectorModelStore.getState();
-          if (vmState.vectorModelEnabled && vmState.hasVectorCapability()) {
+          if (
+            vmState.autoVectorizeOnImport &&
+            vmState.vectorModelEnabled &&
+            vmState.hasVectorCapability()
+          ) {
             triggerVectorizeBook(book.id, relativePath, (progress) => {
               // Update book's vectorizeProgress so BookCard can show it
               const pct = progress.totalChunks > 0

@@ -70,6 +70,9 @@ export interface Thread {
   bookId?: string;
   title: string;
   messages: Message[];
+  memorySummary?: string;
+  memoryUpdatedAt?: number;
+  memoryMessageCount?: number;
   createdAt: number;
   updatedAt: number;
 }

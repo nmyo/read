@@ -130,6 +130,16 @@ describe("getAvailableTools", () => {
     expect(names).not.toContain("getAnnotations");
   });
 
+  it("should register fallback exploration tools for non-vectorized books", () => {
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const names = tools.map((t) => t.name);
+
+    expect(names).toContain("fallbackToc");
+    expect(names).toContain("fallbackSearch");
+    expect(names).toContain("fallbackChapterContext");
+    expect(names).not.toContain("ragSearch");
+  });
+
   it("should include annotation tools when bookId provided", () => {
     const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
     const names = tools.map((t) => t.name);

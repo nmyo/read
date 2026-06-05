@@ -1,6 +1,7 @@
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import i18n from "i18next";
 import { z } from "zod";
 /**
  * Reading Agent — AI-powered reading assistant using LangGraph ReAct agent
@@ -17,7 +18,6 @@ import { createChatModel } from "../llm-provider";
 import { buildSystemPrompt } from "../system-prompt";
 import { ThinkTagStreamParser } from "../think-tag-parser";
 import type { ToolDefinition, ToolParameter } from "../tools/tool-types";
-import i18n from "i18next";
 
 // --- Stream Event Types ---
 
@@ -47,11 +47,13 @@ export type AgentStreamEvent =
 export interface ReadingAgentOptions {
   aiConfig: AIConfig;
   book: Book | null;
+  bookId?: string | null;
   semanticContext: SemanticContext | null;
   enabledSkills: Skill[];
   isVectorized: boolean;
   deepThinking?: boolean;
   spoilerFree?: boolean;
+  memorySummary?: string;
   /** Injected tool provider — returns available tools for the agent */
   getAvailableTools: (options: {
     bookId: string | null;
@@ -116,11 +118,13 @@ export async function* streamReadingAgent(
   const {
     aiConfig,
     book,
+    bookId,
     semanticContext,
     enabledSkills,
     isVectorized,
     deepThinking,
     spoilerFree,
+    memorySummary,
     getAvailableTools,
     signal,
   } = options;
@@ -144,8 +148,9 @@ export async function* streamReadingAgent(
     if (isAborted()) return;
 
     // Register ALL tools via injected getAvailableTools
+    const effectiveBookId = book?.id || bookId || null;
     const tools = getAvailableTools({
-      bookId: book?.id || null,
+      bookId: effectiveBookId,
       isVectorized,
       enabledSkills,
     });
@@ -153,11 +158,13 @@ export async function* streamReadingAgent(
     // Build system prompt
     const systemPrompt = buildSystemPrompt({
       book,
+      bookId: effectiveBookId,
       semanticContext,
       enabledSkills,
       isVectorized,
       userLanguage: i18n.language || "en",
       spoilerFree,
+      memorySummary,
     });
 
     // Build input messages (history + user input, without system — handled by agent prompt)

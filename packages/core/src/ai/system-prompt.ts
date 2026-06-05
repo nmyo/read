@@ -11,11 +11,13 @@ import type { Book, SemanticContext, Skill } from "../types";
 
 interface PromptContext {
   book: Book | null;
+  bookId?: string | null;
   semanticContext: SemanticContext | null;
   enabledSkills: Skill[];
   isVectorized: boolean;
   userLanguage: string;
   spoilerFree?: boolean;
+  memorySummary?: string;
 }
 
 /** Build the full system prompt from context */
@@ -23,13 +25,19 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   const sections: string[] = [
     buildRoleSection(),
     buildBookContextSection(ctx.book),
+    buildMemorySection(ctx.memorySummary),
     buildSemanticSection(ctx.semanticContext),
-    buildToolsSection(ctx.enabledSkills, ctx.isVectorized),
-    buildWorkflowSection(ctx.isVectorized),
+    buildToolsSection(ctx.enabledSkills, ctx.isVectorized, !!(ctx.book?.id || ctx.bookId)),
+    buildWorkflowSection(ctx.isVectorized, !!(ctx.book?.id || ctx.bookId)),
     buildConstraintsSection(ctx.userLanguage, ctx.spoilerFree, ctx.book, ctx.semanticContext),
   ];
 
   return sections.filter(Boolean).join("\n\n---\n\n");
+}
+
+function buildMemorySection(memorySummary?: string): string {
+  if (!memorySummary?.trim()) return "";
+  return ["## Conversation Memory", memorySummary.trim()].join("\n");
 }
 
 function buildRoleSection(): string {
@@ -66,7 +74,11 @@ function buildSemanticSection(ctx: SemanticContext | null): string {
     .join("\n");
 }
 
-function buildToolsSection(skills: Skill[], isVectorized: boolean): string {
+function buildToolsSection(
+  skills: Skill[],
+  isVectorized: boolean,
+  hasBookContext: boolean,
+): string {
   const tools: string[] = [];
 
   // General tools (always available)
@@ -92,21 +104,22 @@ function buildToolsSection(skills: Skill[], isVectorized: boolean): string {
     "- **manageBookGroups**: List/create/rename/delete groups or move books between groups (params: reasoning, action, groupId, name, bookIds)",
   );
 
-  // Context tools (always available when reading a book)
-  tools.push("");
-  tools.push("### Reading Context Tools");
-  tools.push("- **getCurrentChapter**: Get current chapter title, index, and reading position");
-  tools.push("- **getSelection**: Get the text the user has currently selected");
-  tools.push("- **getReadingProgress**: Get overall reading progress, current page and chapter");
-  tools.push(
-    "- **getRecentHighlights**: Get user's recent highlights and annotations (params: limit)",
-  );
-  tools.push(
-    "- **getSurroundingContext**: Get the text visible on the current page (params: includeSelection)",
-  );
+  if (hasBookContext) {
+    tools.push("");
+    tools.push("### Reading Context Tools");
+    tools.push("- **getCurrentChapter**: Get current chapter title, index, and reading position");
+    tools.push("- **getSelection**: Get the text the user has currently selected");
+    tools.push("- **getReadingProgress**: Get overall reading progress, current page and chapter");
+    tools.push(
+      "- **getRecentHighlights**: Get user's recent highlights and annotations (params: limit)",
+    );
+    tools.push(
+      "- **getSurroundingContext**: Get the text visible on the current page (params: includeSelection)",
+    );
+  }
 
   // RAG tools (require vectorization)
-  if (isVectorized) {
+  if (hasBookContext && isVectorized) {
     tools.push("");
     tools.push("### Content Retrieval Tools (RAG)");
     tools.push(
@@ -116,30 +129,42 @@ function buildToolsSection(skills: Skill[], isVectorized: boolean): string {
     tools.push(
       "- **ragContext**: Get content around a specific chapter position (params: chapterIndex, range)",
     );
+
+    tools.push("");
+    tools.push("### Content Analysis Tools");
+    tools.push(
+      "- **summarize**: Generate summary of a chapter or entire book (params: scope, chapterIndex, style)",
+    );
+    tools.push(
+      "- **extractEntities**: Extract characters, places, concepts from text (params: entityType, chapterIndex)",
+    );
+    tools.push(
+      "- **analyzeArguments**: Analyze author's arguments and reasoning (params: chapterIndex, focusType)",
+    );
+    tools.push(
+      "- **findQuotes**: Find notable quotes and passages (params: quoteType, chapterIndex, maxQuotes)",
+    );
+    tools.push(
+      "- **compareSections**: Compare two chapters (params: chapterIndex1, chapterIndex2, compareType)",
+    );
+  } else if (hasBookContext) {
+    tools.push("");
+    tools.push("### Fallback Content Tools (no vector index)");
+    tools.push("- **fallbackToc**: Read the original file and list chapters without vectorization");
+    tools.push(
+      "- **fallbackSearch**: Keyword-scan the original file when the book is not vectorized (params: query, topK)",
+    );
+    tools.push(
+      "- **fallbackChapterContext**: Read a specific chapter from the original file (params: chapterIndex)",
+    );
   }
 
-  // Content analysis tools (always available)
-  tools.push("");
-  tools.push("### Content Analysis Tools");
-  tools.push(
-    "- **summarize**: Generate summary of a chapter or entire book (params: scope, chapterIndex, style)",
-  );
-  tools.push(
-    "- **extractEntities**: Extract characters, places, concepts from text (params: entityType, chapterIndex)",
-  );
-  tools.push(
-    "- **analyzeArguments**: Analyze author's arguments and reasoning (params: chapterIndex, focusType)",
-  );
-  tools.push(
-    "- **findQuotes**: Find notable quotes and passages (params: quoteType, chapterIndex, maxQuotes)",
-  );
-  tools.push("- **getAnnotations**: Get user's highlights and notes (params: type)");
-  tools.push(
-    "- **compareSections**: Compare two chapters (params: chapterIndex1, chapterIndex2, compareType)",
-  );
-  tools.push(
-    "- **addCitation**: CRITICAL - Register a citation with CFI for precise navigation. You MUST extract the 'cfi' field from ragSearch/tool results and pass it here. The citationIndex param determines which [N] marker it maps to (params: citationIndex [REQUIRED - the number N for [N]], chapterTitle, chapterIndex, cfi [REQUIRED from tool results], quotedText, reasoning)",
-  );
+  if (hasBookContext) {
+    tools.push("- **getAnnotations**: Get user's highlights and notes (params: type)");
+    tools.push(
+      "- **addCitation**: CRITICAL - Register a citation with CFI for precise navigation. You MUST extract the 'cfi' field from ragSearch/tool results and pass it here. The citationIndex param determines which [N] marker it maps to (params: citationIndex [REQUIRED - the number N for [N]], chapterTitle, chapterIndex, cfi [REQUIRED from tool results], quotedText, reasoning)",
+    );
+  }
 
   // Custom skills
   if (skills.length > 0) {
@@ -153,7 +178,7 @@ function buildToolsSection(skills: Skill[], isVectorized: boolean): string {
   return `## Available Tools\n\n${tools.join("\n")}`;
 }
 
-function buildWorkflowSection(isVectorized: boolean): string {
+function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): string {
   const steps: string[] = [
     "## Core Workflow",
     "",
@@ -163,13 +188,23 @@ function buildWorkflowSection(isVectorized: boolean): string {
     "2. **Gather content** — Use the right tools to retrieve relevant content:",
   ];
 
+  if (!hasBookContext) {
+    steps.push("No current book is attached. For library-level questions, use general tools.");
+    return steps.join("\n");
+  }
+
   if (isVectorized) {
     steps.push("   - **ragSearch**: for finding specific content by topic/keyword");
     steps.push("   - **ragToc**: for understanding book structure");
+    steps.push(
+      "   - **summarize/extractEntities/analyzeArguments/findQuotes**: for indexed content analysis",
+    );
+  } else {
+    steps.push("   - **fallbackSearch**: for keyword exploration when the book is not vectorized");
+    steps.push("   - **fallbackToc**: for understanding book structure without an index");
+    steps.push("   - **fallbackChapterContext**: for reading a specific chapter without an index");
   }
 
-  steps.push("   - **extractEntities**: for finding characters, places, concepts");
-  steps.push("   - **summarize**: for chapter or book summaries");
   steps.push("   - **getSurroundingContext**: for current page content");
 
   steps.push("3. **Synthesize and answer** — Analyze the tool results and write your answer");
@@ -201,7 +236,7 @@ function buildWorkflowSection(isVectorized: boolean): string {
   steps.push("");
   steps.push("4. **Citation workflow with CFI:**");
   steps.push(
-    "   - Step 1: Use ragSearch or other tools to retrieve content (results include 'cfi' field)",
+    "   - Step 1: Use ragSearch/fallbackSearch/fallbackChapterContext or other tools to retrieve content (results may include 'cfi' field)",
   );
   steps.push("   - Step 2: Extract chapterTitle, chapterIndex, and **CFI** from tool results");
   steps.push(
