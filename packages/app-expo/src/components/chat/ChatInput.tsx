@@ -24,7 +24,8 @@ interface ChatInputProps {
   placeholder?: string;
 }
 
-const MAX_INPUT_HEIGHT = 100;
+const MIN_INPUT_HEIGHT = 44;
+const MAX_INPUT_HEIGHT = 112;
 const INPUT_PADDING_VERTICAL = 16;
 
 export function ChatInput({
@@ -38,7 +39,7 @@ export function ChatInput({
   const [text, setText] = useState("");
   const [deepThinking, setDeepThinking] = useState(false);
   const [spoilerFree, setSpoilerFree] = useState(false);
-  const [inputHeight, setInputHeight] = useState(36);
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const { t } = useTranslation();
   const colors = useColors();
   const s = makeStyles(colors);
@@ -52,14 +53,14 @@ export function ChatInput({
     setText("");
     setDeepThinking(false);
     setSpoilerFree(false);
-    setInputHeight(36);
+    setInputHeight(MIN_INPUT_HEIGHT);
   }, [text, deepThinking, spoilerFree, quotes, onSend]);
 
   const handleContentSizeChange = useCallback((e: any) => {
     const contentHeight = e.nativeEvent.contentSize.height;
     const totalHeight = contentHeight + INPUT_PADDING_VERTICAL;
     const h = Math.min(totalHeight, MAX_INPUT_HEIGHT);
-    setInputHeight(Math.max(36, h));
+    setInputHeight(Math.max(MIN_INPUT_HEIGHT, h));
   }, []);
 
   const canSend = text.trim().length > 0 || quotes.length > 0;
@@ -176,7 +177,11 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.background,
-      overflow: "hidden",
+      shadowColor: colors.foreground,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
     },
     quotesRow: {
       flexDirection: "row",
@@ -207,16 +212,19 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.foreground,
       paddingHorizontal: 16,
       paddingTop: 12,
-      paddingBottom: 4,
+      paddingBottom: 6,
+      minHeight: MIN_INPUT_HEIGHT,
       maxHeight: MAX_INPUT_HEIGHT,
       lineHeight: 20,
+      textAlignVertical: "top",
     },
     actionBar: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: 12,
-      paddingBottom: 8,
+      paddingBottom: 9,
+      minHeight: 36,
     },
     toggleRow: {
       flexDirection: "row",
@@ -250,9 +258,12 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 14,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
     },
     sendBtnActive: {
+      borderColor: withOpacity(colors.primary, 0.35),
       backgroundColor: colors.primary,
     },
     deepThinkHint: {
