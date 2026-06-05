@@ -94,12 +94,10 @@ export const makeStyles = (colors: ThemeColors, cardWidth: number) => {
     downloadingOverlayPct: { marginTop: 2, fontSize: 12, color: "#fff", opacity: 0.85 },
     vecBadge: {
       position: "absolute", top: 2, left: 2,
-      backgroundColor: `${colors.primary}E6`,
-      borderWidth: 0.5,
-      borderColor: `${colors.primaryForeground}33`,
-      borderRadius: radius.sm, paddingHorizontal: 5, paddingVertical: 2,
+      backgroundColor: "rgba(22,163,74,0.8)",
+      borderRadius: radius.sm, paddingHorizontal: 4, paddingVertical: 2,
     },
-    vecBadgeText: { fontSize: 7, fontWeight: fontWeight.medium, color: colors.primaryForeground },
+    vecBadgeText: { fontSize: 7, fontWeight: fontWeight.medium, color: "#fff" },
     moreButtonWrap: {
       position: "absolute",
       right: 6,

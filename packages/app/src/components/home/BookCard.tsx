@@ -326,10 +326,8 @@ export const BookCard = memo(function BookCard({
 
         {/* Vectorized badge — top-left corner */}
         {book.isVectorized && !vectorizing && (
-          <div className="absolute left-1 top-1 z-10 rounded-md border border-primary/20 bg-primary/85 px-1.5 py-0.5 shadow-sm backdrop-blur-sm">
-            <span className="text-[9px] font-medium text-primary-foreground">
-              {t("home.vec_indexed")}
-            </span>
+          <div className="absolute left-1 top-1 z-10 flex items-center rounded bg-green-600/80 px-1 py-0.5 backdrop-blur-sm">
+            <span className="text-[9px] font-medium text-white">{t("home.vec_indexed")}</span>
           </div>
         )}
 
