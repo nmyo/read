@@ -230,6 +230,100 @@ function getTTSSegmentIdentity(cfi?: string | null, text?: string | null) {
   return `${cfi || ""}::${normalizeTTSSegmentText(text)}`;
 }
 
+type PaginatedVisibleRange = {
+  left: number;
+  right: number;
+  source: "renderer" | "legacy-offset" | "size-fallback";
+};
+
+function getPaginatedVisibleRangeCandidates(renderer: {
+  start?: unknown;
+  end?: unknown;
+  size?: unknown;
+}): PaginatedVisibleRange[] {
+  const start = Number(renderer.start ?? 0);
+  const end = Number(renderer.end ?? 0);
+  const size = Number(renderer.size ?? 0);
+  const candidates: PaginatedVisibleRange[] = [];
+
+  if (Number.isFinite(start) && Number.isFinite(size) && size > 0) {
+    candidates.push({ left: start - size, right: start, source: "legacy-offset" });
+    candidates.push({ left: start, right: start + size, source: "size-fallback" });
+  }
+
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+    candidates.push({ left: start, right: end, source: "renderer" });
+  }
+
+  return candidates.filter(
+    (candidate, index, list) =>
+      candidate.right > candidate.left &&
+      list.findIndex(
+        (item) => item.left === candidate.left && item.right === candidate.right,
+      ) === index,
+  );
+}
+
+function rectIntersectsPaginatedRange(rect: DOMRect, range: PaginatedVisibleRange) {
+  return rect.right > range.left && rect.left < range.right;
+}
+
+function scorePaginatedVisibleRange(doc: Document, range: PaginatedVisibleRange) {
+  if (!doc.body) return 0;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: acceptTTSNode,
+  });
+  let score = 0;
+  let visited = 0;
+  for (
+    let textNode = walker.nextNode() as Text | null;
+    textNode && visited < 500;
+    textNode = walker.nextNode() as Text | null
+  ) {
+    visited += 1;
+    const text = normalizeTTSSegmentText(textNode.nodeValue);
+    if (!text) continue;
+    try {
+      const textRange = doc.createRange();
+      textRange.selectNodeContents(textNode);
+      const rects = Array.from(textRange.getClientRects()).filter(
+        (rect) => rect.width > 0 && rect.height > 0,
+      );
+      if (rects.some((rect) => rectIntersectsPaginatedRange(rect, range))) {
+        score += Math.min(text.length, 120);
+      }
+    } catch {
+      // Ignore nodes that cannot be measured.
+    }
+  }
+  return score;
+}
+
+function pickPaginatedVisibleRange(
+  doc: Document,
+  renderer: { start?: unknown; end?: unknown; size?: unknown },
+) {
+  const candidates = getPaginatedVisibleRangeCandidates(renderer);
+  if (candidates.length <= 1) return candidates[0] ?? null;
+
+  const legacyRange = candidates.find((range) => range.source === "legacy-offset") ?? null;
+  if (legacyRange && scorePaginatedVisibleRange(doc, legacyRange) > 0) {
+    return legacyRange;
+  }
+
+  const rendererRange = candidates.find((range) => range.source === "renderer") ?? null;
+  if (rendererRange && scorePaginatedVisibleRange(doc, rendererRange) > 0) {
+    return rendererRange;
+  }
+
+  const fallbackRange = candidates.find((range) => range.source === "size-fallback") ?? null;
+  if (fallbackRange && scorePaginatedVisibleRange(doc, fallbackRange) > 0) {
+    return fallbackRange;
+  }
+
+  return legacyRange ?? rendererRange ?? fallbackRange ?? candidates[0];
+}
+
 function getIframeClickMetrics(doc: Document, container: HTMLElement | null, clientX: number) {
   const iframe = doc.defaultView?.frameElement as HTMLIFrameElement | null;
   if (!iframe || !container) return null;
@@ -763,15 +857,22 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
 
         await ensureDesktopTTS();
 
-        const isRectVisibleInReader = (rect: DOMRect) => {
+        const rangeByDoc = new WeakMap<Document, PaginatedVisibleRange | null>();
+        const getVisibleRangeForDoc = (doc: Document) => {
+          if (rangeByDoc.has(doc)) return rangeByDoc.get(doc) ?? null;
+          const range = pickPaginatedVisibleRange(doc, renderer);
+          rangeByDoc.set(doc, range);
+          return range;
+        };
+
+        const isRectVisibleInReader = (rect: DOMRect, doc?: Document | null) => {
           if (!rect || rect.width <= 0 || rect.height <= 0) return false;
           const isPaginated = !renderer.scrolled;
-          if (isPaginated && renderer.size > 0) {
-            const visibleLeft = renderer.start - renderer.size;
-            const visibleRight = renderer.start;
-            return rect.right > visibleLeft && rect.left < visibleRight;
+          if (isPaginated) {
+            const visibleRange = doc ? getVisibleRangeForDoc(doc) : null;
+            return visibleRange ? rectIntersectsPaginatedRange(rect, visibleRange) : false;
           }
-          const win = (contents[0]?.doc as Document | undefined)?.defaultView;
+          const win = doc?.defaultView ?? (contents[0]?.doc as Document | undefined)?.defaultView;
           if (!win) return false;
           return (
             rect.right > 0 &&
@@ -786,11 +887,15 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         // first TTS segment.
         const isRangeStartVisibleInReader = (range: Range) => {
           try {
+            const doc =
+              range.commonAncestorContainer.nodeType === Node.DOCUMENT_NODE
+                ? (range.commonAncestorContainer as Document)
+                : range.commonAncestorContainer.ownerDocument;
             const rects = Array.from(range.getClientRects());
             if (!rects.length) {
-              return isRectVisibleInReader(range.getBoundingClientRect());
+              return isRectVisibleInReader(range.getBoundingClientRect(), doc);
             }
-            return isRectVisibleInReader(rects[0]);
+            return isRectVisibleInReader(rects[0], doc);
           } catch {
             return false;
           }
@@ -828,7 +933,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           let visibleBlocks = Array.from(doc.querySelectorAll(blockSelector)).filter((block) => {
             if (!block.textContent?.trim()) return false;
             if (shouldSkipTTSNode(block)) return false;
-            return isRectVisibleInReader(block.getBoundingClientRect());
+            return isRectVisibleInReader(block.getBoundingClientRect(), doc);
           });
 
           // Fallback: if no standard block elements found (e.g., epub uses only
@@ -840,7 +945,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
                 if (shouldSkipTTSNode(el)) return false;
                 // Only leaf-level elements with direct text content
                 if (el.querySelector("div, section, article, p")) return false;
-                return isRectVisibleInReader(el.getBoundingClientRect());
+                return isRectVisibleInReader(el.getBoundingClientRect(), doc);
               },
             );
           }
