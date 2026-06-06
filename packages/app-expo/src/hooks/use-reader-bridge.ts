@@ -681,7 +681,6 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       end: number;
       viewSize: number;
       size: number;
-      carryDistance?: number;
       currentSectionIndex: { current: number; total: number } | number;
       totalSections: number;
     }) => {
@@ -696,18 +695,12 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
           ? msg.currentSectionIndex
           : msg.currentSectionIndex.current;
       const threshold = 30;
-      // deltaY > 0 → finger moving down (reading backward, toward chapter top)
-      // deltaY < 0 → finger moving up (reading forward, toward chapter bottom)
-      // Predictive geometry: turn when this gesture would carry past the edge.
       const scrollDelta = deltaY;
-
       const atStart = scrollDelta > threshold && start <= scrollDelta;
       const atEnd = scrollDelta < -threshold && Math.ceil(end) - scrollDelta >= viewSize;
-      const carryDistance = Math.max(1, Number(msg.carryDistance ?? Math.abs(deltaY)) || 1);
 
       console.log("[ReaderBridge] continuous-scroll:", {
         deltaY,
-        carryDistance,
         start,
         end,
         viewSize,
@@ -721,7 +714,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       if (atEnd && currentIndex < totalSections - 1) {
         console.log("[ReaderBridge] Going to next chapter");
         scrollTransitioningRef.current = true;
-        goNext(Math.max(1, viewSize - Math.floor(end) + carryDistance));
+        goNext(Math.max(1, viewSize - Math.floor(end) + 1));
         setTimeout(() => {
           scrollTransitioningRef.current = false;
         }, 500);
@@ -730,7 +723,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       else if (atStart && currentIndex > 0) {
         console.log("[ReaderBridge] Going to previous chapter");
         scrollTransitioningRef.current = true;
-        goPrev(Math.max(1, Math.ceil(start) + carryDistance));
+        goPrev(Math.max(1, Math.ceil(start) + 1));
         setTimeout(() => {
           scrollTransitioningRef.current = false;
         }, 500);

@@ -21,17 +21,8 @@ const WHEEL_IDLE_MS = 200;
 
 const WHEEL_LINE_HEIGHT = 16;
 
-/** How close (px) to a chapter edge counts as "at the edge". */
-const SCROLLED_EDGE_TOLERANCE_PX = 4;
-
-/** Minimum deliberate push past a chapter edge before turning. */
-const SCROLLED_OVERSCROLL_TURN_PX = 32;
-
-/** Forget accumulated overscroll after this idle gap (ms). */
-const SCROLLED_OVERSCROLL_RESET_MS = 250;
-
 /** Lock window (ms) after a scrolled chapter turn settles, to avoid double-firing. */
-const SCROLLED_TURN_UNLOCK_MS = 80;
+const SCROLLED_TURN_UNLOCK_MS = 120;
 
 const wheelDeltaToPixels = (delta: number, deltaMode = 0) => {
   if (deltaMode === 1) return delta * WHEEL_LINE_HEIGHT;
@@ -48,17 +39,12 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
   const lockTime = useRef(0);
   const scrolledTurnLock = useRef(false);
   const scrolledTurnUnlockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Signed cumulative overscroll while pinned at an edge: + toward bottom, - toward top.
-  const overscrollAccum = useRef(0);
-  const overscrollResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * In scrolled mode the browser handles all in-chapter scrolling natively.
-   * We only intervene at the chapter boundary: once the viewport is pinned at
-   * the top/bottom of the current chapter, the user must keep deliberately
-   * pushing in that direction (cumulative overscroll) before we turn to the
-   * adjacent chapter. This keeps boundary turns intentional (no misfire from a
-   * small nudge) while still feeling immediate for a real continued scroll.
+   * We only intervene at the chapter boundary, mirroring readest/foliate's
+   * native model: when the current gesture would pass the top or bottom edge,
+   * hand the edge distance to prev/next so foliate opens the adjacent section.
    */
   const handleContinuousScroll = useCallback(
     (scrollDelta: number, threshold = 0) => {
@@ -74,35 +60,6 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
         return false;
       }
 
-      const atTop = start <= SCROLLED_EDGE_TOLERANCE_PX;
-      const atBottom = viewSize - end <= SCROLLED_EDGE_TOLERANCE_PX;
-
-      // scrollDelta > 0: pushing toward top; < 0: pushing toward bottom.
-      const pushingBottom = scrollDelta < -threshold && atBottom;
-      const pushingTop = scrollDelta > threshold && atTop;
-
-      // Not pinned against an edge in a meaningful direction → reset and bail.
-      if (!pushingBottom && !pushingTop) {
-        overscrollAccum.current = 0;
-        return false;
-      }
-
-      // Accumulate cumulative push in the current direction (reset if it flips).
-      const dir = pushingBottom ? 1 : -1;
-      if (Math.sign(overscrollAccum.current) !== dir) overscrollAccum.current = 0;
-      overscrollAccum.current += dir * Math.abs(scrollDelta);
-
-      // Forget the accumulation if the user pauses at the edge (e.g. reading the last lines).
-      if (overscrollResetTimer.current) clearTimeout(overscrollResetTimer.current);
-      overscrollResetTimer.current = setTimeout(() => {
-        overscrollAccum.current = 0;
-      }, SCROLLED_OVERSCROLL_RESET_MS);
-
-      // Require a small deliberate push past the edge before turning.
-      if (Math.abs(overscrollAccum.current) < SCROLLED_OVERSCROLL_TURN_PX) return false;
-
-      const carry = Math.abs(overscrollAccum.current);
-      overscrollAccum.current = 0;
       const turn = (run: () => Promise<unknown> | undefined) => {
         scrolledTurnLock.current = true;
         Promise.resolve(run()).finally(() => {
@@ -113,15 +70,18 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
         });
       };
 
-      if (pushingBottom) {
-        const distance = Math.max(1, Math.ceil(viewSize - end) + carry);
+      if (start <= scrollDelta && scrollDelta > threshold) {
+        turn(() => viewRef.current?.prev(Math.ceil(start) + 1));
+        return true;
+      }
+
+      if (Math.ceil(end) - scrollDelta >= viewSize && scrollDelta < -threshold) {
+        const distance = Math.max(1, viewSize - Math.floor(end) + 1);
         turn(() => viewRef.current?.next(distance));
         return true;
       }
 
-      const distance = Math.max(1, Math.ceil(start) + carry);
-      turn(() => viewRef.current?.prev(distance));
-      return true;
+      return false;
     },
     [viewRef],
   );
@@ -202,10 +162,6 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
       if (scrolledTurnUnlockTimer.current) {
         clearTimeout(scrolledTurnUnlockTimer.current);
         scrolledTurnUnlockTimer.current = null;
-      }
-      if (overscrollResetTimer.current) {
-        clearTimeout(overscrollResetTimer.current);
-        overscrollResetTimer.current = null;
       }
     };
   }, []);
