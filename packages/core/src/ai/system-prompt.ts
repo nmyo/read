@@ -259,6 +259,9 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
       "   - Step 3: Call addCitation with the extracted CFI and set citationIndex to the number you will use in [N]",
     );
     steps.push(
+      "     The citationIndex values MUST follow the final response marker order exactly: the source for [1] uses citationIndex=1, [2] uses citationIndex=2, etc. Never swap citationIndex values even if tool calls complete out of order.",
+    );
+    steps.push(
       "   - Step 4: Wait for addCitation to return a citation result successfully",
     );
     steps.push(
@@ -286,11 +289,14 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
     steps.push("2. Call addCitation before writing the final response body");
     steps.push("3. Use [1], [2], [3] markers only after addCitation succeeds");
     steps.push(
-      "4. If no cfi is present, or addCitation returns an error, cite the source in plain text using chapterTitle/chapterIndex and a short quoted excerpt",
+      "4. The citationIndex values MUST follow the final response marker order exactly: the source for [1] uses citationIndex=1, [2] uses citationIndex=2, etc. Never swap citationIndex values even if tool calls complete out of order.",
     );
-    steps.push("5. Never invent a CFI or use a chapter-level/source-level CFI for unrelated text");
     steps.push(
-      "6. If the user needs consistently precise jumpable references, tell them indexing the book improves reliability",
+      "5. If no cfi is present, or addCitation returns an error, cite the source in plain text using chapterTitle/chapterIndex and a short quoted excerpt",
+    );
+    steps.push("6. Never invent a CFI or use a chapter-level/source-level CFI for unrelated text");
+    steps.push(
+      "7. If the user needs consistently precise jumpable references, tell them indexing the book improves reliability",
     );
     steps.push("");
   }

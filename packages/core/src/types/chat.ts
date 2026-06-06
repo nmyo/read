@@ -59,10 +59,18 @@ export interface Message {
 
 /** Records the order of parts as they appeared during streaming */
 export interface PartsOrderEntry {
-  type: "text" | "reasoning" | "tool_call" | "citation";
+  type: "text" | "quote" | "reasoning" | "tool_call" | "citation" | "mindmap";
   id: string;
   /** For text parts, stores the text content so we can reconstruct separate text segments */
   text?: string;
+  source?: string;
+  bookId?: string;
+  chapterTitle?: string;
+  chapterIndex?: number;
+  cfi?: string;
+  citationIndex?: number;
+  title?: string;
+  markdown?: string;
 }
 
 export interface Thread {

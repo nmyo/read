@@ -37,6 +37,37 @@ import {
 } from "../types/message";
 import type { MindmapPart } from "../types/message";
 
+function buildPartsOrder(parts: Part[]) {
+  return parts.map((p) => {
+    const base = {
+      type: p.type as "text" | "reasoning" | "tool_call" | "citation" | "mindmap",
+      id: p.id,
+    };
+    if (p.type === "text") {
+      return { ...base, text: (p as TextPart).text };
+    }
+    if (p.type === "mindmap") {
+      return {
+        ...base,
+        title: (p as MindmapPart).title,
+        markdown: (p as MindmapPart).markdown,
+      };
+    }
+    if (p.type === "citation") {
+      return {
+        ...base,
+        bookId: (p as CitationPart).bookId,
+        chapterTitle: (p as CitationPart).chapterTitle,
+        chapterIndex: (p as CitationPart).chapterIndex,
+        cfi: (p as CitationPart).cfi,
+        text: (p as CitationPart).text,
+        citationIndex: (p as CitationPart).citationIndex,
+      };
+    }
+    return base;
+  });
+}
+
 /** Type guard for mindmap tool result */
 function isMindmapResult(
   result: unknown,
@@ -278,33 +309,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
                 timestamp: p.createdAt,
               }));
 
-            const partsOrder = currentParts.map((p) => {
-              const base = {
-                type: p.type as "text" | "reasoning" | "tool_call" | "citation" | "mindmap",
-                id: p.id,
-              };
-              if (p.type === "text") {
-                return { ...base, text: (p as TextPart).text };
-              }
-              if (p.type === "mindmap") {
-                return {
-                  ...base,
-                  title: (p as MindmapPart).title,
-                  markdown: (p as MindmapPart).markdown,
-                };
-              }
-              if (p.type === "citation") {
-                return {
-                  ...base,
-                  bookId: (p as CitationPart).bookId,
-                  chapterTitle: (p as CitationPart).chapterTitle,
-                  chapterIndex: (p as CitationPart).chapterIndex,
-                  cfi: (p as CitationPart).cfi,
-                  text: (p as CitationPart).text,
-                };
-              }
-              return base;
-            });
+            const partsOrder = buildPartsOrder(currentParts);
 
             const assistantMessage = {
               id: messageId,
@@ -355,33 +360,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               .map((p) => (p as TextPart).text)
               .join("\n");
 
-            const partsOrder = currentParts.map((p) => {
-              const base = {
-                type: p.type as "text" | "reasoning" | "tool_call" | "citation" | "mindmap",
-                id: p.id,
-              };
-              if (p.type === "text") {
-                return { ...base, text: (p as TextPart).text };
-              }
-              if (p.type === "mindmap") {
-                return {
-                  ...base,
-                  title: (p as MindmapPart).title,
-                  markdown: (p as MindmapPart).markdown,
-                };
-              }
-              if (p.type === "citation") {
-                return {
-                  ...base,
-                  bookId: (p as CitationPart).bookId,
-                  chapterTitle: (p as CitationPart).chapterTitle,
-                  chapterIndex: (p as CitationPart).chapterIndex,
-                  cfi: (p as CitationPart).cfi,
-                  text: (p as CitationPart).text,
-                };
-              }
-              return base;
-            });
+            const partsOrder = buildPartsOrder(currentParts);
 
             const errorMessage = {
               id: messageId,
@@ -436,33 +415,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
                 timestamp: p.createdAt,
               }));
 
-            const partsOrder = currentParts.map((p) => {
-              const base = {
-                type: p.type as "text" | "reasoning" | "tool_call" | "citation" | "mindmap",
-                id: p.id,
-              };
-              if (p.type === "text") {
-                return { ...base, text: (p as TextPart).text };
-              }
-              if (p.type === "mindmap") {
-                return {
-                  ...base,
-                  title: (p as MindmapPart).title,
-                  markdown: (p as MindmapPart).markdown,
-                };
-              }
-              if (p.type === "citation") {
-                return {
-                  ...base,
-                  bookId: (p as CitationPart).bookId,
-                  chapterTitle: (p as CitationPart).chapterTitle,
-                  chapterIndex: (p as CitationPart).chapterIndex,
-                  cfi: (p as CitationPart).cfi,
-                  text: (p as CitationPart).text,
-                };
-              }
-              return base;
-            });
+            const partsOrder = buildPartsOrder(currentParts);
 
             const abortedMessage = {
               id: messageId,
