@@ -240,8 +240,19 @@ function useAutoHideControls(
         // Single-page: left/right 40% = nav, middle 20% = toggle
         const leftNavEnd = isDoublePage ? 0.33 : 0.4;
         const rightNavStart = isDoublePage ? 0.67 : 0.6;
+        const source = data.type === "iframe-single-click" ? "iframe" : "shell";
 
         const toggleControls = () => {
+          console.log("[ReaderTap][reader:action]", {
+            bookKey,
+            source,
+            action: "toggle-controls",
+            fraction,
+            isDoublePage,
+            isScrollMode,
+            leftNavEnd,
+            rightNavStart,
+          });
           setIsVisible((prev) => {
             if (prev) {
               clearTimer();
@@ -251,6 +262,20 @@ function useAutoHideControls(
             return true;
           });
         };
+
+        console.log("[ReaderTap][reader:message]", {
+          bookKey,
+          source,
+          rawType: data.type,
+          clientX: data.clientX,
+          xFraction: data.xFraction,
+          computedFraction: fraction,
+          viewWidth,
+          isDoublePage,
+          isScrollMode,
+          leftNavEnd,
+          rightNavStart,
+        });
 
         if (isScrollMode) {
           toggleControls();
@@ -267,8 +292,26 @@ function useAutoHideControls(
         setIsVisible(false);
 
         if (fraction <= leftNavEnd) {
+          console.log("[ReaderTap][reader:action]", {
+            bookKey,
+            source,
+            action: "prev",
+            fraction,
+            isDoublePage,
+            leftNavEnd,
+            rightNavStart,
+          });
           onPrev?.();
         } else {
+          console.log("[ReaderTap][reader:action]", {
+            bookKey,
+            source,
+            action: "next",
+            fraction,
+            isDoublePage,
+            leftNavEnd,
+            rightNavStart,
+          });
           onNext?.();
         }
       })();
