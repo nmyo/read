@@ -218,6 +218,28 @@ export const useTTSStore = create<TTSState>()(
       const config = normalizeTTSConfig(get().config);
       const { playState } = get();
       if (playState !== "paused") return;
+
+      // Engines with true suspend/resume: if that player is actually suspended,
+      // continue exactly where paused — no re-synthesis, no API re-call, no jump.
+      // Do NOT bump generation or rebind callbacks; the original speak()'s callbacks
+      // keep driving progress. Otherwise fall through to the re-speak block below
+      // (system engine, or engine changed while paused so the player isn't suspended).
+      if (config.engine === "dashscope" && config.dashscopeApiKey) {
+        const player = getDashScopeTTS();
+        if (player.paused) {
+          player.resume();
+          set({ playState: "playing" });
+          return;
+        }
+      } else if (config.engine === "edge") {
+        const player = getEdgeTTS();
+        if (player.paused) {
+          player.resume();
+          set({ playState: "playing" });
+          return;
+        }
+      }
+
       if (_sessionSegments.length > 0) {
         const nextIndex = Math.max(0, Math.min(_sessionCurrentIndex, _sessionSegments.length - 1));
         const remainingSegments = _sessionSegments.slice(nextIndex);
