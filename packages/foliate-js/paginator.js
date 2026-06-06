@@ -14,28 +14,48 @@ const debounce = (f, wait, immediate) => {
   };
 };
 
-const lerp = (min, max, x) => x * (max - min) + min;
-// Smooth cubic bezier approximation — feels like a natural page glide
-const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
-const animate = (a, b, duration, ease, render) =>
+const animateScroll = (element, scrollProp, startValue, endValue, duration) =>
   new Promise((resolve) => {
-    let start;
-    const step = (now) => {
-      if (document.hidden) {
-        render(lerp(a, b, 1));
-        return resolve();
-      }
-      start ??= now;
-      const fraction = Math.min(1, (now - start) / duration);
-      render(lerp(a, b, ease(fraction)));
-      if (fraction < 1) requestAnimationFrame(step);
-      else resolve();
-    };
     if (document.hidden) {
-      render(lerp(a, b, 1));
+      element[scrollProp] = endValue;
       return resolve();
     }
-    requestAnimationFrame(step);
+
+    const content = element.firstElementChild;
+    if (!content) {
+      element[scrollProp] = endValue;
+      return resolve();
+    }
+
+    const transformProp = scrollProp === "scrollLeft" ? "translateX" : "translateY";
+    const delta = endValue - startValue;
+    content.style.willChange = "transform";
+    content.style.transform = `${transformProp}(0px)`;
+    content.style.transition = "none";
+    content.getBoundingClientRect();
+
+    content.style.transition = `transform ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
+    content.style.transform = `${transformProp}(${-delta}px)`;
+
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      content.style.willChange = "";
+      content.style.transform = `${transformProp}(0px)`;
+      content.style.transition = "none";
+      element[scrollProp] = endValue;
+      resolve();
+    };
+
+    const onTransitionEnd = (event) => {
+      if (event.target === content && event.propertyName === "transform") {
+        content.removeEventListener("transitionend", onTransitionEnd);
+        cleanup();
+      }
+    };
+    content.addEventListener("transitionend", onTransitionEnd);
+    setTimeout(cleanup, duration + 50);
   });
 
 // collapsed range doesn't return client rects sometimes (or always?)
@@ -468,6 +488,7 @@ export class Paginator extends HTMLElement {
   #touchState;
   #touchScrolled;
   #lastVisibleRange;
+  #isAnimating = false;
   constructor() {
     super();
     this.#root.innerHTML = `<style>
@@ -536,6 +557,16 @@ export class Paginator extends HTMLElement {
             grid-column: 2 / 5;
             grid-row: 1;
             overflow: hidden;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000px;
+            -webkit-perspective: 1000px;
+        }
+        #container > * {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
         :host([flow="scrolled"]) #container {
             grid-column: 1 / -1;
@@ -556,11 +587,14 @@ export class Paginator extends HTMLElement {
     // header/footer elements removed
 
     this.#observer.observe(this.#container);
-    this.#container.addEventListener("scroll", () => this.dispatchEvent(new Event("scroll")));
+    this.#container.addEventListener("scroll", () => {
+      // Don't dispatch scroll events during animation to prevent jank
+      if (!this.#isAnimating) this.dispatchEvent(new Event("scroll"));
+    });
     this.#container.addEventListener(
       "scroll",
       debounce(() => {
-        if (this.scrolled) {
+        if (this.scrolled && !this.#isAnimating) {
           if (this.#justAnchored) this.#justAnchored = false;
           else this.#afterScroll("scroll");
         }
@@ -950,12 +984,15 @@ export class Paginator extends HTMLElement {
     }
     // FIXME: vertical-rl only, not -lr
     if (this.scrolled && this.#vertical) offset = -offset;
-    if ((reason === "snap" || smooth) && this.hasAttribute("animated"))
-      return animate(element[scrollProp], offset, 250, easeOutCubic, (x) => (element[scrollProp] = x)).then(() => {
+    if ((reason === "snap" || smooth) && this.hasAttribute("animated")) {
+      const startPosition = element[scrollProp];
+      this.#isAnimating = true;
+      return animateScroll(element, scrollProp, startPosition, offset, 300).then(() => {
+        this.#isAnimating = false;
         this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size];
         this.#afterScroll(reason);
       });
-    else {
+    } else {
       element[scrollProp] = offset;
       this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size];
       this.#afterScroll(reason);
@@ -1086,8 +1123,11 @@ export class Paginator extends HTMLElement {
   #scrollPrev(distance) {
     if (!this.#view) return true;
     if (this.scrolled) {
-      if (this.start > 0) return this.#scrollTo(Math.max(0, this.start - (distance ?? this.size)), null, true);
-      return true;
+      if (this.start > 0) {
+        const target = this.start - (distance ?? this.size);
+        return this.#scrollTo(Math.max(0, target), null, true).then(() => target <= 0);
+      }
+      return !this.atStart;
     }
     if (this.atStart) return;
     const page = this.page - 1;
@@ -1096,9 +1136,13 @@ export class Paginator extends HTMLElement {
   #scrollNext(distance) {
     if (!this.#view) return true;
     if (this.scrolled) {
-      if (this.viewSize - this.end > 2)
-        return this.#scrollTo(Math.min(this.viewSize, distance ? this.start + distance : this.end), null, true);
-      return true;
+      if (this.viewSize - this.end > 2) {
+        const target = distance ? this.start + distance : this.end;
+        return this.#scrollTo(Math.min(this.viewSize, target), null, true).then(
+          () => target + this.size >= this.viewSize,
+        );
+      }
+      return !this.atEnd;
     }
     if (this.atEnd) return;
     const page = this.page + 1;
@@ -1125,7 +1169,7 @@ export class Paginator extends HTMLElement {
         index: this.#adjacentIndex(dir),
         anchor: prev ? () => 1 : () => 0,
       });
-    if (shouldGo || !this.hasAttribute("animated")) await wait(16);
+    if (shouldGo || !this.hasAttribute("animated")) await wait(100);
     this.#locked = false;
   }
   prev(distance) {
