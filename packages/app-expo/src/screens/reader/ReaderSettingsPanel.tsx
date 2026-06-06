@@ -39,6 +39,7 @@ export function ReaderSettingsPanel({ visible, readSettings, bookId, onClose, on
     paragraphSpacing: settingParagraphSpacing,
     pageMargin: settingPageMargin,
     viewMode: settingViewMode,
+    volumeButtonsPageTurn,
     showTopTitleProgress,
     showBottomTimeBattery,
     followSystemFontScale,
@@ -210,6 +211,17 @@ export function ReaderSettingsPanel({ visible, readSettings, bookId, onClose, on
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+          <View style={s.settingRow}>
+            <Text style={s.settingLabel}>{t("settings.volumeButtonsPageTurn")}</Text>
+            <TouchableOpacity
+              style={[s.settingToggleBtn, !!volumeButtonsPageTurn && s.settingToggleBtnActive]}
+              onPress={() => onUpdateSetting("volumeButtonsPageTurn", !volumeButtonsPageTurn)}
+            >
+              <Text style={[s.settingToggleText, !!volumeButtonsPageTurn && s.settingToggleTextActive]}>
+                {volumeButtonsPageTurn ? t("settings.enabled") : t("settings.disabled")}
+              </Text>
+            </TouchableOpacity>
           </View>
           <View style={s.settingRow}>
             <Text style={s.settingLabel}>{t("settings.showTopTitleProgress")}</Text>
