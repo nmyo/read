@@ -1049,19 +1049,13 @@ export class Paginator extends HTMLElement {
             overflow: auto;
             overflow-anchor: auto;
             flex-direction: column;
-            scrollbar-color: rgba(175, 176, 179, .72) transparent;
-            scrollbar-width: thin;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
         :host([flow="scrolled"]) #container::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        :host([flow="scrolled"]) #container::-webkit-scrollbar-thumb {
-            background: rgba(175, 176, 179, .72);
-            border-radius: 999px;
-        }
-        :host([flow="scrolled"]) #container::-webkit-scrollbar-track {
-            background: transparent;
+            display: none;
+            width: 0;
+            height: 0;
         }
         :host([flow="scrolled"]) #container.vertical {
             flex-direction: row;
