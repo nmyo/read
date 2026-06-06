@@ -70,5 +70,6 @@ describe("streamReadingAgent tool registration", () => {
     expect(toolNames).toContain("fallbackToc");
     expect(toolNames).toContain("fallbackSearch");
     expect(toolNames).toContain("fallbackChapterContext");
+    expect(toolNames).not.toContain("addCitation");
   });
 });

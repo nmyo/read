@@ -140,11 +140,11 @@ describe("getAvailableTools", () => {
     expect(names).not.toContain("ragSearch");
   });
 
-  it("should include annotation tools when bookId provided", () => {
+  it("should include annotations but not clickable citations for non-vectorized books", () => {
     const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
     const names = tools.map((t) => t.name);
     expect(names).toContain("getAnnotations");
-    expect(names).toContain("addCitation");
+    expect(names).not.toContain("addCitation");
     // No RAG tools without vectorization
     expect(names).not.toContain("ragSearch");
   });
@@ -160,6 +160,8 @@ describe("getAvailableTools", () => {
     expect(names).toContain("analyzeArguments");
     expect(names).toContain("findQuotes");
     expect(names).toContain("compareSections");
+    expect(names).toContain("getAnnotations");
+    expect(names).toContain("addCitation");
   });
 
   it("should include custom skill tools", () => {
@@ -580,7 +582,7 @@ describe("getAnnotations tool", () => {
       { title: "Note 1", content: "Note content", chapterTitle: "Ch 1" },
     ] as any);
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "getAnnotations");
     const result = (await tool.execute({ type: "all" })) as any;
 
@@ -595,7 +597,7 @@ describe("getAnnotations tool", () => {
       { text: "Highlight", chapterTitle: "Ch 1", color: "blue" },
     ] as any);
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "getAnnotations");
     const result = (await tool.execute({ type: "highlights" })) as any;
 
@@ -608,7 +610,7 @@ describe("getAnnotations tool", () => {
       { title: "My Note", content: "Content", chapterTitle: "Ch 1" },
     ] as any);
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "getAnnotations");
     const result = (await tool.execute({ type: "notes" })) as any;
 
@@ -634,7 +636,7 @@ describe("addCitation tool", () => {
       }),
     ] as any);
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "addCitation");
     const result = (await tool.execute({
       citationIndex: 1,
@@ -654,7 +656,7 @@ describe("addCitation tool", () => {
   it("should fallback to AI-provided CFI when refinement fails", async () => {
     vi.mocked(getChunks).mockRejectedValue(new Error("DB error"));
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "addCitation");
     const result = (await tool.execute({
       citationIndex: 1,
@@ -680,7 +682,7 @@ describe("addCitation tool", () => {
       }),
     ] as any);
 
-    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: true, enabledSkills: [] });
     const tool = findTool(tools, "addCitation");
     const result = (await tool.execute({
       citationIndex: 1,

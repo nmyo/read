@@ -80,7 +80,7 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
   return {
     name: "fallbackSearch",
     description:
-      "Keyword search the original book file without a vector index. Slower and less semantic than RAG, but useful when the book has not been vectorized. Results include CFI when available.",
+      "Keyword search the original book file without a vector index. Slower and less semantic than RAG, but useful when the book has not been vectorized. Results are chapter/snippet sources only and do not provide precise navigation.",
     parameters: {
       query: { type: "string", description: "Keywords or phrase to search for", required: true },
       topK: { type: "number", description: "Number of chapters/snippets to return (default: 5)" },
@@ -114,7 +114,6 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
           chapterIndex: chapter.index,
           content: snippet,
           score,
-          cfi: chapter.segments?.[0]?.cfi || "",
         });
       }
 
@@ -126,7 +125,7 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
         totalTokens,
         tokenBudget: SEARCH_TOKEN_BUDGET,
         instruction:
-          "These are keyword fallback results from the original file, not semantic vector results. Cite returned CFI with addCitation when available.",
+          "These are keyword fallback results from the original file, not semantic vector results. Mention chapterTitle/chapterIndex in plain text when citing them; do not create clickable citations or jump links from fallback results.",
       };
     },
   };
@@ -165,7 +164,6 @@ export function createFallbackChapterContextTool(bookId: string): ToolDefinition
         chunks: [
           {
             content,
-            cfi: chapter.segments?.[0]?.cfi || "",
             chapterTitle: chapter.title,
             chapterIndex: chapter.index,
           },
@@ -174,7 +172,7 @@ export function createFallbackChapterContextTool(bookId: string): ToolDefinition
         tokenBudget: CHAPTER_TOKEN_BUDGET,
         truncated: tokens > CHAPTER_TOKEN_BUDGET,
         instruction:
-          "Summarize or analyze this chapter using only the returned content. Use the CFI in chunks for addCitation when available.",
+          "Summarize or analyze this chapter using only the returned content. Mention this chapterTitle/chapterIndex in plain text when citing it; do not create clickable citations or jump links from fallback content.",
       };
     },
   };

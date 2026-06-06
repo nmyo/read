@@ -103,8 +103,13 @@ export function getAvailableTools(options: {
       );
     }
 
-    // Annotation & citation tools (always available when book is loaded)
-    tools.push(createGetAnnotationsTool(options.bookId), createAddCitationTool(options.bookId));
+    // Annotations are always useful, but clickable citations require indexed
+    // chunks with precise CFIs. Fallback readers only have chapter/snippet
+    // context, so exposing addCitation there creates misleading jumps.
+    tools.push(createGetAnnotationsTool(options.bookId));
+    if (options.isVectorized) {
+      tools.push(createAddCitationTool(options.bookId));
+    }
   }
 
   // Add custom skills
