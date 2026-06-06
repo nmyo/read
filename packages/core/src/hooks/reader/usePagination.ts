@@ -24,12 +24,8 @@ const WHEEL_LINE_HEIGHT = 16;
 /** How close (px) to a chapter edge counts as "at the edge". */
 const SCROLLED_EDGE_TOLERANCE_PX = 4;
 
-/**
- * Once pinned against a chapter edge, how much further the user must keep
- * pushing (cumulative px in the same direction) before we actually turn.
- * This prevents a tiny nudge while reading the last lines from misfiring.
- */
-const SCROLLED_OVERSCROLL_TURN_PX = 120;
+/** Minimum deliberate push past a chapter edge before turning. */
+const SCROLLED_OVERSCROLL_TURN_PX = 32;
 
 /** Forget accumulated overscroll after this idle gap (ms). */
 const SCROLLED_OVERSCROLL_RESET_MS = 250;
@@ -102,9 +98,10 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
         overscrollAccum.current = 0;
       }, SCROLLED_OVERSCROLL_RESET_MS);
 
-      // Require a deliberate push past the edge before turning.
+      // Require a small deliberate push past the edge before turning.
       if (Math.abs(overscrollAccum.current) < SCROLLED_OVERSCROLL_TURN_PX) return false;
 
+      const carry = Math.abs(overscrollAccum.current);
       overscrollAccum.current = 0;
       const turn = (run: () => Promise<unknown> | undefined) => {
         scrolledTurnLock.current = true;
@@ -117,12 +114,12 @@ export function usePagination({ bookKey, viewRef, containerRef }: UsePaginationO
       };
 
       if (pushingBottom) {
-        const distance = Math.max(1, Math.ceil(viewSize - end) + 1);
+        const distance = Math.max(1, Math.ceil(viewSize - end) + carry);
         turn(() => viewRef.current?.next(distance));
         return true;
       }
 
-      const distance = Math.max(1, Math.ceil(start) + 1);
+      const distance = Math.max(1, Math.ceil(start) + carry);
       turn(() => viewRef.current?.prev(distance));
       return true;
     },

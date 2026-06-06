@@ -681,6 +681,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       end: number;
       viewSize: number;
       size: number;
+      carryDistance?: number;
       currentSectionIndex: { current: number; total: number } | number;
       totalSections: number;
     }) => {
@@ -702,9 +703,11 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
 
       const atStart = scrollDelta > threshold && start <= scrollDelta;
       const atEnd = scrollDelta < -threshold && Math.ceil(end) - scrollDelta >= viewSize;
+      const carryDistance = Math.max(1, Number(msg.carryDistance ?? Math.abs(deltaY)) || 1);
 
       console.log("[ReaderBridge] continuous-scroll:", {
         deltaY,
+        carryDistance,
         start,
         end,
         viewSize,
@@ -718,7 +721,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       if (atEnd && currentIndex < totalSections - 1) {
         console.log("[ReaderBridge] Going to next chapter");
         scrollTransitioningRef.current = true;
-        goNext(Math.max(1, viewSize - Math.floor(end) + 1));
+        goNext(Math.max(1, viewSize - Math.floor(end) + carryDistance));
         setTimeout(() => {
           scrollTransitioningRef.current = false;
         }, 500);
@@ -727,7 +730,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       else if (atStart && currentIndex > 0) {
         console.log("[ReaderBridge] Going to previous chapter");
         scrollTransitioningRef.current = true;
-        goPrev(Math.max(1, Math.ceil(start) + 1));
+        goPrev(Math.max(1, Math.ceil(start) + carryDistance));
         setTimeout(() => {
           scrollTransitioningRef.current = false;
         }, 500);

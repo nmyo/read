@@ -1123,11 +1123,16 @@ export class Paginator extends HTMLElement {
   #scrollPrev(distance) {
     if (!this.#view) return true;
     if (this.scrolled) {
+      const amount = Math.max(0, Number(distance ?? this.size) || 0);
       if (this.start > 0) {
-        const target = this.start - (distance ?? this.size);
-        return this.#scrollTo(Math.max(0, target), null, true).then(() => target <= 0);
+        const target = this.start - amount;
+        const carry = Math.max(0, -target);
+        return this.#scrollTo(Math.max(0, target), null, true).then(() => ({
+          shouldGo: target <= 0,
+          carry,
+        }));
       }
-      return !this.atStart;
+      return { shouldGo: !this.atStart, carry: amount };
     }
     if (this.atStart) return;
     const page = this.page - 1;
@@ -1136,13 +1141,17 @@ export class Paginator extends HTMLElement {
   #scrollNext(distance) {
     if (!this.#view) return true;
     if (this.scrolled) {
+      const amount = Math.max(0, Number(distance ?? this.size) || 0);
+      const maxStart = Math.max(0, this.viewSize - this.size);
       if (this.viewSize - this.end > 2) {
-        const target = distance ? this.start + distance : this.end;
-        return this.#scrollTo(Math.min(this.viewSize, target), null, true).then(
-          () => target + this.size >= this.viewSize,
-        );
+        const target = this.start + amount;
+        const carry = Math.max(0, target - maxStart);
+        return this.#scrollTo(Math.min(maxStart, target), null, true).then(() => ({
+          shouldGo: target >= maxStart,
+          carry,
+        }));
       }
-      return !this.atEnd;
+      return { shouldGo: !this.atEnd, carry: amount };
     }
     if (this.atEnd) return;
     const page = this.page + 1;
@@ -1159,17 +1168,29 @@ export class Paginator extends HTMLElement {
     for (let index = this.#index + dir; this.#canGoToIndex(index); index += dir)
       if (this.sections[index]?.linear !== "no") return index;
   }
+  async #applyScrolledTurnCarry(prev, carry) {
+    if (!this.scrolled || !this.#view) return;
+    const amount = Math.max(0, Number(carry) || 0);
+    if (!amount) return;
+    const maxStart = Math.max(0, this.viewSize - this.size);
+    if (!maxStart) return;
+    const target = prev ? Math.max(0, this.start - amount) : Math.min(maxStart, this.start + amount);
+    await this.#scrollTo(target, "scroll");
+  }
   async #turnPage(dir, distance) {
     if (this.#locked) return;
     this.#locked = true;
     const prev = dir === -1;
-    const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance));
+    const result = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance));
+    const shouldGo = typeof result === "object" ? result.shouldGo : result;
+    const carry = typeof result === "object" ? result.carry : 0;
     if (shouldGo)
       await this.#goTo({
         index: this.#adjacentIndex(dir),
         anchor: prev ? () => 1 : () => 0,
       });
-    if (shouldGo || !this.hasAttribute("animated")) await wait(100);
+    if (shouldGo) await this.#applyScrolledTurnCarry(prev, carry);
+    if ((shouldGo && !this.scrolled) || !this.hasAttribute("animated")) await wait(100);
     this.#locked = false;
   }
   prev(distance) {
