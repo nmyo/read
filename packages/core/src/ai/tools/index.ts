@@ -103,13 +103,9 @@ export function getAvailableTools(options: {
       );
     }
 
-    // Annotations are always useful, but clickable citations require indexed
-    // chunks with precise CFIs. Fallback readers only have chapter/snippet
-    // context, so exposing addCitation there creates misleading jumps.
-    tools.push(createGetAnnotationsTool(options.bookId));
-    if (options.isVectorized) {
-      tools.push(createAddCitationTool(options.bookId));
-    }
+    // Citations are available for indexed chunks and for fallback sources that
+    // can be validated against concrete reader segments.
+    tools.push(createGetAnnotationsTool(options.bookId), createAddCitationTool(options.bookId));
   }
 
   // Add custom skills

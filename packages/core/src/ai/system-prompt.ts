@@ -173,7 +173,7 @@ function buildToolsSection(
       );
     } else {
       tools.push(
-        "- Fallback source note: no clickable citation tool is available for non-indexed books. Mention chapter titles/indices in plain text instead.",
+        "- **addCitation**: Register a citation only when fallbackSearch/fallbackChapterContext returns a non-empty segment-level cfi for the exact text you cite. If no cfi is present, cite chapter titles/indices in plain text instead.",
       );
     }
   }
@@ -269,15 +269,21 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
     steps.push("## CRITICAL: Fallback Source Requirements");
     steps.push("");
     steps.push(
-      "**This book is not indexed. Fallback content can support answers, but it does not provide precise clickable navigation.**",
+      "**This book is not indexed. Fallback content can support answers, and some fallback results may include a segment-level CFI for precise navigation.**",
     );
     steps.push("");
     steps.push("When you reference fallback content, you MUST:");
-    steps.push("1. Name the source in plain text using chapterTitle/chapterIndex from the tool result");
-    steps.push("2. Include a short quoted excerpt when making a specific claim");
-    steps.push("3. Avoid [1], [2], [3] citation markers because they imply clickable jump links");
-    steps.push("4. Never claim the user can click or jump to fallback sources");
-    steps.push("5. If the user needs precise jumpable references, tell them to index the book first");
+    steps.push(
+      "1. If the exact fallback result/chunk you cite has a non-empty cfi, call addCitation with that cfi, chapterTitle, chapterIndex, and quotedText",
+    );
+    steps.push("2. Use [1], [2], [3] markers only after addCitation succeeds");
+    steps.push(
+      "3. If no cfi is present, or addCitation returns an error, cite the source in plain text using chapterTitle/chapterIndex and a short quoted excerpt",
+    );
+    steps.push("4. Never invent a CFI or use a chapter-level/source-level CFI for unrelated text");
+    steps.push(
+      "5. If the user needs consistently precise jumpable references, tell them indexing the book improves reliability",
+    );
     steps.push("");
   }
 
@@ -318,7 +324,7 @@ function buildConstraintsSection(
 ): string {
   const citationGuideline = isVectorized
     ? "- When citing indexed book content, use [1], [2] format with registered citations via addCitation tool"
-    : "- When citing non-indexed fallback content, use plain chapter names/indices and quoted excerpts; do not use [1], [2] citation markers";
+    : "- When citing non-indexed fallback content, use [1], [2] only after addCitation succeeds with a returned fallback cfi; otherwise use plain chapter names/indices and quoted excerpts";
   const lines = [
     "## Response Guidelines",
     `- **IMPORTANT: You MUST respond in ${language || "English"}. This is non-negotiable regardless of the book's language.**`,

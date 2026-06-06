@@ -26,7 +26,7 @@ function makeBook(): Book {
 }
 
 describe("buildSystemPrompt citations", () => {
-  it("does not teach clickable citations for non-indexed fallback content", () => {
+  it("allows fallback citations only when a returned CFI can be validated", () => {
     const prompt = buildSystemPrompt({
       book: makeBook(),
       semanticContext: null,
@@ -36,9 +36,10 @@ describe("buildSystemPrompt citations", () => {
     });
 
     expect(prompt).toContain("Fallback Source Requirements");
-    expect(prompt).toContain("Avoid [1], [2], [3] citation markers");
-    expect(prompt).not.toContain("addCitation");
-    expect(prompt).not.toContain("Users can click [N]");
+    expect(prompt).toContain("If the exact fallback result/chunk you cite has a non-empty cfi");
+    expect(prompt).toContain("Use [1], [2], [3] markers only after addCitation succeeds");
+    expect(prompt).toContain("Never invent a CFI");
+    expect(prompt).toContain("addCitation");
   });
 
   it("keeps clickable citation instructions for indexed content", () => {

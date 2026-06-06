@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---- Mocks ----
 vi.mock("../../db/database", () => ({
@@ -62,7 +62,12 @@ import {
 import { emitLibraryChanged } from "../../events/library-events";
 import { search } from "../../rag/search";
 import { loadFromFS } from "../../stores/persist";
+import { setFallbackContentProvider } from "../fallback-content-service";
 import { getAvailableTools } from "../tools";
+
+afterEach(() => {
+  setFallbackContentProvider(null);
+});
 
 // ---- Helpers ----
 function findTool(tools: ReturnType<typeof getAvailableTools>, name: string) {
@@ -109,7 +114,10 @@ function makeBook(overrides: Record<string, unknown> = {}) {
 // getAvailableTools — assembly logic
 // ============================================
 describe("getAvailableTools", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setFallbackContentProvider(null);
+  });
 
   it("should return general tools when no bookId", () => {
     const tools = getAvailableTools({ bookId: null, isVectorized: false, enabledSkills: [] });
@@ -140,11 +148,11 @@ describe("getAvailableTools", () => {
     expect(names).not.toContain("ragSearch");
   });
 
-  it("should include annotations but not clickable citations for non-vectorized books", () => {
+  it("should include annotations and validated citations for non-vectorized books", () => {
     const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
     const names = tools.map((t) => t.name);
     expect(names).toContain("getAnnotations");
-    expect(names).not.toContain("addCitation");
+    expect(names).toContain("addCitation");
     // No RAG tools without vectorization
     expect(names).not.toContain("ragSearch");
   });
@@ -565,6 +573,85 @@ describe("compareSections tool", () => {
     const result = (await tool.execute({ chapterIndex1: 0, chapterIndex2: 99 })) as any;
 
     expect(result.error).toBe("One or both chapters not found");
+  });
+});
+
+// ============================================
+// fallback content tools
+// ============================================
+describe("fallback content tools", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function registerFallbackChapters() {
+    vi.mocked(getBook).mockResolvedValue(makeBook({ isVectorized: false }) as any);
+    setFallbackContentProvider({
+      async getChapters() {
+        return [
+          {
+            index: 0,
+            title: "Chapter 1",
+            content:
+              "Opening paragraph.\n\nThe target passage explains how fallback citations find their position.",
+            segments: [
+              { text: "Opening paragraph.", cfi: "epubcfi(/6/2!/4/2)" },
+              {
+                text: "The target passage explains how fallback citations find their position.",
+                cfi: "epubcfi(/6/2!/4/4)",
+              },
+            ],
+          },
+        ];
+      },
+    });
+  }
+
+  it("returns a segment CFI for fallback search matches", async () => {
+    registerFallbackChapters();
+
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tool = findTool(tools, "fallbackSearch");
+    const result = (await tool.execute({ query: "target passage", topK: 1 })) as any;
+
+    expect(result.results[0].chapterTitle).toBe("Chapter 1");
+    expect(result.results[0].cfi).toBe("epubcfi(/6/2!/4/4)");
+    expect(result.results[0].cfiPrecision).toBe("segment");
+  });
+
+  it("registers fallback citations only when quoted text resolves to a segment CFI", async () => {
+    registerFallbackChapters();
+    vi.mocked(getChunks).mockResolvedValue([]);
+
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tool = findTool(tools, "addCitation");
+    const result = (await tool.execute({
+      citationIndex: 1,
+      chapterTitle: "Chapter 1",
+      chapterIndex: 0,
+      cfi: "",
+      quotedText: "target passage explains",
+      reasoning: "fallback source",
+    })) as any;
+
+    expect(result.type).toBe("citation");
+    expect(result.cfi).toBe("epubcfi(/6/2!/4/4)");
+  });
+
+  it("rejects fallback citations that cannot be resolved", async () => {
+    registerFallbackChapters();
+    vi.mocked(getChunks).mockResolvedValue([]);
+
+    const tools = getAvailableTools({ bookId: "book-1", isVectorized: false, enabledSkills: [] });
+    const tool = findTool(tools, "addCitation");
+    const result = (await tool.execute({
+      citationIndex: 1,
+      chapterTitle: "Chapter 1",
+      chapterIndex: 0,
+      cfi: "epubcfi(/fake)",
+      quotedText: "not in this chapter",
+      reasoning: "fallback source",
+    })) as any;
+
+    expect(result.error).toContain("Could not resolve a precise CFI");
   });
 });
 

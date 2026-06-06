@@ -1,6 +1,10 @@
-import { getBook } from "../../db/database";
 import { estimateTokens } from "../../rag/chunker";
-import { type FallbackChapter, fallbackContentService } from "../fallback-content-service";
+import type { FallbackChapter } from "../fallback-content-service";
+import {
+  buildFallbackSnippet,
+  findFallbackSegmentByTerms,
+  getFallbackChaptersForBook,
+} from "../fallback-source-resolver";
 import type { ToolDefinition } from "./tool-types";
 
 const SEARCH_TOKEN_BUDGET = 3600;
@@ -35,23 +39,6 @@ function findSnippet(chapter: FallbackChapter, terms: string[]): string {
   return content.slice(start, start + 900);
 }
 
-async function getFallbackChapters(
-  bookId: string,
-): Promise<{ bookTitle: string; chapters: FallbackChapter[] } | { error: string }> {
-  const book = await getBook(bookId);
-  if (!book) return { error: "Book not found" };
-  try {
-    const chapters = await fallbackContentService.getChapters(book);
-    if (chapters.length === 0) return { error: "No readable content found for this book" };
-    return { bookTitle: book.meta.title, chapters };
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Unable to read the book without vectorization",
-    };
-  }
-}
-
 export function createFallbackTocTool(bookId: string): ToolDefinition {
   return {
     name: "fallbackToc",
@@ -59,7 +46,7 @@ export function createFallbackTocTool(bookId: string): ToolDefinition {
       "Get the table of contents by reading the original book file without vectorization. Use this for non-indexed books before exploring specific chapters.",
     parameters: {},
     execute: async () => {
-      const data = await getFallbackChapters(bookId);
+      const data = await getFallbackChaptersForBook(bookId);
       if ("error" in data) return data;
       return {
         bookTitle: data.bookTitle,
@@ -80,13 +67,13 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
   return {
     name: "fallbackSearch",
     description:
-      "Keyword search the original book file without a vector index. Slower and less semantic than RAG, but useful when the book has not been vectorized. Results are chapter/snippet sources only and do not provide precise navigation.",
+      "Keyword search the original book file without a vector index. Slower and less semantic than RAG, but useful when the book has not been vectorized. Returns a CFI only when the match can be mapped to a concrete reader text segment.",
     parameters: {
       query: { type: "string", description: "Keywords or phrase to search for", required: true },
       topK: { type: "number", description: "Number of chapters/snippets to return (default: 5)" },
     },
     execute: async (args) => {
-      const data = await getFallbackChapters(bookId);
+      const data = await getFallbackChaptersForBook(bookId);
       if ("error" in data) return data;
 
       const query = String(args.query || "").trim();
@@ -105,16 +92,31 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
       let totalTokens = 0;
       const results = [];
       for (const { chapter, score } of ranked) {
-        const snippet = findSnippet(chapter, terms);
+        const matchedSegment = findFallbackSegmentByTerms(chapter, terms);
+        const snippet = matchedSegment
+          ? buildFallbackSnippet(matchedSegment.text, terms)
+          : findSnippet(chapter, terms);
         const tokens = estimateTokens(snippet);
         if (totalTokens + tokens > SEARCH_TOKEN_BUDGET) break;
         totalTokens += tokens;
-        results.push({
+        const result: {
+          chapterTitle: string;
+          chapterIndex: number;
+          content: string;
+          score: number;
+          cfi?: string;
+          cfiPrecision?: "segment";
+        } = {
           chapterTitle: chapter.title,
           chapterIndex: chapter.index,
           content: snippet,
           score,
-        });
+        };
+        if (matchedSegment?.cfi) {
+          result.cfi = matchedSegment.cfi;
+          result.cfiPrecision = "segment";
+        }
+        results.push(result);
       }
 
       return {
@@ -125,7 +127,7 @@ export function createFallbackSearchTool(bookId: string): ToolDefinition {
         totalTokens,
         tokenBudget: SEARCH_TOKEN_BUDGET,
         instruction:
-          "These are keyword fallback results from the original file, not semantic vector results. Mention chapterTitle/chapterIndex in plain text when citing them; do not create clickable citations or jump links from fallback results.",
+          "These are keyword fallback results from the original file, not semantic vector results. If a result has a non-empty cfi, you may call addCitation with that exact cfi and quotedText. If no cfi is present, cite chapterTitle/chapterIndex in plain text.",
       };
     },
   };
@@ -144,35 +146,75 @@ export function createFallbackChapterContextTool(bookId: string): ToolDefinition
       },
     },
     execute: async (args) => {
-      const data = await getFallbackChapters(bookId);
+      const data = await getFallbackChaptersForBook(bookId);
       if ("error" in data) return data;
 
       const chapterIndex = Number(args.chapterIndex);
       const chapter = data.chapters.find((item) => item.index === chapterIndex);
       if (!chapter) return { error: `Chapter ${chapterIndex} not found` };
 
-      const tokens = estimateTokens(chapter.content);
-      const content =
-        tokens > CHAPTER_TOKEN_BUDGET
-          ? chapter.content.slice(0, CHAPTER_TOKEN_BUDGET * 4)
-          : chapter.content;
+      const chunks: Array<{
+        content: string;
+        chapterTitle: string;
+        chapterIndex: number;
+        cfi?: string;
+        cfiPrecision?: "segment";
+      }> = [];
+      let totalTokens = 0;
+
+      for (const segment of chapter.segments ?? []) {
+        const text = segment.text?.trim();
+        if (!text) continue;
+        const tokens = estimateTokens(text);
+        const shouldTruncateFirstSegment = chunks.length === 0 && tokens > CHAPTER_TOKEN_BUDGET;
+        if (!shouldTruncateFirstSegment && totalTokens + tokens > CHAPTER_TOKEN_BUDGET) break;
+        const content = shouldTruncateFirstSegment ? text.slice(0, CHAPTER_TOKEN_BUDGET * 4) : text;
+        totalTokens += Math.min(tokens, CHAPTER_TOKEN_BUDGET);
+        const chunk: {
+          content: string;
+          chapterTitle: string;
+          chapterIndex: number;
+          cfi?: string;
+          cfiPrecision?: "segment";
+        } = {
+          content,
+          chapterTitle: chapter.title,
+          chapterIndex: chapter.index,
+        };
+        if (segment.cfi) {
+          chunk.cfi = segment.cfi;
+          chunk.cfiPrecision = "segment";
+        }
+        chunks.push(chunk);
+        if (shouldTruncateFirstSegment) break;
+      }
+
+      if (chunks.length === 0) {
+        const tokens = estimateTokens(chapter.content);
+        const content =
+          tokens > CHAPTER_TOKEN_BUDGET
+            ? chapter.content.slice(0, CHAPTER_TOKEN_BUDGET * 4)
+            : chapter.content;
+        totalTokens = Math.min(tokens, CHAPTER_TOKEN_BUDGET);
+        chunks.push({
+          content,
+          chapterTitle: chapter.title,
+          chapterIndex: chapter.index,
+        });
+      }
+
+      const content = chunks.map((chunk) => chunk.content).join("\n\n");
 
       return {
         chapterTitle: chapter.title,
         chapterIndex: chapter.index,
         content,
-        chunks: [
-          {
-            content,
-            chapterTitle: chapter.title,
-            chapterIndex: chapter.index,
-          },
-        ],
-        totalTokens: Math.min(tokens, CHAPTER_TOKEN_BUDGET),
+        chunks,
+        totalTokens,
         tokenBudget: CHAPTER_TOKEN_BUDGET,
-        truncated: tokens > CHAPTER_TOKEN_BUDGET,
+        truncated: estimateTokens(chapter.content) > totalTokens,
         instruction:
-          "Summarize or analyze this chapter using only the returned content. Mention this chapterTitle/chapterIndex in plain text when citing it; do not create clickable citations or jump links from fallback content.",
+          "Summarize or analyze this chapter using only the returned content. If the specific chunk you cite has a non-empty cfi, you may call addCitation with that exact cfi and quotedText. If no cfi is present, cite chapterTitle/chapterIndex in plain text.",
       };
     },
   };
