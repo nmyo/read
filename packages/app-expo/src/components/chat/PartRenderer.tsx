@@ -161,8 +161,11 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   fallbackChapterContext: "toolLabels.fallbackChapterContext",
 };
 
+const INTERNAL_TOOL_NAMES = new Set(["addCitation"]);
+
 function ToolCallPartView({ part }: { part: ToolCallPart }) {
   const hasError = part.status === "error" || Boolean(part.error);
+
   const [isOpen, setIsOpen] = useState(hasError);
   const { t } = useTranslation();
   const colors = useColors();
@@ -171,6 +174,8 @@ function ToolCallPartView({ part }: { part: ToolCallPart }) {
   useEffect(() => {
     if (hasError) setIsOpen(true);
   }, [hasError]);
+
+  if (INTERNAL_TOOL_NAMES.has(part.name) && !hasError) return null;
 
   const getStatusIcon = () => {
     switch (part.status) {
