@@ -2494,6 +2494,7 @@ function getRendererStyles(settings: ViewSettings, theme: AppTheme): string {
 
   return `${settings.customFontFaceCSS ? `/* Custom font faces */\n${settings.customFontFaceCSS}\n\n` : ""}/* Font styles */
 html {
+  --theme-bg-color: ${bgColor};
   --readany-font-family: ${fontFamily};
   --serif-font: "${fontTheme.serif}";
   --sans-serif-font: "${fontTheme.sansSerif}";

@@ -1049,6 +1049,7 @@ export class Paginator extends HTMLElement {
             overflow: auto;
             overflow-anchor: auto;
             flex-direction: column;
+            background: var(--_scrollbar-track-bg, transparent);
             scrollbar-width: none;
             -ms-overflow-style: none;
         }
@@ -1059,19 +1060,19 @@ export class Paginator extends HTMLElement {
         }
         @media (hover: hover) and (pointer: fine) {
             :host([flow="scrolled"]) #container {
-                scrollbar-color: rgba(116, 103, 82, .42) transparent;
+                scrollbar-color: rgba(116, 103, 82, .42) var(--_scrollbar-track-bg, transparent);
                 scrollbar-width: thin;
             }
             :host([flow="scrolled"]) #container::-webkit-scrollbar {
                 display: block;
                 width: 10px;
                 height: 10px;
-                background: transparent;
+                background: var(--_scrollbar-track-bg, transparent);
             }
             :host([flow="scrolled"]) #container::-webkit-scrollbar-track,
             :host([flow="scrolled"]) #container::-webkit-scrollbar-track-piece,
             :host([flow="scrolled"]) #container::-webkit-scrollbar-corner {
-                background: transparent;
+                background: var(--_scrollbar-track-bg, transparent);
             }
             :host([flow="scrolled"]) #container::-webkit-scrollbar-thumb {
                 min-height: 48px;
@@ -1441,8 +1442,13 @@ export class Paginator extends HTMLElement {
         const overrideColor = htmlStyle.getPropertyValue('--override-color') === 'true'
         const bgTextureId = htmlStyle.getPropertyValue('--bg-texture-id')
         const isDarkMode = htmlStyle.getPropertyValue('color-scheme') === 'dark'
-        const fallbackBg = themeBgColor || ''
+        const htmlBgColor = htmlStyle.backgroundColor
+        const fallbackBg = themeBgColor || htmlBgColor || ''
         const hasTexture = !!bgTextureId && bgTextureId !== 'none'
+        this.#top.style.setProperty(
+            '--_scrollbar-track-bg',
+            hasTexture ? 'transparent' : (fallbackBg || 'transparent'),
+        )
 
         const resolveBackground = (background) => {
             if (!background) return fallbackBg
