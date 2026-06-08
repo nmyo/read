@@ -14,7 +14,15 @@ const noop = {
   addListener: () => ({ remove: () => {} }),
 } as unknown as VolumeKeyPagingModule;
 
-const mod: VolumeKeyPagingModule =
-  Platform.OS === "android" ? requireNativeModule<VolumeKeyPagingModule>("VolumeKeyPaging") : noop;
+function resolveModule(): VolumeKeyPagingModule {
+  if (Platform.OS !== "android") return noop;
+  try {
+    return requireNativeModule<VolumeKeyPagingModule>("VolumeKeyPaging");
+  } catch {
+    return noop;
+  }
+}
+
+const mod: VolumeKeyPagingModule = resolveModule();
 
 export default mod;

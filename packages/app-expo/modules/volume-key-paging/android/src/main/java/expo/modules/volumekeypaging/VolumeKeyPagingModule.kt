@@ -22,6 +22,7 @@ class VolumeKeyPagingModule : Module() {
       }
     }
     OnDestroy {
+      VolumeKeyPagingState.enabled = false
       VolumeKeyPagingState.emitter = null
     }
 
