@@ -10,6 +10,15 @@
 import type { Book, SemanticContext, Skill } from "../types";
 import { getBookProgressPercent } from "../utils/book-progress";
 
+type ReadingQuestionCategory =
+  | "general_chat"
+  | "library_request"
+  | "current_selection"
+  | "current_page_context"
+  | "current_chapter_context"
+  | "specific_chapter_request"
+  | "book_wide_search";
+
 interface PromptContext {
   book: Book | null;
   bookId?: string | null;
@@ -19,6 +28,10 @@ interface PromptContext {
   userLanguage: string;
   spoilerFree?: boolean;
   memorySummary?: string;
+  questionCategory?: ReadingQuestionCategory;
+  selectionActive?: boolean;
+  routeHint?: string;
+  allowedToolNames?: string[];
 }
 
 /** Build the full system prompt from context */
@@ -28,6 +41,8 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     buildBookContextSection(ctx.book),
     buildMemorySection(ctx.memorySummary),
     buildSemanticSection(ctx.semanticContext),
+    buildRouteSection(ctx.questionCategory, ctx.selectionActive, ctx.routeHint),
+    buildTurnAvailableToolsSection(ctx.allowedToolNames),
     buildToolsSection(ctx.enabledSkills, ctx.isVectorized, !!(ctx.book?.id || ctx.bookId)),
     buildWorkflowSection(ctx.isVectorized, !!(ctx.book?.id || ctx.bookId)),
     buildConstraintsSection(
@@ -66,19 +81,58 @@ function buildBookContextSection(book: Book | null): string {
     .join("\n");
 }
 
+function compactText(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
 function buildSemanticSection(ctx: SemanticContext | null): string {
   if (!ctx) return "";
   return [
     "## Reading Context",
     `- Current Chapter: ${ctx.currentChapter}`,
     `- Reader Activity: ${ctx.operationType}`,
-    ctx.surroundingText ? `- Surrounding Text:\n> ${ctx.surroundingText}` : "",
+    ctx.surroundingText ? `- Surrounding Text:\n> ${compactText(ctx.surroundingText, 280)}` : "",
     ctx.recentHighlights.length > 0
-      ? `- Recent Highlights:\n${ctx.recentHighlights.map((h) => `  > ${h}`).join("\n")}`
+      ? `- Recent Highlights:\n${ctx.recentHighlights
+          .slice(0, 3)
+          .map((h) => `  > ${compactText(h, 120)}`)
+          .join("\n")}`
       : "",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function buildRouteSection(
+  category?: ReadingQuestionCategory,
+  selectionActive?: boolean,
+  routeHint?: string,
+): string {
+  if (!category && !selectionActive && !routeHint) return "";
+
+  return [
+    "## Turn Focus",
+    category ? `- Detected Question Type: ${category}` : "",
+    selectionActive ? "- Active Text Selection: yes" : "",
+    routeHint ? `- Routing Hint: ${routeHint}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildTurnAvailableToolsSection(allowedToolNames?: string[]): string {
+  if (!allowedToolNames) return "";
+  if (allowedToolNames.length === 0) {
+    return "## Turn-Available Tools\n- No tools are available for this turn. Respond directly without tool calls.";
+  }
+
+  return [
+    "## Turn-Available Tools",
+    "- Only the tools listed here are actually callable in this turn. Do not plan with any other tools.",
+    ...allowedToolNames.map((name) => `- ${name}`),
+  ].join("\n");
 }
 
 function buildToolsSection(
@@ -337,6 +391,9 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
   );
   steps.push(
     "- If a tool returns no results or an error, tell the user honestly. Do NOT retry with rephrased queries.",
+  );
+  steps.push(
+    "- Prefer current selection, current page, and current chapter context before wider retrieval whenever the user is asking about what they are reading right now.",
   );
   steps.push(
     "- For a specific chapter request, call resolveChapterReference first. If matched=false, present the candidates or ask for clarification instead of guessing chapterIndex.",

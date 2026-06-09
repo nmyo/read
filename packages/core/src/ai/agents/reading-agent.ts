@@ -15,6 +15,7 @@ import { z } from "zod";
  */
 import type { AIConfig, Book, SemanticContext, Skill } from "../../types";
 import { createChatModel } from "../llm-provider";
+import { getReadingContextSnapshot } from "../reading-context-service";
 import { buildSystemPrompt } from "../system-prompt";
 import { ThinkTagStreamParser } from "../think-tag-parser";
 import type { ToolDefinition, ToolParameter } from "../tools/tool-types";
@@ -25,18 +26,6 @@ const CHAPTER_REFERENCE_EXECUTION_LIMIT = 3;
 const CHAPTER_TOOL_EXECUTION_LIMIT = 8;
 const DEFAULT_RECURSION_LIMIT = 24;
 const CHAPTER_TASK_RECURSION_LIMIT = 24;
-
-const CHAPTER_TASK_TOOL_NAMES = new Set([
-  "resolveChapterReference",
-  "ragSearch",
-  "ragContext",
-  "summarize",
-  "fallbackSearch",
-  "fallbackChapterContext",
-  "getCurrentChapter",
-  "getSurroundingContext",
-  "addCitation",
-]);
 
 const CHAPTER_LOOKUP_STOP_TOOL_NAMES = new Set([
   "resolveChapterReference",
@@ -54,6 +43,228 @@ const CHAPTER_LOOKUP_STOP_TOOL_NAMES = new Set([
   "getCurrentChapter",
   "getSurroundingContext",
 ]);
+
+const GENERAL_CHAT_ONLY_RE =
+  /^(?:你好|您好|hi|hello|hey|thanks|thank you|谢谢|感謝|早上好|中午好|晚上好|在吗|在嗎)[！!？?\s]*$/iu;
+const LIBRARY_REQUEST_RE =
+  /(?:书库|書庫|library|分组|分組|标签|標籤|tag|阅读统计|閱讀統計|reading\s*stats|技能|skill|思维导图|思維導圖|mindmap)/iu;
+const CURRENT_SELECTION_RE =
+  /(?:这段|這段|这句|這句|这部分|這部分|选中|選中|所选|所選|划线|劃線|框选|框選|這一段|这一段|這一句|这一句)/u;
+const CURRENT_PAGE_CONTEXT_RE =
+  /(?:这里|這裡|当前页|當前頁|这一页|這一頁|这页|這頁|当前位置|當前位置|目前看到|我看到这里|我看到這裡)/u;
+const CURRENT_CHAPTER_CONTEXT_RE =
+  /(?:这一章|這一章|这章|這章|当前章节|當前章節|当前章|當前章|現在這章|现在这章|本章)/u;
+const IMMEDIATE_CONTEXT_RE =
+  /(?:什么意思|什麼意思|看不懂|沒看懂|没看懂|解释一下|解釋一下|怎么理解|怎麼理解)/u;
+const BOOK_CONTENT_RE =
+  /(?:这本书|這本書|本书|本書|人物|角色|主角|配角|剧情|劇情|情节|情節|主题|主題|关系|關係|第一次|首次|结局|結局|梗概|总结|總結|摘要|分析|搜索|搜尋|查一下|搜一下|讲了什么|講了什麼|讲什么|講什麼)/u;
+
+const GENERAL_TOOL_NAMES = new Set([
+  "listBooks",
+  "searchAllHighlights",
+  "searchAllNotes",
+  "getReadingStats",
+  "getSkills",
+  "mindmap",
+  "classifyBooks",
+  "tagBooks",
+  "manageBookTags",
+  "updateBookMetadata",
+  "manageBookGroups",
+]);
+
+type ReadingQuestionCategory =
+  | "general_chat"
+  | "library_request"
+  | "current_selection"
+  | "current_page_context"
+  | "current_chapter_context"
+  | "specific_chapter_request"
+  | "book_wide_search";
+
+function normalizeSearchFingerprint(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(
+      /请问|幫我|帮我|看看|查一下|搜一下|告诉我|告訴我|想知道|麻烦|麻煩|請|请|一下/gu,
+      " ",
+    )
+    .replace(/[，。、“”"'`!！?？,:：;；()\[\]{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || value === undefined) return String(value);
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableSerialize(item)}`).join(",")}}`;
+}
+
+function buildToolCacheKey(toolName: string, args: Record<string, unknown>): string {
+  return `${toolName}:${stableSerialize(args)}`;
+}
+
+function buildSearchToolCacheKey(
+  toolName: string,
+  args: Record<string, unknown>,
+): string | undefined {
+  const rawQuery = typeof args.query === "string" ? args.query : "";
+  const normalized = normalizeSearchFingerprint(rawQuery);
+  if (!normalized) return undefined;
+  return `${toolName}:${normalized}`;
+}
+
+function detectQuestionCategory(options: {
+  userInput: string;
+  hasBookContext: boolean;
+  selectionActive: boolean;
+}): ReadingQuestionCategory {
+  const text = options.userInput.normalize("NFKC").trim();
+  if (!text) return options.hasBookContext ? "book_wide_search" : "general_chat";
+  if (GENERAL_CHAT_ONLY_RE.test(text)) return "general_chat";
+  if (LIBRARY_REQUEST_RE.test(text) || !options.hasBookContext) return "library_request";
+  const hasExplicitCurrentSelectionCue = CURRENT_SELECTION_RE.test(text);
+  const hasExplicitCurrentPageCue = CURRENT_PAGE_CONTEXT_RE.test(text);
+  const hasExplicitCurrentChapterCue = CURRENT_CHAPTER_CONTEXT_RE.test(text);
+  const asksForImmediateExplanation = IMMEDIATE_CONTEXT_RE.test(text);
+
+  if (options.selectionActive && hasExplicitCurrentSelectionCue) {
+    return "current_selection";
+  }
+  if (hasExplicitCurrentPageCue || (asksForImmediateExplanation && hasExplicitCurrentPageCue)) {
+    return "current_page_context";
+  }
+  if (CHAPTER_REFERENCE_RE.test(text)) return "specific_chapter_request";
+  if (hasExplicitCurrentChapterCue) return "current_chapter_context";
+  if (BOOK_CONTENT_RE.test(text)) return "book_wide_search";
+  return "book_wide_search";
+}
+
+function getFocusedToolNames(
+  category: ReadingQuestionCategory,
+  isVectorized: boolean,
+): Set<string> | null {
+  switch (category) {
+    case "general_chat":
+      return new Set();
+    case "library_request":
+      return GENERAL_TOOL_NAMES;
+    case "current_selection":
+      return new Set([
+        "getSelection",
+        "getSurroundingContext",
+        "getCurrentChapter",
+        "addCitation",
+      ]);
+    case "current_page_context":
+      return new Set([
+        "getCurrentChapter",
+        "getSurroundingContext",
+        "getReadingProgress",
+        "addCitation",
+      ]);
+    case "current_chapter_context":
+      return new Set(
+        isVectorized
+          ? [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "ragContext",
+              "summarize",
+              "addCitation",
+            ]
+          : [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "fallbackChapterContext",
+              "addCitation",
+            ],
+      );
+    case "specific_chapter_request":
+      return new Set(
+        isVectorized
+          ? [
+              "resolveChapterReference",
+              "ragContext",
+              "summarize",
+              "findQuotes",
+              "extractEntities",
+              "analyzeArguments",
+              "addCitation",
+            ]
+          : [
+              "resolveChapterReference",
+              "fallbackChapterContext",
+              "fallbackToc",
+              "addCitation",
+            ],
+      );
+    case "book_wide_search":
+      return null;
+  }
+}
+
+function filterToolsForQuestion(options: {
+  tools: ToolDefinition[];
+  category: ReadingQuestionCategory;
+  isVectorized: boolean;
+}): ToolDefinition[] {
+  const focusedNames = getFocusedToolNames(options.category, options.isVectorized);
+  if (focusedNames === null) {
+    return options.tools.filter((tool) => !GENERAL_TOOL_NAMES.has(tool.name));
+  }
+
+  const filtered = options.tools.filter((tool) => focusedNames.has(tool.name));
+  return filtered;
+}
+
+function buildRouteHint(
+  category: ReadingQuestionCategory,
+  selectionActive: boolean,
+): string | undefined {
+  switch (category) {
+    case "current_selection":
+      return selectionActive
+        ? "The user already has an active selection. Prefer the selected text and surrounding context before any chapter-wide or book-wide retrieval."
+        : undefined;
+    case "current_page_context":
+      return "This question is about the user's current page or current reading location. Prefer current-context tools before any wider retrieval.";
+    case "current_chapter_context":
+      return "This question is about the chapter the user is currently reading. Get the current chapter first, then use chapter context tools.";
+    case "specific_chapter_request":
+      return "This question targets a specific chapter reference. Resolve the chapter reference first, then read that chapter. Do not start with full-book search.";
+    case "book_wide_search":
+      return "This question may require broader retrieval. Use book-wide search only when current-context tools are insufficient.";
+    case "library_request":
+      return "This is a library-management or cross-book request. Stay within library tools.";
+    default:
+      return undefined;
+  }
+}
+
+function getRecursionLimitForCategory(category: ReadingQuestionCategory): number {
+  switch (category) {
+    case "current_selection":
+    case "current_page_context":
+      return 18;
+    case "current_chapter_context":
+      return 20;
+    case "specific_chapter_request":
+      return CHAPTER_TASK_RECURSION_LIMIT;
+    case "library_request":
+      return 20;
+    case "book_wide_search":
+      return DEFAULT_RECURSION_LIMIT;
+    default:
+      return DEFAULT_RECURSION_LIMIT;
+  }
+}
 
 function simplifyChapterLookupQuery(query: string, fallback: string): string {
   const source = (query || fallback).normalize("NFKC");
@@ -210,12 +421,6 @@ async function executeTool(tool: ToolDefinition, args: Record<string, unknown>):
   }
 }
 
-function selectToolsForInput(tools: ToolDefinition[], userInput: string): ToolDefinition[] {
-  if (!CHAPTER_REFERENCE_RE.test(userInput)) return tools;
-  const focused = tools.filter((tool) => CHAPTER_TASK_TOOL_NAMES.has(tool.name));
-  return focused.length > 0 ? focused : tools;
-}
-
 // --- Main Agent Function ---
 
 export async function* streamReadingAgent(
@@ -239,6 +444,14 @@ export async function* streamReadingAgent(
 
   // Helper to check if aborted
   const isAborted = () => signal?.aborted ?? false;
+  const readingContextSnapshot = getReadingContextSnapshot();
+  const selectionActive = !!readingContextSnapshot?.selection?.text?.trim();
+  const effectiveBookId = book?.id || bookId || null;
+  const questionCategory = detectQuestionCategory({
+    userInput,
+    hasBookContext: !!effectiveBookId,
+    selectionActive,
+  });
   const chapterReferenceState = {
     executions: 0,
     totalChapterToolExecutions: 0,
@@ -246,8 +459,11 @@ export async function* streamReadingAgent(
     lastResult: null as unknown,
     limitReached: false,
   };
+  const toolResultCache = new Map<string, unknown>();
+  const searchResultCache = new Map<string, unknown>();
   const pendingToolCallNames: string[] = [];
-  const isChapterTask = CHAPTER_REFERENCE_RE.test(userInput);
+  const isChapterTask =
+    questionCategory === "specific_chapter_request" || CHAPTER_REFERENCE_RE.test(userInput);
 
   try {
     // Early abort check
@@ -265,15 +481,15 @@ export async function* streamReadingAgent(
     if (isAborted()) return;
 
     // Register tools via injected getAvailableTools, then narrow obvious chapter tasks.
-    const effectiveBookId = book?.id || bookId || null;
-    const tools = selectToolsForInput(
-      getAvailableTools({
+    const tools = filterToolsForQuestion({
+      tools: getAvailableTools({
         bookId: effectiveBookId,
         isVectorized,
         enabledSkills,
       }),
-      userInput,
-    );
+      category: questionCategory,
+      isVectorized,
+    });
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt({
@@ -285,6 +501,10 @@ export async function* streamReadingAgent(
       userLanguage: i18n.language || "en",
       spoilerFree,
       memorySummary,
+      questionCategory,
+      selectionActive,
+      routeHint: buildRouteHint(questionCategory, selectionActive),
+      allowedToolNames: tools.map((tool) => tool.name),
     });
 
     // Build input messages (history + user input, without system — handled by agent prompt)
@@ -424,7 +644,27 @@ export async function* streamReadingAgent(
             chapterReferenceState.attemptedQueries.push(effectiveQuery);
           }
 
+          const skipExactCache = tool.name === "addCitation" || tool.name === "resolveChapterReference";
+          const exactCacheKey = skipExactCache ? undefined : buildToolCacheKey(tool.name, toolInput);
+          if (exactCacheKey && toolResultCache.has(exactCacheKey)) {
+            return JSON.stringify(toolResultCache.get(exactCacheKey));
+          }
+
+          const searchCacheKey =
+            tool.name === "ragSearch" || tool.name === "fallbackSearch"
+              ? buildSearchToolCacheKey(tool.name, toolInput)
+              : undefined;
+          if (searchCacheKey && searchResultCache.has(searchCacheKey)) {
+            return JSON.stringify(searchResultCache.get(searchCacheKey));
+          }
+
           const result = await executeTool(tool, toolInput);
+          if (exactCacheKey) {
+            toolResultCache.set(exactCacheKey, result);
+          }
+          if (searchCacheKey) {
+            searchResultCache.set(searchCacheKey, result);
+          }
           if (tool.name === "resolveChapterReference") {
             chapterReferenceState.lastResult = result;
             if (
@@ -454,7 +694,9 @@ export async function* streamReadingAgent(
       { messages: inputMessages },
       {
         version: "v2",
-        recursionLimit: isChapterTask ? CHAPTER_TASK_RECURSION_LIMIT : DEFAULT_RECURSION_LIMIT,
+        recursionLimit: isChapterTask
+          ? CHAPTER_TASK_RECURSION_LIMIT
+          : getRecursionLimitForCategory(questionCategory),
       },
     );
 
@@ -695,6 +937,21 @@ export async function* streamReadingAgent(
       yield {
         type: "token",
         content: "未能可靠定位章节，请补充更准确的章节名",
+      };
+      return;
+    }
+    if (isRecursionError) {
+      const noticeResult = {
+        notice: "本轮检索步骤过多，没有稳定完成。请换个更具体的问法，或直接重试一次。",
+        reason: errorMessage,
+      };
+      const uniquePendingNames = Array.from(new Set(pendingToolCallNames));
+      for (const name of uniquePendingNames) {
+        yield { type: "tool_result", name, result: noticeResult };
+      }
+      yield {
+        type: "token",
+        content: "本轮检索步骤过多，没有稳定完成。请换个更具体的问法，或直接重试一次。",
       };
       return;
     }

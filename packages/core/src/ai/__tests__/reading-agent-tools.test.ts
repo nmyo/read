@@ -16,6 +16,12 @@ vi.mock("../llm-provider", () => ({
   })),
 }));
 
+const getReadingContextSnapshotMock = vi.hoisted(() => vi.fn(() => null));
+
+vi.mock("../reading-context-service", () => ({
+  getReadingContextSnapshot: getReadingContextSnapshotMock,
+}));
+
 function makeAIConfig(): AIConfig {
   return {
     endpoints: [
@@ -39,6 +45,8 @@ function makeAIConfig(): AIConfig {
 
 beforeEach(() => {
   createReactAgentMock.mockReset();
+  getReadingContextSnapshotMock.mockReset();
+  getReadingContextSnapshotMock.mockReturnValue(null);
 });
 
 describe("streamReadingAgent tool registration", () => {
@@ -276,5 +284,169 @@ describe("streamReadingAgent tool registration", () => {
     expect(fourth.attemptLimitReached).toBe(true);
     expect(fourth.notice).toBe("未能可靠定位章节，请补充更准确的章节名");
     expect(fourth.attemptedQueries).toEqual(["张三疯那一章讲了什么", "张三疯", "张三疯"]);
+  });
+
+  it("routes current-page questions to current-context tools only", async () => {
+    let capturedTools: any[] = [];
+    createReactAgentMock.mockImplementation((config) => {
+      capturedTools = config.tools;
+      return {
+        streamEvents: vi.fn(() => ({
+          [Symbol.asyncIterator]: async function* () {
+            // no-op stream
+          },
+        })),
+      };
+    });
+
+    for await (const event of streamReadingAgent(
+      {
+        aiConfig: makeAIConfig(),
+        book: null,
+        bookId: "book-1",
+        semanticContext: null,
+        enabledSkills: [],
+        isVectorized: true,
+        getAvailableTools,
+      },
+      "我看到这里是什么意思",
+    )) {
+      void event;
+    }
+
+    const toolNames = capturedTools.map((tool) => tool.name);
+    expect(toolNames).toContain("getCurrentChapter");
+    expect(toolNames).toContain("getSurroundingContext");
+    expect(toolNames).toContain("getReadingProgress");
+    expect(toolNames).not.toContain("ragSearch");
+    expect(toolNames).not.toContain("resolveChapterReference");
+  });
+
+  it("does not misroute generic analysis requests into current-page-only tools", async () => {
+    let capturedTools: any[] = [];
+    createReactAgentMock.mockImplementation((config) => {
+      capturedTools = config.tools;
+      return {
+        streamEvents: vi.fn(() => ({
+          [Symbol.asyncIterator]: async function* () {
+            // no-op stream
+          },
+        })),
+      };
+    });
+
+    for await (const event of streamReadingAgent(
+      {
+        aiConfig: makeAIConfig(),
+        book: null,
+        bookId: "book-1",
+        semanticContext: null,
+        enabledSkills: [],
+        isVectorized: true,
+        getAvailableTools,
+      },
+      "帮我分析一下主角",
+    )) {
+      void event;
+    }
+
+    const toolNames = capturedTools.map((tool) => tool.name);
+    expect(toolNames).toContain("ragSearch");
+    expect(toolNames).toContain("ragContext");
+    expect(toolNames).toContain("summarize");
+    expect(toolNames).toContain("getCurrentChapter");
+  });
+
+  it("routes library requests away from book-content tools", async () => {
+    let capturedTools: any[] = [];
+    createReactAgentMock.mockImplementation((config) => {
+      capturedTools = config.tools;
+      return {
+        streamEvents: vi.fn(() => ({
+          [Symbol.asyncIterator]: async function* () {
+            // no-op stream
+          },
+        })),
+      };
+    });
+
+    for await (const event of streamReadingAgent(
+      {
+        aiConfig: makeAIConfig(),
+        book: null,
+        bookId: "book-1",
+        semanticContext: null,
+        enabledSkills: [],
+        isVectorized: true,
+        getAvailableTools,
+      },
+      "帮我看看书库里有哪些标签",
+    )) {
+      void event;
+    }
+
+    const toolNames = capturedTools.map((tool) => tool.name);
+    expect(toolNames).toContain("manageBookTags");
+    expect(toolNames).toContain("listBooks");
+    expect(toolNames).not.toContain("ragSearch");
+    expect(toolNames).not.toContain("ragContext");
+    expect(toolNames).not.toContain("summarize");
+  });
+
+  it("reuses duplicate search requests within the same turn", async () => {
+    const searchCalls: string[] = [];
+    const searchTool: ToolDefinition = {
+      name: "ragSearch",
+      description: "Search book content",
+      parameters: {
+        query: { type: "string", description: "query", required: true },
+      },
+      execute: vi.fn(async (args) => {
+        searchCalls.push(String(args.query || ""));
+        return {
+          results: [{ content: "result", chapterIndex: 1, chapter: "第1章" }],
+          totalResults: 1,
+        };
+      }),
+    };
+
+    let capturedTools: any[] = [];
+    createReactAgentMock.mockImplementation((config) => {
+      capturedTools = config.tools;
+      return {
+        streamEvents: vi.fn(() => ({
+          [Symbol.asyncIterator]: async function* () {
+            // no-op stream
+          },
+        })),
+      };
+    });
+
+    for await (const event of streamReadingAgent(
+      {
+        aiConfig: makeAIConfig(),
+        book: null,
+        bookId: "book-1",
+        semanticContext: null,
+        enabledSkills: [],
+        isVectorized: true,
+        getAvailableTools: () => [searchTool],
+      },
+      "主角是谁",
+    )) {
+      void event;
+    }
+
+    const wrappedSearchTool = capturedTools.find((tool) => tool.name === "ragSearch");
+    expect(wrappedSearchTool).toBeDefined();
+
+    const first = JSON.parse(await wrappedSearchTool.func({ query: "主角是谁" }));
+    const second = JSON.parse(await wrappedSearchTool.func({ query: "主角是谁" }));
+    const third = JSON.parse(await wrappedSearchTool.func({ query: "主角是谁" }));
+
+    expect(first.totalResults).toBe(1);
+    expect(second.totalResults).toBe(1);
+    expect(third.totalResults).toBe(1);
+    expect(searchCalls).toEqual(["主角是谁"]);
   });
 });
