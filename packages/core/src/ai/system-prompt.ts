@@ -130,9 +130,14 @@ function buildToolsSection(
     tools.push("");
     tools.push("### Content Retrieval Tools (RAG)");
     tools.push(
+      "- **resolveChapterReference**: Resolve user-mentioned chapter numbers or fuzzy chapter titles to internal chapterIndex (params: query, maxCandidates)",
+    );
+    tools.push(
       "- **ragSearch**: Semantic/keyword search across book content (params: query, mode, topK)",
     );
-    tools.push("- **ragToc**: Get the full table of contents with chapter indices");
+    tools.push(
+      "- **ragToc**: Get a compact, paginated chapter list (params: query, aroundChapter, offset, limit)",
+    );
     tools.push(
       "- **ragContext**: Get content around a specific chapter position (params: chapterIndex, range)",
     );
@@ -157,7 +162,12 @@ function buildToolsSection(
   } else if (hasBookContext) {
     tools.push("");
     tools.push("### Fallback Content Tools (no vector index)");
-    tools.push("- **fallbackToc**: Read the original file and list chapters without vectorization");
+    tools.push(
+      "- **resolveChapterReference**: Resolve user-mentioned chapter numbers or fuzzy chapter titles to internal chapterIndex (params: query, maxCandidates)",
+    );
+    tools.push(
+      "- **fallbackToc**: Read a compact, paginated chapter list from the original file (params: query, aroundChapter, offset, limit, includePreview)",
+    );
     tools.push(
       "- **fallbackSearch**: Keyword-scan the original file when the book is not vectorized (params: query, topK)",
     );
@@ -207,14 +217,20 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
   }
 
   if (isVectorized) {
+    steps.push(
+      "   - **resolveChapterReference**: first step for user-mentioned chapter numbers/titles; do not convert human chapter numbers to chapterIndex yourself",
+    );
     steps.push("   - **ragSearch**: for finding specific content by topic/keyword");
-    steps.push("   - **ragToc**: for understanding book structure");
+    steps.push("   - **ragToc**: for compact/paginated structure browsing");
     steps.push(
       "   - **summarize/extractEntities/analyzeArguments/findQuotes**: for indexed content analysis",
     );
   } else {
+    steps.push(
+      "   - **resolveChapterReference**: first step for user-mentioned chapter numbers/titles; do not convert human chapter numbers to chapterIndex yourself",
+    );
     steps.push("   - **fallbackSearch**: for keyword exploration when the book is not vectorized");
-    steps.push("   - **fallbackToc**: for understanding book structure without an index");
+    steps.push("   - **fallbackToc**: for compact/paginated structure browsing without an index");
     steps.push("   - **fallbackChapterContext**: for reading a specific chapter without an index");
   }
 
@@ -321,6 +337,9 @@ function buildWorkflowSection(isVectorized: boolean, hasBookContext: boolean): s
   );
   steps.push(
     "- If a tool returns no results or an error, tell the user honestly. Do NOT retry with rephrased queries.",
+  );
+  steps.push(
+    "- For a specific chapter request, call resolveChapterReference first. If matched=false, present the candidates or ask for clarification instead of guessing chapterIndex.",
   );
   steps.push(
     '- For multi-step tasks (e.g. "summarize each chapter"), you MAY call tools many times — but each call must target a DIFFERENT chapter/scope. Never repeat the same query.',

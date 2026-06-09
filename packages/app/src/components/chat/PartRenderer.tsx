@@ -195,6 +195,7 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   ragSearch: "toolLabels.ragSearch",
   ragToc: "toolLabels.ragToc",
   ragContext: "toolLabels.ragContext",
+  resolveChapterReference: "toolLabels.resolveChapterReference",
   summarize: "toolLabels.summarize",
   extractEntities: "toolLabels.extractEntities",
   analyzeArguments: "toolLabels.analyzeArguments",

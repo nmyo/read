@@ -7,8 +7,8 @@ import { z } from "zod";
  * Reading Agent — AI-powered reading assistant using LangGraph ReAct agent
  *
  * Architecture:
- * 1. Uses LangGraph's createReactAgent for automatic tool-calling loop (no hard iteration limit)
- * 2. Uses getAvailableTools() to register ALL tools (RAG, analysis, context)
+ * 1. Uses LangGraph's createReactAgent for automatic tool-calling loop
+ * 2. Uses getAvailableTools() and a lightweight router to keep tool sets focused
  * 3. Builds proper Zod schemas from ToolDefinition.parameters
  * 4. Real streaming via streamEvents API
  * 5. System prompt from system-prompt.ts
@@ -18,6 +18,21 @@ import { createChatModel } from "../llm-provider";
 import { buildSystemPrompt } from "../system-prompt";
 import { ThinkTagStreamParser } from "../think-tag-parser";
 import type { ToolDefinition, ToolParameter } from "../tools/tool-types";
+
+const CHAPTER_REFERENCE_RE =
+  /(?:第\s*)?[零〇一二两三四五六七八九十百千万\d]{1,8}\s*(?:章|卷|节|回|讲|篇|话)|这一章|这一节|chapter\s*\d+/iu;
+
+const CHAPTER_TASK_TOOL_NAMES = new Set([
+  "resolveChapterReference",
+  "ragSearch",
+  "ragContext",
+  "summarize",
+  "fallbackSearch",
+  "fallbackChapterContext",
+  "getCurrentChapter",
+  "getSurroundingContext",
+  "addCitation",
+]);
 
 // --- Stream Event Types ---
 
@@ -108,6 +123,12 @@ async function executeTool(tool: ToolDefinition, args: Record<string, unknown>):
   }
 }
 
+function selectToolsForInput(tools: ToolDefinition[], userInput: string): ToolDefinition[] {
+  if (!CHAPTER_REFERENCE_RE.test(userInput)) return tools;
+  const focused = tools.filter((tool) => CHAPTER_TASK_TOOL_NAMES.has(tool.name));
+  return focused.length > 0 ? focused : tools;
+}
+
 // --- Main Agent Function ---
 
 export async function* streamReadingAgent(
@@ -147,13 +168,16 @@ export async function* streamReadingAgent(
     // Check abort after async operation
     if (isAborted()) return;
 
-    // Register ALL tools via injected getAvailableTools
+    // Register tools via injected getAvailableTools, then narrow obvious chapter tasks.
     const effectiveBookId = book?.id || bookId || null;
-    const tools = getAvailableTools({
-      bookId: effectiveBookId,
-      isVectorized,
-      enabledSkills,
-    });
+    const tools = selectToolsForInput(
+      getAvailableTools({
+        bookId: effectiveBookId,
+        isVectorized,
+        enabledSkills,
+      }),
+      userInput,
+    );
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt({
@@ -267,12 +291,11 @@ export async function* streamReadingAgent(
       prompt: systemPrompt,
     });
 
-    // Stream events from the agent graph
-    // recursionLimit=50 allows up to ~25 tool-calling rounds (2 graph steps per round)
-    // This supports analyzing all chapters of a book in one conversation turn
+    // Stream events from the agent graph.
+    // Keep normal turns bounded; batch chapter tasks should use dedicated flows later.
     const eventStream = agent.streamEvents(
       { messages: inputMessages },
-      { version: "v2", recursionLimit: 200 },
+      { version: "v2", recursionLimit: 24 },
     );
 
     // Track tool calls already emitted (from streaming chunks or on_chat_model_end)
