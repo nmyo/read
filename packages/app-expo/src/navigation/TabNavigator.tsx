@@ -46,7 +46,7 @@ export function TabNavigator() {
       safeAreaInsets={{ ...insets, bottom: bottomInset }}
       screenOptions={{
         headerShown: false,
-        tabBarHideOnKeyboard: true,
+        tabBarHideOnKeyboard: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         tabBarLabelStyle: {
