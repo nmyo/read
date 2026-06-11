@@ -788,7 +788,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         void view.next(getScrollNavigationDistance());
         return;
       }
-      void view.goRight();
+      void view.next();
     }, [getScrollNavigationDistance]);
 
     const goPrevByMode = useCallback(() => {
@@ -806,7 +806,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         void view.prev(getScrollNavigationDistance());
         return;
       }
-      void view.goLeft();
+      void view.prev();
     }, [getScrollNavigationDistance]);
 
     const ensureDesktopTTS = useCallback(async () => {

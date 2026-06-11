@@ -2031,18 +2031,11 @@ a { color: ${primary} !important; }
         armTapNavigationLock();
         e.preventDefault();
         e.stopPropagation();
-        const dir = currentBook && currentBook.dir === 'rtl' ? 'rtl' : 'ltr';
 
         if (normalizedX < centerStart) {
-          if (view) {
-            if (dir === 'rtl') view.next();
-            else view.prev();
-          }
+          if (view) goPrevByMode();
         } else {
-          if (view) {
-            if (dir === 'rtl') view.prev();
-            else view.next();
-          }
+          if (view) goNextByMode();
         }
       }, { passive: false, capture: true });
     }
