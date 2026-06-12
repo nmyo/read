@@ -290,6 +290,94 @@
       renderer.setAttribute('max-inline-size', getMobileReflowMaxInlineSize() + 'px');
     }
 
+    function getTransformViewportSize() {
+      const root = document.documentElement;
+      const viewport = window.visualViewport;
+      return {
+        width: Math.max(1, Math.round(viewport?.width || window.innerWidth || root.clientWidth || 393)),
+        height: Math.max(1, Math.round(viewport?.height || window.innerHeight || root.clientHeight || 720)),
+      };
+    }
+
+    function transformBookStylesheet(css) {
+      if (typeof css !== 'string' || !css) return css;
+      const { width, height } = getTransformViewportSize();
+      const ruleRegex = /([^{]+)({[^}]+})/g;
+
+      css = css.replace(ruleRegex, (match, selector, block) => {
+        if (/white-space\s*:\s*nowrap\s*[;$]/i.test(block) && !/overflow\s*:/i.test(block)) {
+          return selector + block.replace(/}$/, ' overflow: clip !important; }');
+        }
+        return match;
+      });
+
+      css = css.replace(ruleRegex, (match, selector, block) => {
+        const widthMatch = /(?:^|[^a-z-])width\s*:\s*(\d+(?:\.\d+)?)px/i.exec(block);
+        const pxWidth = widthMatch ? parseFloat(widthMatch[1] || '0') : 0;
+        if (pxWidth > width && !/max-width\s*:/i.test(block)) {
+          return selector + block.replace(
+            /}$/,
+            ' width: 100%; max-width: 100%; box-sizing: border-box; }',
+          );
+        }
+        return match;
+      });
+
+      return css
+        .replace(/-webkit-writing-mode\s*:\s*([^;}{]+)/gi, '-webkit-writing-mode: $1; writing-mode: $1')
+        .replace(/-epub-writing-mode\s*:\s*([^;}{]+)/gi, 'writing-mode: $1')
+        .replace(/-webkit-line-break\s*:\s*([^;}{]+)/gi, '-webkit-line-break: $1; line-break: $1')
+        .replace(/-epub-line-break\s*:\s*([^;}{]+)/gi, 'line-break: $1')
+        .replace(/-webkit-word-break\s*:\s*([^;}{]+)/gi, '-webkit-word-break: $1; word-break: $1')
+        .replace(/-epub-word-break\s*:\s*([^;}{]+)/gi, 'word-break: $1')
+        .replace(/-webkit-text-orientation\s*:\s*([^;}{]+)/gi, '-webkit-text-orientation: $1; text-orientation: $1')
+        .replace(/-epub-text-orientation\s*:\s*([^;}{]+)/gi, 'text-orientation: $1')
+        .replace(/-webkit-text-combine-upright\s*:\s*([^;}{]+)/gi, '-webkit-text-combine-upright: $1; text-combine-upright: $1')
+        .replace(/-webkit-text-combine\s*:\s*([^;}{]+)/gi, (_, value) => {
+          const trimmed = String(value).trim();
+          const upright = trimmed.toLowerCase() === 'horizontal' ? 'all' : trimmed;
+          return `-webkit-text-combine: ${trimmed}; text-combine-upright: ${upright}`;
+        })
+        .replace(/-epub-text-combine\s*:\s*([^;}{]+)/gi, (_, value) => {
+          const trimmed = String(value).trim();
+          return `text-combine-upright: ${trimmed.toLowerCase() === 'horizontal' ? 'all' : trimmed}`;
+        })
+        .replace(/(\d*\.?\d+)vw/gi, (_, d) => `${parseFloat(d) * width / 100}px`)
+        .replace(/(\d*\.?\d+)vh/gi, (_, d) => `${parseFloat(d) * height / 100}px`)
+        .replace(/page-break-(after|before|inside)\s*:/gi, (_, x) => `-webkit-column-break-${x}:`)
+        .replace(/break-(after|before|inside)\s*:\s*(avoid-)?page/gi, (_, x, y) => `break-${x}: ${y || ''}column`)
+        .replace(/([{\s;])-epub-/gi, '$1');
+    }
+
+    function transformBookContentMarkup(markup) {
+      if (typeof markup !== 'string' || !markup || !/<style[\s>]/i.test(markup)) return markup;
+      return markup.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => {
+        return `<style${attrs}>${transformBookStylesheet(css)}</style>`;
+      });
+    }
+
+    function attachBookTransformHandler(book) {
+      if (!book || !book.transformTarget || book.__readany_mobile_transform_attached) return;
+      book.__readany_mobile_transform_attached = true;
+      book.transformTarget.addEventListener('data', ({ detail }) => {
+        if (!detail || !detail.type) return;
+        const type = String(detail.type).toLowerCase();
+        const isStylesheet = type === 'text/css';
+        const isHtml = type === 'application/xhtml+xml' || type === 'text/html';
+        if (!isStylesheet && !isHtml) return;
+
+        detail.data = Promise.resolve(detail.data)
+          .then((data) => {
+            if (typeof data !== 'string') return data;
+            return isStylesheet ? transformBookStylesheet(data) : transformBookContentMarkup(data);
+          })
+          .catch((error) => {
+            console.warn('[Reader] Failed to transform book resource:', detail.name, error);
+            return '';
+          });
+      });
+    }
+
     function getPullBookmarkElements() {
       return {
         indicator: document.getElementById('pull-bookmark-indicator'),
@@ -1262,6 +1350,7 @@
 
         const book = (file && file.sections) ? file : await makeBook(file);
         currentBook = book;
+        attachBookTransformHandler(book);
 
         const el = document.createElement('foliate-view');
         readerElement = el;
@@ -1912,11 +2001,28 @@ a { color: ${primary} !important; }
       return false;
     }
 
+    function isVerticalDoc(doc) {
+      const root = doc && doc.documentElement;
+      if (!root) return false;
+      if (root.classList.contains('vrtl') || root.classList.contains('vltr')) return true;
+      const body = doc.body;
+      if (!body || !doc.defaultView) return false;
+      const style = doc.defaultView.getComputedStyle(body);
+      if (style.writingMode === 'vertical-rl' || style.writingMode === 'vertical-lr') return true;
+      const firstChild = body.querySelector(':scope > :not([cfi-inert])');
+      if (!firstChild) return false;
+      const childStyle = doc.defaultView.getComputedStyle(firstChild);
+      return childStyle.writingMode === 'vertical-rl' || childStyle.writingMode === 'vertical-lr';
+    }
+
     function applyDocStyles(doc) {
       syncCustomFontStylesForDoc(doc, currentCustomFontFaceCSS);
-      for (const img of doc.querySelectorAll('img')) {
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
+      const verticalDoc = isVerticalDoc(doc);
+      if (!verticalDoc) {
+        for (const img of doc.querySelectorAll('img')) {
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+        }
       }
       const style = doc.createElement('style');
       const { bg, fg, primary } = currentThemeColors;
