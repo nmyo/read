@@ -350,8 +350,12 @@
     }
 
     function transformBookContentMarkup(markup) {
-      if (typeof markup !== 'string' || !markup || !/<style[\s>]/i.test(markup)) return markup;
-      return markup.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => {
+      if (typeof markup !== 'string' || !markup) return markup;
+      const withoutScripts = markup
+        .replace(/<script\b[^>]*\/\s*>/gi, '')
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+      if (!/<style[\s>]/i.test(withoutScripts)) return withoutScripts;
+      return withoutScripts.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => {
         return `<style${attrs}>${transformBookStylesheet(css)}</style>`;
       });
     }
@@ -359,6 +363,9 @@
     function attachBookTransformHandler(book) {
       if (!book || !book.transformTarget || book.__readany_mobile_transform_attached) return;
       book.__readany_mobile_transform_attached = true;
+      book.transformTarget.addEventListener('load', ({ detail }) => {
+        if (detail && detail.isScript) detail.allow = false;
+      });
       book.transformTarget.addEventListener('data', ({ detail }) => {
         if (!detail || !detail.type) return;
         const type = String(detail.type).toLowerCase();
