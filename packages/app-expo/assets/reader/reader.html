@@ -378,6 +378,27 @@
       `;
     }
 
+    function normalizeWritingModeValue(value) {
+      const trimmed = String(value || '').trim();
+      return /^vertical-(?:rl|lr)$/i.test(trimmed) ? 'horizontal-tb' : trimmed;
+    }
+
+    function normalizeVerticalWritingClasses(className) {
+      const classes = String(className || '')
+        .split(/\s+/)
+        .filter(Boolean);
+      let changed = false;
+      const normalized = classes.map((name) => {
+        if (name === 'vrtl' || name === 'vltr') {
+          changed = true;
+          return 'hltr';
+        }
+        return name;
+      });
+      if (!changed) return className;
+      return Array.from(new Set(normalized)).join(' ');
+    }
+
     function transformBookStylesheet(css) {
       if (typeof css !== 'string' || !css) return css;
       const { width, height } = getTransformViewportSize();
@@ -403,8 +424,12 @@
       });
 
       return css
-        .replace(/-webkit-writing-mode\s*:\s*([^;}{]+)/gi, '-webkit-writing-mode: $1; writing-mode: $1')
-        .replace(/-epub-writing-mode\s*:\s*([^;}{]+)/gi, 'writing-mode: $1')
+        .replace(/-webkit-writing-mode\s*:\s*([^;}{]+)/gi, (_, value) => {
+          const normalized = normalizeWritingModeValue(value);
+          return `-webkit-writing-mode: ${normalized}; writing-mode: ${normalized}`;
+        })
+        .replace(/-epub-writing-mode\s*:\s*([^;}{]+)/gi, (_, value) => `writing-mode: ${normalizeWritingModeValue(value)}`)
+        .replace(/([{\s;])writing-mode\s*:\s*([^;}{]+)/gi, (_, prefix, value) => `${prefix}writing-mode: ${normalizeWritingModeValue(value)}`)
         .replace(/-webkit-line-break\s*:\s*([^;}{]+)/gi, '-webkit-line-break: $1; line-break: $1')
         .replace(/-epub-line-break\s*:\s*([^;}{]+)/gi, 'line-break: $1')
         .replace(/-webkit-word-break\s*:\s*([^;}{]+)/gi, '-webkit-word-break: $1; word-break: $1')
@@ -433,8 +458,14 @@
       const withoutScripts = markup
         .replace(/<script\b[^>]*\/\s*>/gi, '')
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-      if (!/<style[\s>]/i.test(withoutScripts)) return withoutScripts;
-      return withoutScripts.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => {
+      const normalizedMarkup = withoutScripts
+        .replace(/\bclass\s*=\s*(['"])([^'"]*)\1/gi, (match, quote, className) => {
+          const normalized = normalizeVerticalWritingClasses(className);
+          return normalized === className ? match : `class=${quote}${normalized}${quote}`;
+        })
+        .replace(/\bstyle\s*=\s*(['"])([^'"]*)\1/gi, (_, quote, css) => `style=${quote}${transformBookStylesheet(css)}${quote}`);
+      if (!/<style[\s>]/i.test(normalizedMarkup)) return normalizedMarkup;
+      return normalizedMarkup.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => {
         return `<style${attrs}>${transformBookStylesheet(css)}</style>`;
       });
     }
