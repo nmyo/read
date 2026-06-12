@@ -1119,6 +1119,15 @@ export function ReaderScreen({ route, navigation }: Props) {
           lastLocation,
           pageMargin: readSettings.pageMargin,
           paginatedLayout: readSettings.paginatedLayout,
+          settings: {
+            fontSize: readSettings.fontSize,
+            lineHeight: readSettings.lineHeight,
+            paragraphSpacing: readSettings.paragraphSpacing,
+            pageMargin: readSettings.pageMargin,
+            fontTheme: readSettings.fontTheme,
+            viewMode: readSettings.viewMode,
+            paginatedLayout: readSettings.paginatedLayout,
+          },
         });
 
         bridge.setThemeColors({

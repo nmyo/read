@@ -1561,6 +1561,10 @@
           applyFixedLayoutRendererSettings(renderer, currentPaginatedLayout);
         }
 
+        if (msg.settings) {
+          applySettings(msg.settings);
+        }
+
         if (el.isFixedLayout) {
           await el.init({});
         } else if (msg.lastLocation) {

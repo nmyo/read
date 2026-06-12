@@ -518,6 +518,7 @@ class View {
         setStylesImportant(doc.documentElement, {
             'box-sizing': 'border-box',
             'column-width': 'auto',
+            '-webkit-column-width': 'auto',
             'height': 'auto',
             'width': 'auto',
         })
@@ -562,6 +563,9 @@ class View {
             'column-width': `${Math.trunc(columnWidth)}px`,
             'column-gap': vertical ? `${(marginTop + marginBottom) * 1.5}px` : `${horizontalColumnGap}px`,
             'column-fill': 'auto',
+            '-webkit-column-width': `${Math.trunc(columnWidth)}px`,
+            '-webkit-column-gap': vertical ? `${(marginTop + marginBottom) * 1.5}px` : `${horizontalColumnGap}px`,
+            '-webkit-column-fill': 'auto',
             ...(vertical
                 ? { 'width': `${width}px` }
                 : { 'height': `${height}px` }),
