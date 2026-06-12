@@ -277,6 +277,19 @@
       }
     }
 
+    function getMobileReflowMaxInlineSize() {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 720;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 393;
+      return Math.ceil(Math.max(720, viewportHeight, viewportWidth));
+    }
+
+    function applyMobileReflowRendererSizing(renderer) {
+      if (!renderer) return;
+      renderer.setAttribute('max-column-count', '1');
+      renderer.setAttribute('max-block-size', '1440px');
+      renderer.setAttribute('max-inline-size', getMobileReflowMaxInlineSize() + 'px');
+    }
+
     function getPullBookmarkElements() {
       return {
         indicator: document.getElementById('pull-bookmark-indicator'),
@@ -1437,9 +1450,7 @@
 
         const renderer = el.renderer;
         if (renderer && !el.isFixedLayout) {
-          renderer.setAttribute('max-column-count', '1');
-          renderer.setAttribute('max-block-size', '100%');
-          renderer.setAttribute('max-inline-size', '100%');
+          applyMobileReflowRendererSizing(renderer);
           // Default gap/margin
           const margin = msg.pageMargin || 16;
           const gapPercent = Math.max(1, Math.round((margin / 393) * 100));
@@ -1641,7 +1652,7 @@
           renderer.setAttribute('max-inline-size', '9999px');
         } else {
           renderer.removeAttribute('flow');
-          renderer.setAttribute('max-inline-size', '100%');
+          if (!view.isFixedLayout) applyMobileReflowRendererSizing(renderer);
         }
       }
     }
