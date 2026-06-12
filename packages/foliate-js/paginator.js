@@ -2215,7 +2215,7 @@ export class Paginator extends HTMLElement {
                         prop => doc.documentElement.setAttribute('data-' + prop, ''))
                     this.#styleMap.set(doc, [$styleBefore, $style])
                 }
-                onLoad?.({ doc, index })
+                onLoad?.({ doc, index, primary: true })
             }
             const beforeRender = this.#beforeRender.bind(this)
             await view.load(src, data, afterLoad, beforeRender)
@@ -2296,7 +2296,7 @@ export class Paginator extends HTMLElement {
                     this.#styleMap.set(doc, [$styleBefore, $style])
                 }
                 this.setStyles(this.#styles)
-                this.dispatchEvent(new CustomEvent('load', { detail: { doc, index } }))
+                this.dispatchEvent(new CustomEvent('load', { detail: { doc, index, primary: false } }))
             }
             // Adjacent sections reuse the primary view's cached layout
             // — they must NOT call #beforeRender, which would modify

@@ -183,6 +183,7 @@
     let currentThemeColors = { bg: '#1c1c1e', fg: '#e8e8ed', muted: '#7c7c82', primary: '#3b82f6' };
     let lastRendererStyles = '';
     let currentViewMode = 'paginated';
+    let currentSectionUsesVerticalWriting = false;
     let currentPaginatedLayout = 'double';
     let currentFontSize = 16;
     let currentLineHeight = 1.6;
@@ -288,6 +289,31 @@
       renderer.setAttribute('max-column-count', '1');
       renderer.setAttribute('max-block-size', '1440px');
       renderer.setAttribute('max-inline-size', getMobileReflowMaxInlineSize() + 'px');
+    }
+
+    function applyRendererFlowMode(renderer) {
+      if (!renderer || !view) return;
+
+      if (view.isFixedLayout) {
+        renderer.removeAttribute('no-continuous-scroll');
+        return;
+      }
+
+      if (currentViewMode === 'scroll') {
+        renderer.removeAttribute('no-continuous-scroll');
+        renderer.setAttribute('flow', 'scrolled');
+        renderer.setAttribute('max-inline-size', '9999px');
+        return;
+      }
+
+      applyMobileReflowRendererSizing(renderer);
+      if (currentSectionUsesVerticalWriting) {
+        renderer.setAttribute('flow', 'scrolled');
+        renderer.setAttribute('no-continuous-scroll', '');
+      } else {
+        renderer.removeAttribute('no-continuous-scroll');
+        renderer.removeAttribute('flow');
+      }
     }
 
     function getTransformViewportSize() {
@@ -1419,9 +1445,13 @@
         resetPullBookmarkUI(false);
 
         el.addEventListener('load', (e) => {
-          const { doc, index } = e.detail;
+          const { doc, index, primary } = e.detail;
           markLoaded();
           normalizeBrOnlyParagraphs(doc);
+          if (primary !== false) {
+            currentSectionUsesVerticalWriting = !el.isFixedLayout && isVerticalDoc(doc);
+            applyRendererFlowMode(el.renderer);
+          }
           applyDocStyles(doc);
           attachTapListener(doc);
           attachPullBookmarkListener(doc);
@@ -1578,6 +1608,7 @@
 
         container.appendChild(el);
         view = el;
+        currentSectionUsesVerticalWriting = false;
 
         await el.open(book);
 
@@ -1824,13 +1855,7 @@
 
       if (settings.viewMode) {
         currentViewMode = settings.viewMode;
-        if (settings.viewMode === 'scroll') {
-          renderer.setAttribute('flow', 'scrolled');
-          renderer.setAttribute('max-inline-size', '9999px');
-        } else {
-          renderer.removeAttribute('flow');
-          if (!view.isFixedLayout) applyMobileReflowRendererSizing(renderer);
-        }
+        applyRendererFlowMode(renderer);
       }
     }
 
