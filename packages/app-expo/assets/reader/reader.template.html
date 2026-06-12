@@ -1606,17 +1606,34 @@
             font-size: ${fSize}px !important;
             -webkit-text-size-adjust: none;
           }
-          body *:not(svg):not(svg *):not(code):not(pre):not(kbd):not(samp) {
-            font-family: var(--readany-font-family) !important;
-          }
-          p, div, blockquote, li, span, h1, h2, h3, h4, h5, h6 {
+          :root:not(.vrtl):not(.vltr) p,
+          :root:not(.vrtl):not(.vltr) div,
+          :root:not(.vrtl):not(.vltr) blockquote,
+          :root:not(.vrtl):not(.vltr) li,
+          :root:not(.vrtl):not(.vltr) span,
+          :root:not(.vrtl):not(.vltr) h1,
+          :root:not(.vrtl):not(.vltr) h2,
+          :root:not(.vrtl):not(.vltr) h3,
+          :root:not(.vrtl):not(.vltr) h4,
+          :root:not(.vrtl):not(.vltr) h5,
+          :root:not(.vrtl):not(.vltr) h6 {
             line-height: ${lh} !important;
+          }
+          :root:is(.vrtl, .vltr) body {
+            line-height: ${lh};
           }
           pre, code, kbd, samp {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
           }
-          p { margin-top: ${ps}px !important; margin-bottom: ${ps}px !important; }
-          img, svg { max-width: 100% !important; height: auto !important; }
+          :root:not(.vrtl):not(.vltr) p {
+            margin-top: ${ps}px !important;
+            margin-bottom: ${ps}px !important;
+          }
+          :root:not(.vrtl):not(.vltr) img,
+          :root:not(.vrtl):not(.vltr) svg {
+            max-width: 100% !important;
+            height: auto !important;
+          }
         `;
         lastRendererStyles = baseStyles;
         const themedStyles = injectThemeIntoStyles(
