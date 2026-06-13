@@ -5,17 +5,14 @@ import { useTheme } from "@/styles/theme";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { VectorModelConfig } from "@readany/core/types";
-import { Check, Cloud, Plus, Trash2, X } from "lucide-react-native";
-import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+  isOllamaEmbeddingEndpointUrl,
+  normalizeEmbeddingEndpointUrl,
+} from "@readany/core/utils/api";
+import { Check, Cloud, Plus, Trash2, X } from "lucide-react-native";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { SlideInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchSvg from "../../../../assets/illustrations/search.svg";
@@ -26,13 +23,14 @@ type NavProp = NativeStackNavigationProp<OnboardingStackParamList, "Embedding">;
 export function EmbeddingPage() {
   const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const {
     vectorModels,
     addVectorModel,
     deleteVectorModel,
+    updateVectorModel,
     setSelectedVectorModelId,
   } = useVectorModelStore();
 
@@ -44,7 +42,10 @@ export function EmbeddingPage() {
     if (!formData.name.trim() || !formData.url.trim() || !formData.modelId.trim()) return;
     const newModel: VectorModelConfig = {
       id: `vm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      ...formData,
+      name: formData.name.trim(),
+      url: normalizeEmbeddingEndpointUrl(formData.url),
+      modelId: formData.modelId.trim(),
+      apiKey: formData.apiKey.trim(),
     };
     addVectorModel(newModel);
     setFormData({ name: "", url: "", modelId: "", apiKey: "" });
@@ -54,8 +55,8 @@ export function EmbeddingPage() {
   const testRemoteModel = async (model: VectorModelConfig) => {
     setTestingId(model.id);
     try {
-      const testUrl = model.url.replace(/\/$/, "");
-      const isOllama = testUrl.endsWith("/api/embed");
+      const testUrl = normalizeEmbeddingEndpointUrl(model.url);
+      const isOllama = isOllamaEmbeddingEndpointUrl(testUrl);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (model.apiKey?.trim()) headers.Authorization = `Bearer ${model.apiKey}`;
 
@@ -69,6 +70,7 @@ export function EmbeddingPage() {
         body: JSON.stringify(requestBody),
       });
       if (res.ok) {
+        updateVectorModel(model.id, { url: testUrl });
         setSelectedVectorModelId(model.id);
       }
     } catch (err) {
@@ -273,9 +275,7 @@ export function EmbeddingPage() {
                 ]}
               >
                 <View style={styles.modelItemInfo}>
-                  <Text style={[styles.modelItemName, { color: colors.foreground }]}>
-                    {m.name}
-                  </Text>
+                  <Text style={[styles.modelItemName, { color: colors.foreground }]}>{m.name}</Text>
                   <Text style={[styles.modelItemMeta, { color: colors.mutedForeground }]}>
                     {m.modelId}
                   </Text>

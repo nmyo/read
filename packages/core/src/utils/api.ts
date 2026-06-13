@@ -201,36 +201,33 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   },
 };
 
-const SPECIAL_HOSTS = [
-  "volces.com/api/v3",
-  "anthropic.com",
-  "generativelanguage.googleapis.com",
-];
+const SPECIAL_HOSTS = ["volces.com/api/v3", "anthropic.com", "generativelanguage.googleapis.com"];
 
 const CONSOLE_PATH_SEGMENTS = new Set(["console", "playground", "dashboard", "studio"]);
 
-const VERSION_PATTERN = /\/(v[1-9]\d*|api\/v[1-9]\d*|api\/paas\/v[1-9]\d*|compatible-mode\/v[1-9]\d*|openai\/v[1-9]\d*)$/i;
+const VERSION_PATTERN =
+  /\/(v[1-9]\d*|api\/v[1-9]\d*|api\/paas\/v[1-9]\d*|compatible-mode\/v[1-9]\d*|openai\/v[1-9]\d*)$/i;
 
 export function formatApiHost(host: string): string {
   if (!host) return host;
 
-  host = ensureUrlProtocol(host.trim());
+  const normalizedHost = ensureUrlProtocol(host.trim());
 
-  if (host.endsWith("/")) {
-    return host;
+  if (normalizedHost.endsWith("/")) {
+    return normalizedHost;
   }
 
   for (const special of SPECIAL_HOSTS) {
-    if (host.includes(special)) {
-      return `${host}/`;
+    if (normalizedHost.includes(special)) {
+      return `${normalizedHost}/`;
     }
   }
 
-  if (VERSION_PATTERN.test(host)) {
-    return `${host}/`;
+  if (VERSION_PATTERN.test(normalizedHost)) {
+    return `${normalizedHost}/`;
   }
 
-  return `${host}/v1/`;
+  return `${normalizedHost}/v1/`;
 }
 
 export function trimApiUrl(url: string): string {
@@ -352,6 +349,76 @@ export function buildOpenAICompatibleUrl(
   if (!resolvedBaseUrl) return "";
   if (exactRequestUrl) return resolvedBaseUrl;
   return `${resolvedBaseUrl}/${path.replace(/^\/+/, "")}`;
+}
+
+function getPathSegments(url: string): string[] {
+  try {
+    return new URL(url).pathname.split("/").filter(Boolean);
+  } catch {
+    return trimApiUrl(url).split("/").filter(Boolean);
+  }
+}
+
+function trimParsedUrlPath(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = getPathSegments(url);
+    parsed.pathname = segments.length > 0 ? `/${segments.join("/")}` : "/";
+    return trimApiUrl(parsed.toString());
+  } catch {
+    return trimApiUrl(url);
+  }
+}
+
+function getLowerPathSegments(url: string): string[] {
+  return getPathSegments(url).map((segment) => segment.toLowerCase());
+}
+
+export function isOllamaEmbeddingEndpointUrl(url: string): boolean {
+  const normalized = ensureUrlProtocol(url);
+  const segments = getLowerPathSegments(trimApiUrl(normalized));
+  return (
+    segments.length >= 2 &&
+    segments[segments.length - 2] === "api" &&
+    segments[segments.length - 1] === "embed"
+  );
+}
+
+function isOllamaBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.port === "11434" && getPathSegments(url).length === 0;
+  } catch {
+    return /(^|:)11434(\/|$)/.test(url);
+  }
+}
+
+/**
+ * Accept either an embeddings request URL or an OpenAI-compatible API base URL.
+ * This keeps legacy saved root URLs working while preserving exact endpoints.
+ */
+export function normalizeEmbeddingEndpointUrl(
+  url?: string,
+  fallbackBaseUrl = "https://api.openai.com",
+): string {
+  const rawUrl = ensureUrlProtocol((url || fallbackBaseUrl).trim());
+  if (!rawUrl) return "";
+  const trimmedUrl = trimApiUrl(rawUrl);
+
+  if (isOllamaEmbeddingEndpointUrl(trimmedUrl)) {
+    return trimParsedUrlPath(trimmedUrl);
+  }
+
+  if (isOllamaBaseUrl(trimmedUrl)) {
+    return `${trimmedUrl}/api/embed`;
+  }
+
+  const segments = getLowerPathSegments(trimmedUrl);
+  if (segments[segments.length - 1] === "embeddings") {
+    return trimParsedUrlPath(trimmedUrl);
+  }
+
+  return buildOpenAICompatibleUrl(trimmedUrl, "embeddings");
 }
 
 export function getProviderConfig(providerId: string): ProviderConfig {

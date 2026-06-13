@@ -12,14 +12,14 @@ import { useVectorModelStore } from "@/stores/vector-model-store";
 import { BUILTIN_EMBEDDING_MODELS } from "@readany/core/ai/builtin-embedding-models";
 import { clearModelCache, loadEmbeddingPipeline } from "@readany/core/ai/local-embedding-service";
 import type { VectorModelConfig } from "@readany/core/types";
+import {
+  isOllamaEmbeddingEndpointUrl,
+  normalizeEmbeddingEndpointUrl,
+} from "@readany/core/utils/api";
 import { Check, Download, Edit2, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfigTransfer } from "./ConfigTransfer";
-
-function normalizeEmbeddingsUrl(url: string): string {
-  return url.replace(/\/$/, "");
-}
 
 /* ------------------------------------------------------------------ */
 /*  Built-in Models Section                                           */
@@ -229,7 +229,11 @@ function RemoteModelsSection() {
     if (!formData.name.trim() || !formData.url.trim() || !formData.modelId.trim()) return;
     const newModel: VectorModelConfig = {
       id: `vm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      ...formData,
+      name: formData.name.trim(),
+      url: normalizeEmbeddingEndpointUrl(formData.url),
+      modelId: formData.modelId.trim(),
+      apiKey: formData.apiKey.trim(),
+      description: formData.description?.trim() || "",
     };
     addVectorModel(newModel);
     resetForm();
@@ -250,7 +254,13 @@ function RemoteModelsSection() {
   const handleEdit = useCallback(() => {
     if (!editingId || !formData.name.trim() || !formData.url.trim() || !formData.modelId.trim())
       return;
-    updateVectorModel(editingId, formData);
+    updateVectorModel(editingId, {
+      name: formData.name.trim(),
+      url: normalizeEmbeddingEndpointUrl(formData.url),
+      modelId: formData.modelId.trim(),
+      apiKey: formData.apiKey.trim(),
+      description: formData.description?.trim() || "",
+    });
     resetForm();
   }, [editingId, formData, updateVectorModel, resetForm]);
 
@@ -266,8 +276,8 @@ function RemoteModelsSection() {
       setTestingId(model.id);
       setTestResults((prev) => ({ ...prev, [model.id]: t("settings.vm_testing") }));
       try {
-        const testUrl = normalizeEmbeddingsUrl(model.url);
-        const isOllama = testUrl.endsWith("/api/embed");
+        const testUrl = normalizeEmbeddingEndpointUrl(model.url);
+        const isOllama = isOllamaEmbeddingEndpointUrl(testUrl);
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (model.apiKey.trim()) headers.Authorization = `Bearer ${model.apiKey}`;
 
@@ -286,7 +296,7 @@ function RemoteModelsSection() {
           ? (json?.embeddings?.[0]?.length ?? 0)
           : (json?.data?.[0]?.embedding?.length ?? 0);
 
-        updateVectorModel(model.id, { dimension: len });
+        updateVectorModel(model.id, { dimension: len, url: testUrl });
         setTestResults((prev) => ({
           ...prev,
           [model.id]: t("settings.vm_testSuccess", { dimension: len }),

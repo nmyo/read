@@ -4,6 +4,8 @@ import {
   buildProviderModelsUrl,
   ensureUrlProtocol,
   formatApiHost,
+  isOllamaEmbeddingEndpointUrl,
+  normalizeEmbeddingEndpointUrl,
   providerSupportsExactRequestUrl,
   resolveProviderBaseUrl,
 } from "./api";
@@ -53,12 +55,7 @@ describe("AI API URL helpers", () => {
       ),
     ).toBe("https://example.com/custom-endpoint");
     expect(
-      buildProviderModelsUrl(
-        "openai",
-        "https://example.com/custom-endpoint",
-        "sk-test",
-        true,
-      ),
+      buildProviderModelsUrl("openai", "https://example.com/custom-endpoint", "sk-test", true),
     ).toBe("");
   });
 
@@ -111,9 +108,7 @@ describe("AI API URL helpers", () => {
     });
 
     it("flows through the provider URL builders so requests escape the webview", () => {
-      expect(resolveProviderBaseUrl("openai", "api.openai.com")).toBe(
-        "https://api.openai.com/v1",
-      );
+      expect(resolveProviderBaseUrl("openai", "api.openai.com")).toBe("https://api.openai.com/v1");
       expect(buildProviderModelsUrl("custom", "api.example.com")).toBe(
         "https://api.example.com/v1/models",
       );
@@ -121,6 +116,47 @@ describe("AI API URL helpers", () => {
         "http://localhost:11434/api/tags",
       );
       expect(formatApiHost("api.openai.com")).toBe("https://api.openai.com/v1/");
+    });
+  });
+
+  describe("embedding endpoint normalization", () => {
+    it("accepts OpenAI-compatible roots and versioned base URLs", () => {
+      expect(normalizeEmbeddingEndpointUrl("https://api.openai.com")).toBe(
+        "https://api.openai.com/v1/embeddings",
+      );
+      expect(normalizeEmbeddingEndpointUrl("https://api.openai.com/v1")).toBe(
+        "https://api.openai.com/v1/embeddings",
+      );
+      expect(normalizeEmbeddingEndpointUrl("api.siliconflow.cn")).toBe(
+        "https://api.siliconflow.cn/v1/embeddings",
+      );
+      expect(
+        normalizeEmbeddingEndpointUrl("https://dashscope.aliyuncs.com/compatible-mode/v1"),
+      ).toBe("https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings");
+    });
+
+    it("keeps exact embeddings request URLs intact", () => {
+      expect(normalizeEmbeddingEndpointUrl("https://api.openai.com/v1/embeddings")).toBe(
+        "https://api.openai.com/v1/embeddings",
+      );
+      expect(
+        normalizeEmbeddingEndpointUrl(
+          "https://example.com/openai/deployments/MyDeployment/embeddings/?api-version=2024-02-01",
+        ),
+      ).toBe(
+        "https://example.com/openai/deployments/MyDeployment/embeddings?api-version=2024-02-01",
+      );
+    });
+
+    it("normalizes Ollama roots and detects Ollama embed endpoints", () => {
+      expect(normalizeEmbeddingEndpointUrl("localhost:11434")).toBe(
+        "http://localhost:11434/api/embed",
+      );
+      expect(normalizeEmbeddingEndpointUrl("http://localhost:11434/api/embed/")).toBe(
+        "http://localhost:11434/api/embed",
+      );
+      expect(isOllamaEmbeddingEndpointUrl("http://localhost:11434/api/embed")).toBe(true);
+      expect(isOllamaEmbeddingEndpointUrl("http://localhost:11434/v1/embeddings")).toBe(false);
     });
   });
 });

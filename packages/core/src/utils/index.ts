@@ -34,6 +34,8 @@ export {
   resolveProviderBaseUrl,
   buildProviderModelsUrl,
   buildOpenAICompatibleUrl,
+  normalizeEmbeddingEndpointUrl,
+  isOllamaEmbeddingEndpointUrl,
   getProviderConfig,
   getDefaultBaseUrl,
   detectProviderFromUrl,

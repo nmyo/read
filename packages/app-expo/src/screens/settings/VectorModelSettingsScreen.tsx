@@ -11,6 +11,7 @@ import {
 } from "@/styles/theme";
 import { useNavigation } from "@react-navigation/native";
 import type { VectorModelConfig } from "@readany/core/types";
+import { normalizeEmbeddingEndpointUrl } from "@readany/core/utils/api";
 /**
  * VectorModelSettingsScreen — Mobile version only supports remote embedding APIs.
  * Local embedding is not supported to reduce APK size by ~100MB.
@@ -207,7 +208,7 @@ function RemoteModelsSection() {
     const newModel: VectorModelConfig = {
       id: `vm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: formName.trim(),
-      url: formUrl.trim(),
+      url: normalizeEmbeddingEndpointUrl(formUrl),
       modelId: formModelId.trim(),
       apiKey: formApiKey.trim(),
       description: formDesc.trim(),
@@ -230,7 +231,7 @@ function RemoteModelsSection() {
     if (!editingId || !formName.trim() || !formUrl.trim() || !formModelId.trim()) return;
     updateVectorModel(editingId, {
       name: formName.trim(),
-      url: formUrl.trim(),
+      url: normalizeEmbeddingEndpointUrl(formUrl),
       modelId: formModelId.trim(),
       apiKey: formApiKey.trim(),
       description: formDesc.trim(),
