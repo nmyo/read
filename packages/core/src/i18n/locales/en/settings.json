@@ -67,6 +67,7 @@
     "showTopTitleProgress": "Top Title & Progress",
     "showBottomTimeBattery": "Bottom Time & Battery",
     "volumeButtonsPageTurn": "Volume Buttons Turn Pages",
+    "volumeButtonsPageTurnDesc": "While reading, volume keys turn pages",
     "followSystemFontScale": "Follow System Font Scale",
     "followSystemFontScaleDesc": "Auto-scale by the OS accessibility font size",
     "fixedLayoutNotice": "PDF is a fixed layout format. Font and layout settings are not available.",

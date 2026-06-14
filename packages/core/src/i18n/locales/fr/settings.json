@@ -67,6 +67,7 @@
     "showTopTitleProgress": "Titre et progression en haut",
     "showBottomTimeBattery": "Heure et batterie en bas",
     "volumeButtonsPageTurn": "Tourner les pages avec les boutons de volume",
+    "volumeButtonsPageTurnDesc": "En lecture, les boutons de volume tournent les pages",
     "followSystemFontScale": "Suivre l'échelle de police système",
     "followSystemFontScaleDesc": "Mise à l'échelle auto selon la taille de police d'accessibilité du système",
     "fixedLayoutNotice": "Le PDF est un format à mise en page fixe. Les paramètres de police et mise en page ne sont pas disponibles.",
