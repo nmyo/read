@@ -421,6 +421,97 @@ export function normalizeEmbeddingEndpointUrl(
   return buildOpenAICompatibleUrl(trimmedUrl, "embeddings");
 }
 
+type EmbeddingEndpointFetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+export interface TestEmbeddingEndpointOptions {
+  url?: string;
+  modelId: string;
+  apiKey?: string;
+  input?: string;
+  fetcher?: EmbeddingEndpointFetch;
+}
+
+export interface TestEmbeddingEndpointResult {
+  url: string;
+  dimension: number;
+  isOllama: boolean;
+}
+
+export class EmbeddingEndpointTestError extends Error {
+  readonly url: string;
+  readonly status?: number;
+
+  constructor(message: string, url: string, status?: number) {
+    super(message);
+    this.name = "EmbeddingEndpointTestError";
+    this.url = url;
+    this.status = status;
+  }
+}
+
+export async function testEmbeddingEndpoint({
+  url,
+  modelId,
+  apiKey,
+  input = "test",
+  fetcher = globalThis.fetch,
+}: TestEmbeddingEndpointOptions): Promise<TestEmbeddingEndpointResult> {
+  const requestUrl = normalizeEmbeddingEndpointUrl(url);
+  const trimmedModelId = modelId.trim();
+
+  if (!requestUrl) {
+    throw new EmbeddingEndpointTestError("Missing endpoint URL", requestUrl);
+  }
+  if (!trimmedModelId) {
+    throw new EmbeddingEndpointTestError("Missing model ID", requestUrl);
+  }
+  if (!fetcher) {
+    throw new EmbeddingEndpointTestError("Fetch is not available in this environment", requestUrl);
+  }
+
+  const isOllama = isOllamaEmbeddingEndpointUrl(requestUrl);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const trimmedApiKey = apiKey?.trim();
+  if (trimmedApiKey) {
+    headers.Authorization = `Bearer ${trimmedApiKey}`;
+  }
+
+  const requestBody = isOllama
+    ? { model: trimmedModelId, input }
+    : { input: [input], model: trimmedModelId, encoding_format: "float" };
+
+  const response = await fetcher(requestUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
+    const errorDetail = errorText ? `: ${errorText.slice(0, 200)}` : "";
+    throw new EmbeddingEndpointTestError(
+      `HTTP ${response.status}${statusText}${errorDetail}`,
+      requestUrl,
+      response.status,
+    );
+  }
+
+  const json = await response.json();
+  const dimension = isOllama
+    ? (json?.embeddings?.[0]?.length ?? 0)
+    : (json?.data?.[0]?.embedding?.length ?? 0);
+
+  if (!dimension) {
+    throw new EmbeddingEndpointTestError(
+      "Response did not include an embedding vector",
+      requestUrl,
+    );
+  }
+
+  return { url: requestUrl, dimension, isOllama };
+}
+
 export function getProviderConfig(providerId: string): ProviderConfig {
   return PROVIDER_CONFIGS[providerId] || PROVIDER_CONFIGS.custom;
 }

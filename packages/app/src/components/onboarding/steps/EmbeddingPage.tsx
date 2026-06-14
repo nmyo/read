@@ -6,10 +6,7 @@ import { useVectorModelStore } from "@/stores/vector-model-store";
 import { BUILTIN_EMBEDDING_MODELS } from "@readany/core/ai/builtin-embedding-models";
 import { loadEmbeddingPipeline } from "@readany/core/ai/local-embedding-service";
 import type { VectorModelConfig } from "@readany/core/types";
-import {
-  isOllamaEmbeddingEndpointUrl,
-  normalizeEmbeddingEndpointUrl,
-} from "@readany/core/utils/api";
+import { normalizeEmbeddingEndpointUrl, testEmbeddingEndpoint } from "@readany/core/utils/api";
 import { Check, Download, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -86,24 +83,13 @@ export function EmbeddingPage({ onNext, onPrev, step, totalSteps }: EmbeddingPag
     async (model: VectorModelConfig) => {
       setTestingId(model.id);
       try {
-        const testUrl = normalizeEmbeddingEndpointUrl(model.url);
-        const isOllama = isOllamaEmbeddingEndpointUrl(testUrl);
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (model.apiKey?.trim()) headers.Authorization = `Bearer ${model.apiKey}`;
-
-        const requestBody = isOllama
-          ? { model: model.modelId, input: "test" }
-          : { input: ["test"], model: model.modelId, encoding_format: "float" };
-
-        const res = await fetch(testUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
+        const result = await testEmbeddingEndpoint({
+          url: model.url,
+          modelId: model.modelId,
+          apiKey: model.apiKey,
         });
-        if (res.ok) {
-          updateVectorModel(model.id, { url: testUrl });
-          setSelectedVectorModelId(model.id);
-        }
+        updateVectorModel(model.id, { dimension: result.dimension, url: result.url });
+        setSelectedVectorModelId(model.id);
       } catch (err) {
         console.warn("[Onboarding] Embedding model test failed:", err);
       } finally {
@@ -267,8 +253,9 @@ export function EmbeddingPage({ onNext, onPrev, step, totalSteps }: EmbeddingPag
                     id="onboarding-vector-model-url"
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://api.openai.com/v1/embeddings"
+                    placeholder="https://api.openai.com/v1"
                   />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("settings.vm_urlHint")}</p>
                 </div>
 
                 <div>

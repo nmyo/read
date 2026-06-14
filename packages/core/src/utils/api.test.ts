@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type EmbeddingEndpointTestError,
   buildOpenAICompatibleUrl,
   buildProviderModelsUrl,
   ensureUrlProtocol,
@@ -8,6 +9,7 @@ import {
   normalizeEmbeddingEndpointUrl,
   providerSupportsExactRequestUrl,
   resolveProviderBaseUrl,
+  testEmbeddingEndpoint,
 } from "./api";
 
 describe("AI API URL helpers", () => {
@@ -157,6 +159,49 @@ describe("AI API URL helpers", () => {
       );
       expect(isOllamaEmbeddingEndpointUrl("http://localhost:11434/api/embed")).toBe(true);
       expect(isOllamaEmbeddingEndpointUrl("http://localhost:11434/v1/embeddings")).toBe(false);
+    });
+
+    it("tests OpenAI-compatible /v1 inputs against the normalized embeddings URL", async () => {
+      const calls: Array<{ input: string; init?: RequestInit }> = [];
+      const result = await testEmbeddingEndpoint({
+        url: "https://api.siliconflow.cn/v1",
+        modelId: "Qwen/Qwen3-Embedding-4B",
+        apiKey: "sk-test",
+        fetcher: async (input, init) => {
+          calls.push({ input, init });
+          return new Response(
+            JSON.stringify({ data: [{ index: 0, embedding: [0.1, 0.2, 0.3] }] }),
+            { status: 200 },
+          );
+        },
+      });
+
+      expect(result).toEqual({
+        url: "https://api.siliconflow.cn/v1/embeddings",
+        dimension: 3,
+        isOllama: false,
+      });
+      expect(calls[0]?.input).toBe("https://api.siliconflow.cn/v1/embeddings");
+      expect(calls[0]?.init?.headers).toMatchObject({ Authorization: "Bearer sk-test" });
+      expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+        input: ["test"],
+        model: "Qwen/Qwen3-Embedding-4B",
+        encoding_format: "float",
+      });
+    });
+
+    it("reports the normalized request URL when endpoint tests fail", async () => {
+      await expect(
+        testEmbeddingEndpoint({
+          url: "https://api.siliconflow.cn/v1",
+          modelId: "Qwen/Qwen3-Embedding-4B",
+          fetcher: async () => new Response("not found", { status: 404, statusText: "Not Found" }),
+        }),
+      ).rejects.toMatchObject<Partial<EmbeddingEndpointTestError>>({
+        name: "EmbeddingEndpointTestError",
+        url: "https://api.siliconflow.cn/v1/embeddings",
+        status: 404,
+      });
     });
   });
 });
