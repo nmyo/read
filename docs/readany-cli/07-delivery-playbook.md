@@ -225,6 +225,7 @@ AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill uninstall
 - 调用 Tauri command 或随包 CLI 执行 doctor/install/skill 命令。
 - 展示 CLI、Skill、MCP、profile、审计日志状态。
 - 提供 readonly MCP 配置复制。
+- install/uninstall 优先使用桌面包资源中的 CLI，再回退到开发仓库 CLI 和 PATH。
 
 验收：
 
@@ -233,6 +234,13 @@ AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill uninstall
 - `doctor --json` 失败项可读。
 - Skill 可安装和卸载。
 - MCP 配置复制后可在外部 agent 使用。
+- 未全局安装 `readany` 时，桌面端仍可通过随包 CLI 安装用户级 shim。
+
+当前工程状态：
+
+- Tauri 已配置把 `packages/cli/dist/` 打包到 `readany-cli/` 资源目录。
+- 受限 Tauri command 会优先解析 `READANY_DESKTOP_CLI_BIN`、bundle resource、开发仓库 CLI，然后才使用 PATH 中的 `readany`。
+- CLI 仍是 Node bundle，且 external `better-sqlite3`；完整无 Node 依赖的用户体验需要后续 native binary 化。
 
 ### 6. Draft 和 Export
 
@@ -453,4 +461,3 @@ M4：
 验收：
 
 - 修改后的 EPUB 可导出并重新导入。
-

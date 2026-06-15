@@ -139,7 +139,9 @@ readany skill status --json
 
 当前限制：
 
-- 桌面设置页当前通过 PATH 中的 `readany` 执行 install / uninstall / doctor / skill / tools 操作；后续随桌面安装包携带 CLI binary 后，应优先调用随包 binary，再由 CLI 自己安装全局 shim。
+- 桌面设置页当前通过受限 Tauri command 调用 ReadAny CLI allowlist 动作。
+- `install` / `uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。
+- 由于当前 CLI 是 Node bundle，并且仍 external `better-sqlite3`，完整离线只读查询还依赖 Node 和原生模块运行时；后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
 - 设置页只提供 readonly MCP 配置，不开放 editor / publisher profile。
 - 审计日志只在 CLI 侧写入，设置页浏览审计日志留到 M4。
 
@@ -178,7 +180,7 @@ readany skill status --json
 - 用户能看到 doctor 检查项。
 - 用户知道 readonly 不允许写入和导出。
 
-当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，但完整“未安装时仍可从随包 binary 安装”的体验需要等桌面安装包携带 CLI binary 后验收。
+当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，并已配置桌面包资源路径；完整验收还需要在实际打包产物中确认 Node / native module 运行时是否随包可用。
 
 客户端 M4 做到：
 

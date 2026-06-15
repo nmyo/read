@@ -309,13 +309,14 @@ Phase 7 完成标准：
 
 - `设置 -> 外部 AI 访问` tab。
 - 受限 Tauri command：只允许调用 ReadAny CLI allowlist 动作，不开放任意 shell。
+- 桌面包资源配置：`packages/cli/dist/` 打包到 `readany-cli/`，install/uninstall 优先使用资源内 CLI，再回退到开发仓库 CLI 和 PATH。
 - CLI version / doctor / tools list / skill status 展示。
 - Skill install / uninstall。
 - readonly MCP 配置复制。
 
 当前缺口：
 
-- 设置页 install / uninstall 仍依赖 PATH 中已有 `readany`，还没有从桌面安装包内置 CLI binary 完成“未安装也能安装”的闭环。
+- 当前 CLI 仍是 Node 脚本，且依赖 external `better-sqlite3` 原生模块；要达到普通用户无需 Node / node_modules 的安装体验，还需要把 CLI 打成独立 binary，或随包携带完整 Node 运行时和原生依赖。
 - 审计日志浏览 UI 未接入。
 
 ## 里程碑定义

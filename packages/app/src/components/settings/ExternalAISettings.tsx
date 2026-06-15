@@ -27,6 +27,7 @@ type CliRunResult = {
   ok: boolean;
   action: string;
   command: string;
+  command_source?: string;
   args: string[];
   status?: number | null;
   stdout: string;
@@ -100,6 +101,7 @@ export function ExternalAISettings() {
   const [doctorResult, setDoctorResult] = useState<CliRunResult>();
   const [skillResult, setSkillResult] = useState<CliRunResult>();
   const [toolsResult, setToolsResult] = useState<CliRunResult>();
+  const [lastActionResult, setLastActionResult] = useState<CliRunResult>();
   const [copied, setCopied] = useState(false);
 
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
@@ -118,6 +120,7 @@ export function ExternalAISettings() {
     setLoadingAction(action);
     try {
       const result = await invoke<CliRunResult>("readany_cli_run", { action });
+      setLastActionResult(result);
       if (action === "version") setVersionResult(result);
       if (action === "doctor") setDoctorResult(result);
       if (action === "tools_list") setToolsResult(result);
@@ -131,7 +134,9 @@ export function ExternalAISettings() {
         args: [],
         stdout: "",
         stderr: error instanceof Error ? error.message : String(error),
+        command_source: "unknown",
       };
+      setLastActionResult(failed);
       if (action === "version") setVersionResult(failed);
       if (action === "doctor") setDoctorResult(failed);
       if (action === "tools_list") setToolsResult(failed);
@@ -228,6 +233,20 @@ export function ExternalAISettings() {
               {doctor?.ok ? doctor.data.tools.count : readonlyToolNames.length || "-"}
             </p>
           </div>
+        </div>
+        <div className="mt-2 rounded-md bg-background px-3 py-2">
+          <p className="text-[11px] text-muted-foreground">执行来源</p>
+          <p className="mt-1 break-all font-mono text-xs text-foreground">
+            {lastActionResult?.command_source ??
+              versionResult?.command_source ??
+              doctorResult?.command_source ??
+              "尚未检测"}
+            {lastActionResult?.command
+              ? ` · ${lastActionResult.command}`
+              : versionResult?.command
+                ? ` · ${versionResult.command}`
+                : ""}
+          </p>
         </div>
 
         <div className="mt-3 space-y-2">
