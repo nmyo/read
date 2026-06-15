@@ -11,6 +11,7 @@ describe("tool registry", () => {
       "chapters.list",
       "chapters.get",
       "notes.search",
+      "notes.export",
       "highlights.search",
       "rag.search",
       "epub.inspect",
@@ -31,7 +32,7 @@ describe("tool registry", () => {
     const tools = listTools();
     expect(
       tools
-        .filter((tool) => !tool.name.startsWith("epub."))
+        .filter((tool) => !tool.name.startsWith("epub.") && tool.name !== "notes.export")
         .every((tool) => tool.risk === "low"),
     ).toBe(true);
     expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
@@ -43,6 +44,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.toc.rebuild")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.history")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.diff")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "notes.export")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.validate")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.export")?.risk).toBe("high");
   });

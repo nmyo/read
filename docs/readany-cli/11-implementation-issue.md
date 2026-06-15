@@ -45,6 +45,7 @@ ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受
 - BM25 RAG over chunks。
 - stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - EPUB draft 链路：`inspect`、`draft create`、`draft discard`、`chapter read`、`chapter patch`、`metadata patch`、`toc rebuild`、`history`、`diff`、`validate`、`export`。
+- notes export：单本书 notes/highlights 导出为 Markdown、JSON、Obsidian 或 Notion 文件。
 - 桌面端 `设置 -> 外部 AI 访问` 入口，可管理 CLI / Skill / readonly MCP 配置。
 
 当前 MCP 可以暴露：
@@ -56,6 +57,7 @@ books.get
 chapters.list
 chapters.get
 notes.search
+notes.export
 highlights.search
 rag.search
 epub.inspect
@@ -75,7 +77,7 @@ epub.export
 
 - 未索引 EPUB/PDF fallback 章节解析已经完成。
 - vector / hybrid RAG 已经完成。
-- notes / knowledge export 已经完成。
+- knowledge export 已经完成。
 - 用户 draft 工作区完整 UI 已经完成。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
 
@@ -210,7 +212,7 @@ test "$ORIGINAL_HASH" = "$(shasum -a 256 sample.epub | awk '{print $1}')"
 
 - `epub.validate`
 - `epub.export`
-- notes export。
+- `notes.export`
 - knowledge export。
 - 导出审计。
 - publisher profile 或等价明确授权。
@@ -219,13 +221,15 @@ test "$ORIGINAL_HASH" = "$(shasum -a 256 sample.epub | awk '{print $1}')"
 
 - `epub.validate` 已实现为结构和资源引用校验，不自动修复。
 - `epub.export` 已实现为 validate 后导出新 EPUB，默认不覆盖已有文件、不覆盖原书。
-- notes / knowledge export 后续交付。
+- `notes.export` 已实现为单本书 notes/highlights 文件导出，默认不覆盖已有文件。
+- knowledge export 后续交付。
 
 验收：
 
 ```bash
 node packages/cli/dist/bin/readany.js epub validate <draft-id> --profile publisher --json
 node packages/cli/dist/bin/readany.js epub export <draft-id> --output exported.epub --profile publisher --json
+node packages/cli/dist/bin/readany.js notes export <book-id> --output notes.md --profile publisher --json
 test -f exported.epub
 ```
 

@@ -164,6 +164,38 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "notes.export",
+    description: "Export notes and highlights for one book to a markdown, JSON, Obsidian, or Notion file.",
+    scopes: ["epub.export"],
+    risk: "high",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny book id to export annotations for.",
+        },
+        outputPath: {
+          type: "string",
+          minLength: 1,
+          description: "Output file path to write. Existing files are not overwritten unless overwrite is true.",
+        },
+        format: {
+          type: "string",
+          enum: ["markdown", "json", "obsidian", "notion"],
+          description: "Export format. Defaults to markdown.",
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing output file.",
+        },
+      },
+      required: ["bookId", "outputPath"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "highlights.search",
     description: "Search highlights in the ReadAny library.",
     scopes: ["note.read"],

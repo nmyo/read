@@ -154,7 +154,7 @@ readany epub diff <draft-id> --profile editor
 实现要点：
 
 - 先实现 stdio JSON-RPC 入口，支持 `initialize`、`tools/list`、`tools/call`。
-- MCP 只暴露已经真实接线的工具；vector/hybrid RAG、notes/knowledge export 在接通前不出现在 `tools/list`。
+- MCP 只暴露已经真实接线的工具；vector/hybrid RAG、knowledge export 在接通前不出现在 `tools/list`。
 - MCP 返回 ReadAny 标准 `CommandResult` JSON，便于外部 agent 可靠解析。
 
 当前 MCP 已实现工具：
@@ -166,6 +166,7 @@ books.get
 chapters.list
 chapters.get
 notes.search
+notes.export
 highlights.search
 rag.search
 epub.inspect
@@ -395,7 +396,7 @@ Phase 7 完成标准：
 完成：
 
 - EPUB validate/export。
-- notes / knowledge export。
+- knowledge export。
 - 设置页管理 CLI、Skill、MCP、profile。
 - 审计日志浏览。
 

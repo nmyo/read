@@ -203,6 +203,7 @@ books.get
 chapters.list
 chapters.get
 notes.search
+notes.export
 highlights.search
 rag.search
 epub.inspect
@@ -229,7 +230,7 @@ epub.export
 5. Skill 安装到通用 agent 目录。
 6. 桌面客户端设置页能管理 CLI 和 Skill 状态。
 
-原始 EPUB/PDF fallback 章节解析、vector/hybrid RAG、notes/knowledge export、同步、备份在后续阶段接入。`epub.inspect` 只是只读结构检查；`epub.draft.create` 只复制原 EPUB 到受控 draft workspace 并写入 manifest/history；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单个 XHTML 章节，不修改原书；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.history` 只读取 draft operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size，不生成内容级 diff、不执行 undo；`epub.validate` 只做 active draft 结构和资源引用校验，不自动修改；`epub.export` 只在 validate 通过后导出新 EPUB，不覆盖原书。其余 EPUB 写入工具接入前不允许伪造实现，不允许在 MCP `tools/list` 里提前出现。
+原始 EPUB/PDF fallback 章节解析、vector/hybrid RAG、knowledge export、同步、备份在后续阶段接入。`notes.export` 只导出单本书的 notes/highlights 文件，默认不覆盖已有文件；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只复制原 EPUB 到受控 draft workspace 并写入 manifest/history；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单个 XHTML 章节，不修改原书；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.history` 只读取 draft operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size，不生成内容级 diff、不执行 undo；`epub.validate` 只做 active draft 结构和资源引用校验，不自动修改；`epub.export` 只在 validate 通过后导出新 EPUB，不覆盖原书。其余 EPUB 写入工具接入前不允许伪造实现，不允许在 MCP `tools/list` 里提前出现。
 
 用户精排入口不在设置页，而在书籍详情页和 draft 工作区；AI 精排入口通过 MCP / CLI 工具进入同一套 draft/history/diff 流程。
 

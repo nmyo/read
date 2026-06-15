@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 19 },
+        tools: { count: 20 },
       });
     }
   });
@@ -944,6 +944,63 @@ describe("commands", () => {
     expect(result).toMatchObject({
       ok: false,
       error: { code: "chapter_not_found" },
+    });
+  });
+
+  it("exports notes and highlights with publisher profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const outputPath = join(workspace.root, "exports", "notes.md");
+
+    const readonly = await runCommand(
+      ["notes", "export", "book-1", "--output", outputPath],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      [
+        "notes",
+        "export",
+        "book-1",
+        "--output",
+        outputPath,
+        "--profile",
+        "publisher",
+        "--format",
+        "markdown",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      export: {
+        bookId: "book-1",
+        outputPath,
+        outputHash: expect.any(String),
+        outputSize: expect.any(Number),
+        format: "markdown",
+        noteCount: 1,
+        highlightCount: 1,
+      },
+    });
+    const exported = await readFile(outputPath, "utf8");
+    expect(exported).toContain("# Agent Systems");
+    expect(exported).toContain("Draft-first editing keeps users safe.");
+    expect(exported).toContain("Planning note");
+    expect(JSON.stringify(result.data)).not.toContain("Agents need safe tool boundaries.");
+
+    const overwriteBlocked = await runCommand(
+      ["notes", "export", "book-1", "--output", outputPath, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(overwriteBlocked).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
     });
   });
 

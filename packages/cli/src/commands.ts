@@ -95,6 +95,10 @@ function getStringOption(command: ParsedCommand, name: string): string | undefin
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+function isNotesExportFormat(value: string): value is "markdown" | "json" | "obsidian" | "notion" {
+  return value === "markdown" || value === "json" || value === "obsidian" || value === "notion";
+}
+
 async function getDataApi() {
   return import("./data.js");
 }
@@ -126,6 +130,7 @@ Usage:
   readany epub validate <draft-id> [--json] [--profile publisher]
   readany epub export <draft-id> --output <path> [--json] [--profile publisher] [--overwrite]
   readany notes search <query> [--json] [--book <book-id>]
+  readany notes export <book-id> --output <path> [--json] [--profile publisher] [--format markdown] [--overwrite]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
   readany mcp serve --profile readonly
@@ -273,6 +278,35 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
             query,
             bookId: getStringOption(command, "book"),
             limit: getLimit(command, 50),
+            env,
+          }),
+        });
+      }
+      if (subcommand === "export") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.export")) {
+          return failure("permission_denied", "notes export requires publisher profile or higher");
+        }
+        const bookId = command.args[1];
+        const outputPath = getStringOption(command, "output");
+        if (!bookId) return failure("missing_book_id", "notes export requires a book id");
+        if (!outputPath) return failure("missing_output_path", "notes export requires --output <path>");
+        const format = getStringOption(command, "format") ?? "markdown";
+        if (!isNotesExportFormat(format)) {
+          return failure(
+            "unsupported_notes_export_format",
+            "notes export format must be markdown, json, obsidian, or notion",
+          );
+        }
+        return success({
+          export: await data.exportBookNotesWorkspace({
+            bookId,
+            outputPath,
+            format,
+            overwrite: command.options.overwrite === true,
+            includeNotes: command.options["no-notes"] === true ? false : undefined,
+            includeHighlights: command.options["no-highlights"] === true ? false : undefined,
+            groupByChapter: command.options.flat === true ? false : undefined,
             env,
           }),
         });

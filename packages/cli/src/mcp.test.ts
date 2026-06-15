@@ -62,6 +62,21 @@ async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
       100, 8, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 1, 1,
       '["mcp"]', 'hash-mcp', 'local'
     );
+
+    INSERT INTO notes (
+      id, book_id, highlight_id, cfi, title, content, chapter_title, tags, created_at, updated_at
+    ) VALUES (
+      'mcp-note', 'mcp-book', NULL, 'epubcfi(/6/28)', 'MCP note',
+      'MCP export should stay file-based.', 'Agent Access', '["mcp"]', 7000, 7000
+    );
+
+    INSERT INTO highlights (
+      id, book_id, cfi, text, color, note, chapter_title, created_at, updated_at
+    ) VALUES (
+      'mcp-highlight', 'mcp-book', 'epubcfi(/6/30)',
+      'External agents should receive export metadata, not full exported files.',
+      'yellow', 'Export boundary', 'Agent Access', 8000, 8000
+    );
   `);
   db.close();
   await writeFile(join(env.READANY_HOME!, "books", "mcp.epub"), buildInspectableEpub());
@@ -110,6 +125,7 @@ describe("mcp", () => {
         { name: "chapters.list" },
         { name: "chapters.get" },
         { name: "notes.search" },
+        { name: "notes.export" },
         { name: "highlights.search" },
         { name: "rag.search" },
         { name: "epub.inspect" },
@@ -150,6 +166,63 @@ describe("mcp", () => {
         books: [{ id: "mcp-book", meta: { title: "MCP for Readers" } }],
       },
     });
+  });
+
+  it("gates notes.export by publisher profile and writes an export file", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const outputPath = join(env.READANY_HOME!, "exports", "mcp-notes.md");
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "notes.export",
+          arguments: { bookId: "mcp-book", outputPath },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const publisherResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "notes.export",
+          arguments: { bookId: "mcp-book", outputPath, format: "markdown" },
+        },
+      },
+      "publisher",
+      env,
+    );
+    expect(publisherResponse).toMatchObject({ isError: false });
+    const publisherText = (publisherResponse as { content: Array<{ text: string }> }).content[0]
+      .text;
+    expect(JSON.parse(publisherText)).toMatchObject({
+      ok: true,
+      data: {
+        export: {
+          bookId: "mcp-book",
+          outputPath,
+          format: "markdown",
+          noteCount: 1,
+          highlightCount: 1,
+        },
+      },
+    });
+    expect(publisherText).not.toContain("MCP export should stay file-based.");
+
+    const exported = await readFile(outputPath, "utf8");
+    expect(exported).toContain("# MCP for Readers");
+    expect(exported).toContain("MCP export should stay file-based.");
+    expect(exported).toContain("External agents should receive export metadata");
   });
 
   it("rejects unknown tools", async () => {
@@ -1133,6 +1206,12 @@ describe("mcp", () => {
         arguments: { query: "mcp", bookId: "mcp-book", mode: "hybrid" },
         message: "enum value",
       },
+      {
+        name: "notes.export",
+        arguments: { bookId: "mcp-book", outputPath: "notes.md", format: "xml" },
+        message: "export format enum",
+        profile: "publisher",
+      },
     ];
 
     for (const item of cases) {
@@ -1144,7 +1223,7 @@ describe("mcp", () => {
             arguments: item.arguments,
           },
         },
-        "readonly",
+        item.profile ?? "readonly",
         env,
       );
 

@@ -32,6 +32,8 @@ import {
 import { patchEpubMetadataInDraft } from "@readany/core/epub/metadata";
 import { rebuildEpubTocInDraft } from "@readany/core/epub/toc";
 import { validateEpubDraft } from "@readany/core/epub/validate";
+import { exportBookNotes } from "@readany/core/export/notes-export";
+import type { ExportFormat } from "@readany/core/export/annotation-exporter";
 import { createNodePlatformService } from "./platform/node-platform.js";
 
 let initialized = false;
@@ -279,6 +281,37 @@ export async function exportEpubDraftWorkspace(
   const { draftId, outputPath, overwrite, env = process.env } = options;
   await ensureCoreInitialized(env);
   return exportEpubDraft(draftId, { outputPath, overwrite });
+}
+
+export async function exportBookNotesWorkspace(options: {
+  bookId: string;
+  outputPath: string;
+  format?: ExportFormat;
+  overwrite?: boolean;
+  includeNotes?: boolean;
+  includeHighlights?: boolean;
+  groupByChapter?: boolean;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/export/notes-export").NotesExportResult> {
+  const {
+    bookId,
+    outputPath,
+    format,
+    overwrite,
+    includeNotes,
+    includeHighlights,
+    groupByChapter,
+    env = process.env,
+  } = options;
+  await ensureCoreInitialized(env);
+  return exportBookNotes(bookId, {
+    outputPath,
+    format,
+    overwrite,
+    includeNotes,
+    includeHighlights,
+    groupByChapter,
+  });
 }
 
 export type ChapterListOptions = {

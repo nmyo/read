@@ -236,11 +236,11 @@ AI 编辑能力必须覆盖：
 ```bash
 readany epub validate <draft-id> --profile publisher --json
 readany epub export <draft-id> --profile publisher --output <path> --json
-readany notes export --format markdown --json
+readany notes export <book-id> --output <path> --profile publisher --format markdown --json
 readany knowledge export --format obsidian --json
 ```
 
-当前已实现 `epub.validate` 和 `epub.export`；notes / knowledge export 留在后续阶段。
+当前已实现 `epub.validate`、`epub.export` 和 `notes.export`；knowledge export 留在后续阶段。
 
 完成标准：
 

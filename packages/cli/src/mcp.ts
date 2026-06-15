@@ -11,6 +11,7 @@ import {
   diffEpubDraftWorkspace,
   discardEpubDraftWorkspace,
   exportEpubDraftWorkspace,
+  exportBookNotesWorkspace,
   getBookById,
   getEpubDraftHistory,
   getIndexedChapter,
@@ -97,6 +98,10 @@ function parseArgs(params: unknown): Record<string, unknown> {
 function getString(args: Record<string, unknown>, key: string): string | undefined {
   const value = args[key];
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function isNotesExportFormat(value: string): value is "markdown" | "json" | "obsidian" | "notion" {
+  return value === "markdown" || value === "json" || value === "obsidian" || value === "notion";
 }
 
 function getLimit(args: Record<string, unknown>, fallback: number): number {
@@ -274,6 +279,28 @@ async function callReadAnyTool(
         env,
       }),
     });
+  }
+
+  if (toolName === "notes.export") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "notes.export requires bookId");
+    const outputPath = getString(args, "outputPath");
+    if (!outputPath) return failure("missing_output_path", "notes.export requires outputPath");
+    const format = getString(args, "format") ?? "markdown";
+    if (!isNotesExportFormat(format)) {
+      return failure(
+        "unsupported_notes_export_format",
+        "notes.export format must be markdown, json, obsidian, or notion",
+      );
+    }
+    const exported = await exportBookNotesWorkspace({
+      bookId,
+      outputPath,
+      format,
+      overwrite: args.overwrite === true,
+      env,
+    });
+    return success({ export: exported });
   }
 
   if (toolName === "highlights.search") {
