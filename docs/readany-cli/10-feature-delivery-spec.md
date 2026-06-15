@@ -600,7 +600,7 @@ M5 完成：
 
 - indexed chapters 不是原始 EPUB/PDF fallback。
 - BM25 RAG 不是 vector / hybrid。
-- draft patch 不等于 validate / export。
+- draft patch 不等于 export。
 - inspect 不修改文件。
 - export 未完成前不会出现在 `tools/list`。
 

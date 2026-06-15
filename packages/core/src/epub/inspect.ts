@@ -59,6 +59,7 @@ type ZipEntryLike = {
 export type EpubPackageResourceReader = {
   packagePath: string;
   packageDir: string;
+  entryPaths: string[];
   readTextEntry: (path: string) => Promise<string | null>;
 };
 
@@ -92,7 +93,12 @@ export async function withEpubPackageResourceReader<T>(
 
     const packagePath = parsePackagePath(containerXml);
     const packageDir = getPackageDir(packagePath);
-    return callback({ packagePath, packageDir, readTextEntry });
+    return callback({
+      packagePath,
+      packageDir,
+      entryPaths: entries.filter((entry) => !entry.directory).map((entry) => entry.filename),
+      readTextEntry,
+    });
   } finally {
     await reader.close();
   }
@@ -286,12 +292,12 @@ function childElements(element: Element): Element[] {
   return Array.from(element.childNodes).filter((node): node is Element => node.nodeType === 1);
 }
 
-function resolvePackagePath(packageDir: string, href: string): string {
+export function resolvePackagePath(packageDir: string, href: string): string {
   if (!packageDir) return href;
   return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
 }
 
-function getPackageDir(packagePath: string): string {
+export function getPackageDir(packagePath: string): string {
   return packagePath.includes("/")
     ? packagePath.slice(0, packagePath.lastIndexOf("/") + 1)
     : "";

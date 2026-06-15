@@ -150,6 +150,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "epub.metadata.patch" },
           { name: "epub.history" },
           { name: "epub.diff" },
+          { name: "epub.validate" },
         ],
       },
     });

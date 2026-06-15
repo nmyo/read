@@ -24,6 +24,7 @@ import {
   readEpubChapter,
   searchRag,
   searchBooks,
+  validateEpubDraftWorkspace,
 } from "./data.js";
 
 type JsonRpcRequest = {
@@ -394,6 +395,13 @@ async function callReadAnyTool(
     if (!draftId) return failure("missing_draft_id", "epub.diff requires draftId");
     const diff = await diffEpubDraftWorkspace(draftId, env);
     return success({ diff });
+  }
+
+  if (toolName === "epub.validate") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.validate requires draftId");
+    const validation = await validateEpubDraftWorkspace(draftId, env);
+    return success({ validation });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

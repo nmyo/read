@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 16 },
+        tools: { count: 17 },
       });
     }
   });
@@ -626,6 +626,50 @@ describe("commands", () => {
             draftHash: expect.any(String),
           }),
         ]),
+      },
+    });
+    expect(JSON.stringify(result.data)).not.toContain(workspace.root);
+  });
+
+  it("validates an EPUB draft with publisher profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+
+    const editor = await runCommand(
+      ["epub", "validate", draftId, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(editor).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "validate", draftId, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      validation: {
+        draftId,
+        bookId: "book-1",
+        valid: true,
+        draftFilePath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/source\.epub$/),
+        packagePath: "OPS/package.opf",
+        manifestItemCount: 2,
+        spineItemCount: 1,
+        tocItemCount: 1,
+        errorCount: 0,
+        issues: [],
       },
     });
     expect(JSON.stringify(result.data)).not.toContain(workspace.root);

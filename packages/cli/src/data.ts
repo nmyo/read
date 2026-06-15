@@ -29,6 +29,7 @@ import {
   readEpubChapterFromDraft,
 } from "@readany/core/epub/chapter";
 import { patchEpubMetadataInDraft } from "@readany/core/epub/metadata";
+import { validateEpubDraft } from "@readany/core/epub/validate";
 import { createNodePlatformService } from "./platform/node-platform.js";
 
 let initialized = false;
@@ -247,6 +248,14 @@ export async function diffEpubDraftWorkspace(
 ): Promise<import("@readany/core/epub/diff").EpubDiffResult> {
   await ensureCoreInitialized(env);
   return diffEpubDraft(draftId);
+}
+
+export async function validateEpubDraftWorkspace(
+  draftId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<import("@readany/core/epub/validate").EpubValidationResult> {
+  await ensureCoreInitialized(env);
+  return validateEpubDraft(draftId);
 }
 
 export type ChapterListOptions = {
