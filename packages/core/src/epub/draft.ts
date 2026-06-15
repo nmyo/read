@@ -52,6 +52,13 @@ export type EpubDraftCreateResult = {
   inspect: EpubInspectResult;
 };
 
+export type EpubDraftHistoryResult = {
+  draftId: string;
+  bookId: string;
+  historyPath: string;
+  entries: EpubDraftHistoryEntry[];
+};
+
 export async function createEpubDraft(
   book: Book,
   options: {
@@ -123,6 +130,36 @@ export async function createEpubDraft(
     sourceHash,
     createdAt,
     inspect,
+  };
+}
+
+export async function readEpubDraftHistory(
+  draftId: string,
+): Promise<EpubDraftHistoryResult> {
+  const platform = getPlatformService();
+  const dataDir = await platform.getDataDir();
+  const manifestPath = await platform.joinPath(dataDir, "drafts", "epub", draftId, "manifest.json");
+  const historyPath = await platform.joinPath(dataDir, "drafts", "epub", draftId, "history.jsonl");
+  if (!(await platform.exists(manifestPath))) {
+    throw new Error(`EPUB draft was not found: ${draftId}`);
+  }
+  if (!(await platform.exists(historyPath))) {
+    throw new Error(`EPUB draft history was not found: ${draftId}`);
+  }
+
+  const manifest = JSON.parse(await platform.readTextFile(manifestPath)) as EpubDraftManifest;
+  const text = await platform.readTextFile(historyPath);
+  const entries = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as EpubDraftHistoryEntry);
+
+  return {
+    draftId,
+    bookId: manifest.bookId,
+    historyPath: `drafts/epub/${draftId}/history.jsonl`,
+    entries,
   };
 }
 

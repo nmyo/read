@@ -342,6 +342,24 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.history",
+    description: "Read operation history for an EPUB draft workspace.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+      },
+      required: ["draftId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

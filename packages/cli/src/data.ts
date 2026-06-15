@@ -2,7 +2,11 @@ import { setPlatformService } from "@readany/core/services";
 import { getPlatformService } from "@readany/core/services";
 import type { Book, Highlight, Note } from "@readany/core/types";
 import type { SearchMode } from "@readany/core/types";
-import { createEpubDraft, type EpubDraftCreateResult } from "@readany/core/epub/draft";
+import {
+  createEpubDraft,
+  readEpubDraftHistory,
+  type EpubDraftCreateResult,
+} from "@readany/core/epub/draft";
 import { inspectEpubBytes, type EpubInspectResult } from "@readany/core/epub/inspect";
 import {
   getAllHighlights,
@@ -213,6 +217,14 @@ export async function patchEpubMetadata(
   const { draftId, patch, env = process.env } = options;
   await ensureCoreInitialized(env);
   return patchEpubMetadataInDraft(draftId, patch);
+}
+
+export async function getEpubDraftHistory(
+  draftId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<import("@readany/core/epub/draft").EpubDraftHistoryResult> {
+  await ensureCoreInitialized(env);
+  return readEpubDraftHistory(draftId);
 }
 
 export type ChapterListOptions = {

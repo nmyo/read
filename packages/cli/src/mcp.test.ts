@@ -117,6 +117,7 @@ describe("mcp", () => {
         { name: "epub.chapter.read" },
         { name: "epub.chapter.patch" },
         { name: "epub.metadata.patch" },
+        { name: "epub.history" },
       ],
     });
   });
@@ -497,6 +498,58 @@ describe("mcp", () => {
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
       error: { code: "invalid_tool_arguments" },
+    });
+  });
+
+  it("gates epub.history by editor profile and returns draft operations", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.history", arguments: { draftId } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.history", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        history: {
+          draftId,
+          bookId: "mcp-book",
+          entries: [{ action: "epub.draft.create", draftId }],
+        },
+      },
     });
   });
 

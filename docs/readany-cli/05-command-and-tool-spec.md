@@ -67,18 +67,29 @@ readany epub draft create <book-id> [--profile editor] [--json]
 readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--json]
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--profile editor] [--json]
 readany epub metadata patch <draft-id> --patch <file> [--profile editor] [--json]
+readany epub history <draft-id> [--profile editor] [--json]
 ```
 
 当前 `chapters.*` 基于 indexed chunks 返回章节视图；`chapter get` 支持 chunk range 和 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；`epub draft create` 只复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改章节、不导出文件；`epub chapter read` 只读取 draft 章节文本。原始 EPUB/PDF fallback 章节解析仍属于后续能力。
 
-### Draft 和导出命令
+### Draft 编辑命令
+
+已实现：
+
+```bash
+readany epub draft create <book-id> [--profile editor] [--json]
+readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--json]
+readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--profile editor] [--json]
+readany epub metadata patch <draft-id> --patch <file> [--profile editor] [--json]
+readany epub history <draft-id> [--profile editor] [--json]
+```
 
 后续阶段支持：
 
 ```bash
-readany epub draft create <book-id> [--json]
-readany epub chapter patch <draft-id> <chapter-id> --xhtml <file>
-readany epub metadata patch <draft-id> --patch <file>
+readany epub toc rebuild <draft-id> [--json]
+readany epub diff <draft-id> [--json]
+readany epub undo <draft-id> <operation-id> [--json]
 readany epub validate <draft-id> [--json]
 readany epub export <draft-id> --output <path> [--json]
 ```
@@ -87,6 +98,7 @@ readany epub export <draft-id> --output <path> [--json]
 
 - `epub.chapter.patch` 只修改 draft 中的单个章节资源，不能直接改原始书文件。
 - `epub.metadata.patch` 只修改 draft 中的 metadata。
+- `epub.history` 只读取 draft 的 operation history，不修改文件。
 - `epub.validate` 只做结构和引用校验，不自动修改内容。
 - `epub.export` 默认生成新文件，不覆盖源 EPUB。
 - 用户编辑入口和 AI 编辑入口使用同一套 draft/history/diff。
@@ -130,9 +142,10 @@ epub.draft.create
 epub.chapter.read
 epub.chapter.patch
 epub.metadata.patch
+epub.history
 ```
 
-`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。`epub.chapter.patch` 当前已经可用，但它只替换 draft 内单个 XHTML 章节资源。`epub.metadata.patch` 当前已经可用，但它只修改 draft OPF metadata。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
+`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。`epub.chapter.patch` 当前已经可用，但它只替换 draft 内单个 XHTML 章节资源。`epub.metadata.patch` 当前已经可用，但它只修改 draft OPF metadata。`epub.history` 当前已经可用，但它只读取 draft operation history。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
 
 未来补齐时，`tools/list` 仍然要遵循一个原则：先完成真实实现、权限、测试和文档，再把工具放进列表。不能为了“让 AI 知道能力存在”而提前注册。
 
@@ -216,6 +229,8 @@ epub.inspect
 epub.draft.create
 epub.chapter.read
 epub.chapter.patch
+epub.metadata.patch
+epub.history
 ```
 
 M2 再做：

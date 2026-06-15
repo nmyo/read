@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 13 },
+        tools: { count: 14 },
       });
     }
   });
@@ -465,6 +465,46 @@ describe("commands", () => {
       draftId,
       bookId: "book-1",
       fields: ["title", "creator", "language", "publisher", "description", "modified", "subjects"],
+    });
+  });
+
+  it("reads EPUB draft history with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+
+    const readonly = await runCommand(["epub", "history", draftId], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "history", draftId, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      history: {
+        draftId,
+        bookId: "book-1",
+        historyPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/history\.jsonl$/),
+        entries: [
+          {
+            action: "epub.draft.create",
+            bookId: "book-1",
+            draftId,
+          },
+        ],
+      },
     });
   });
 

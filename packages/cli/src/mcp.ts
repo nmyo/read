@@ -9,6 +9,7 @@ import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
   getBookById,
+  getEpubDraftHistory,
   getIndexedChapter,
   listIndexedChapters,
   listBooks,
@@ -369,6 +370,13 @@ async function callReadAnyTool(
       env,
     });
     return success({ metadata: result });
+  }
+
+  if (toolName === "epub.history") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.history requires draftId");
+    const history = await getEpubDraftHistory(draftId, env);
+    return success({ history });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

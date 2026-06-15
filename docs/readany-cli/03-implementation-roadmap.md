@@ -123,6 +123,7 @@ readany epub draft create <book-id> --profile editor
 readany epub chapter read <draft-id> <chapter-id> --profile editor
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor
 readany epub metadata patch <draft-id> --patch <file> --profile editor
+readany epub history <draft-id> --profile editor
 ```
 
 当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
@@ -171,6 +172,7 @@ epub.draft.create
 epub.chapter.read
 epub.chapter.patch
 epub.metadata.patch
+epub.history
 ```
 
 Phase 3 完整通过还需要补齐：
@@ -204,6 +206,7 @@ Phase 3 完整通过还需要补齐：
 - `epub.chapter.read`
 - `epub.chapter.patch`
 - `epub.metadata.patch`
+- `epub.history`
 - `epub.toc.rebuild`
 
 可验收：
@@ -223,8 +226,9 @@ Phase 3 完整通过还需要补齐：
 3. `epub.chapter.read`：读取 draft 或原书章节。已落地：读取 draft EPUB 中的 XHTML 章节文本，带 `contentLimit`。
 4. `epub.chapter.patch`：只对 draft 章节应用 patch。已落地：替换 draft 内单个 XHTML 章节资源，并写入 history。
 5. `epub.metadata.patch`：只对 draft metadata 应用 patch。已落地：修改 draft OPF metadata，并写入 history。
-6. `epub.toc.rebuild`：基于真实章节结构重建 toc。
-7. `epub.diff`：展示 draft 和原书差异。
+6. `epub.history`：读取 draft operation history。已落地：返回 draft 操作记录和相对 history 路径，不暴露本机绝对路径。
+7. `epub.toc.rebuild`：基于真实章节结构重建 toc。
+8. `epub.diff`：展示 draft 和原书差异。
 
 用户编辑入口建议放在书籍详情页或 draft 工作区，不放在设置页。设置页只做接入、状态和权限管理。
 

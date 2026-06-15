@@ -6,7 +6,7 @@ import type { Book } from "../types";
 import type { IPlatformService } from "../services";
 import { buildStoreOnlyZip, type ZipEntry } from "../utils/store-only-zip";
 import { setPlatformService } from "../services";
-import { createEpubDraft } from "./draft";
+import { createEpubDraft, readEpubDraftHistory } from "./draft";
 
 const encoder = new TextEncoder();
 
@@ -175,5 +175,34 @@ describe("createEpubDraft", () => {
     });
 
     expect(events.some((event) => event.kind === "writeFile")).toBe(true);
+  });
+
+  it("reads draft operation history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-draft-"));
+    const { dataDir } = await createPlatform(root);
+    const sourcePath = join(dataDir, "books", "sample.epub");
+    await writeFile(sourcePath, buildMinimalEpub());
+    const book = {
+      id: "book-1",
+      filePath: "books/sample.epub",
+      format: "epub",
+      meta: { title: "Draftable EPUB" },
+    } as Book;
+    await createEpubDraft(book, { draftId: "draft-1" });
+
+    const history = await readEpubDraftHistory("draft-1");
+
+    expect(history).toMatchObject({
+      draftId: "draft-1",
+      bookId: "book-1",
+      historyPath: "drafts/epub/draft-1/history.jsonl",
+      entries: [
+        {
+          action: "epub.draft.create",
+          bookId: "book-1",
+          draftId: "draft-1",
+        },
+      ],
+    });
   });
 });
