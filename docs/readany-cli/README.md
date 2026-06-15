@@ -6,6 +6,7 @@
 
 文档目录：
 
+- [08-execution-guide.md](08-execution-guide.md)
 - [01-product-scope.md](01-product-scope.md)
 - [02-architecture-security.md](02-architecture-security.md)
 - [03-implementation-roadmap.md](03-implementation-roadmap.md)
@@ -61,4 +62,4 @@
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
 
-如果只读一份执行文档，先读 [07-delivery-playbook.md](07-delivery-playbook.md)。它把功能范围、实现顺序、测试策略、验收证据和不通过条件放在一起。
+如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。它把功能范围、实现顺序、测试策略、验收证据和完成标准放在一起。

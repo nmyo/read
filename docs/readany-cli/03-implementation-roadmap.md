@@ -321,7 +321,7 @@ Phase 7 完成标准：
 
 ## 里程碑定义
 
-更细的执行顺序、验收证据和 issue 拆分见 [07-delivery-playbook.md](07-delivery-playbook.md)。
+总执行说明见 [08-execution-guide.md](08-execution-guide.md)，更细的执行顺序、验收证据和 issue 拆分见 [07-delivery-playbook.md](07-delivery-playbook.md)。
 
 ### M1 - 只读外部 AI 入口
 

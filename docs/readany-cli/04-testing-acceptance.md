@@ -150,6 +150,21 @@ pnpm --filter @readany/cli build
 - 新增命令必须有 text 和 JSON 输出的基础覆盖。
 - 新增 MCP tool 必须有 schema、权限拒绝、成功调用三类测试。
 
+如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：
+
+```bash
+cargo test readany_cli --lib
+cargo check
+pnpm --filter app build
+```
+
+如果本次改动触碰 Tauri 打包资源、CLI bundle 结构、安装器或客户端设置页，还必须执行：
+
+```bash
+pnpm --filter @readany/cli build
+pnpm --filter app tauri info
+```
+
 M1 验收：
 
 ```bash
@@ -206,6 +221,83 @@ readany epub export <draft-id> --json
 - 只读查询链路跑通。
 - MCP 不展示章节、RAG、EPUB draft/export 等未实现工具。
 - 测试不依赖真实用户数据。
+
+## 功能验收清单
+
+每个新增功能都必须按下面的清单走完，才允许进入当前阶段完成列表：
+
+```text
+[ ] 有命令或 MCP tool 设计
+[ ] 有真实实现，不是 mock
+[ ] 有权限 scope
+[ ] 有 JSON 输出
+[ ] 有错误码
+[ ] 有单元测试
+[ ] 有集成测试或 smoke
+[ ] 有文档
+[ ] tools/list 和 README 状态一致
+[ ] 测试使用临时 READANY_HOME / AGENT_HOME
+```
+
+对外部 AI 可见的 MCP tool 还必须额外满足：
+
+```text
+[ ] inputSchema 限制额外字段
+[ ] readonly profile 权限路径有测试
+[ ] 不输出密钥、同步配置、任意本地路径
+[ ] 大结果有 limit / cursor / range 中至少一种限制
+[ ] 审计日志记录调用名、profile、结果，不记录完整正文参数
+```
+
+写入类工具还必须额外满足：
+
+```text
+[ ] 写入目标是 draft 或受控对象
+[ ] 原始 EPUB hash 不变
+[ ] 有 diff 或 operation history
+[ ] 有回滚、撤销或可丢弃路径
+[ ] readonly profile 调用失败
+[ ] 高风险动作有确认或更高 profile
+```
+
+## 每阶段停止线
+
+### M1 停止线
+
+做到这里就可以暂停进入验收，不继续抢做 M2：
+
+- 外部 AI 能发现 ReadAny。
+- 外部 AI 能列书、搜书、读书籍元数据、搜笔记、搜高亮。
+- 桌面端能安装/卸载 Skill，复制 readonly MCP 配置。
+- `tools/list` 没有章节、RAG、EPUB draft/export。
+- 所有测试通过。
+
+### M2 停止线
+
+做到这里就可以暂停进入验收：
+
+- 外部 AI 能读取真实章节目录和章节内容。
+- `rag.search` 能基于真实索引返回结果。
+- 结果包含可回跳的 book/chapter/chunk 引用。
+- 大正文不会一次性无上限返回。
+
+### M3 停止线
+
+做到这里就可以暂停进入验收：
+
+- AI 能创建 draft。
+- AI 能修改当前章或元数据。
+- 用户能看 diff 或 history。
+- 原始 EPUB 不被修改。
+
+### M4 停止线
+
+做到这里就可以暂停进入验收：
+
+- draft 能 validate。
+- draft 能 export 为新 EPUB。
+- 导出文件能重新导入。
+- 设置页能管理 profile 和查看关键审计记录。
 
 ## 验收记录模板
 
