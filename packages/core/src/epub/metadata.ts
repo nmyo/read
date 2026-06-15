@@ -1,7 +1,7 @@
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { getPlatformService } from "../services";
 import { generateId } from "../utils/generate-id";
-import type { EpubDraftManifest } from "./draft";
+import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
 import { inspectEpubBytes, withEpubPackageResourceReader } from "./inspect";
 import { replaceZipTextEntry, sha256Hex } from "./zip";
 
@@ -36,15 +36,7 @@ export async function patchEpubMetadataInDraft(
   options: { now?: Date } = {},
 ): Promise<EpubMetadataPatchResult> {
   const platform = getPlatformService();
-  const dataDir = await platform.getDataDir();
-  const draftDir = await platform.joinPath(dataDir, "drafts", "epub", draftId);
-  const manifestPath = await platform.joinPath(draftDir, "manifest.json");
-  const historyPath = await platform.joinPath(draftDir, "history.jsonl");
-  if (!(await platform.exists(manifestPath))) {
-    throw new Error(`EPUB draft was not found: ${draftId}`);
-  }
-
-  const manifest = JSON.parse(await platform.readTextFile(manifestPath)) as EpubDraftManifest;
+  const { dataDir, manifestPath, historyPath, manifest } = await readActiveEpubDraftManifest(draftId);
   const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
   if (!(await platform.exists(draftPath))) {
     throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);

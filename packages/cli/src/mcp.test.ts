@@ -114,6 +114,7 @@ describe("mcp", () => {
         { name: "rag.search" },
         { name: "epub.inspect" },
         { name: "epub.draft.create" },
+        { name: "epub.draft.discard" },
         { name: "epub.chapter.read" },
         { name: "epub.chapter.patch" },
         { name: "epub.metadata.patch" },
@@ -330,6 +331,58 @@ describe("mcp", () => {
           id: "chapter-1",
           href: "chapter-1.xhtml",
           content: "Agent Access",
+        },
+      },
+    });
+  });
+
+  it("gates epub.draft.discard by editor profile and discards a draft", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.discard", arguments: { draftId } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.discard", arguments: { draftId, reason: "no longer needed" } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        discarded: {
+          draftId,
+          bookId: "mcp-book",
+          status: "discarded",
         },
       },
     });
@@ -628,6 +681,72 @@ describe("mcp", () => {
         },
       },
     });
+  });
+
+  it("blocks draft reads after discard", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const discardResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.discard", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(discardResponse).toMatchObject({ isError: false });
+
+    const historyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.history", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(historyResponse).toMatchObject({ isError: false });
+    const historyText = (historyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(historyText)).toMatchObject({
+      ok: true,
+      data: {
+        history: {
+          draftId,
+          status: "discarded",
+          entries: [
+            expect.objectContaining({ action: "epub.draft.create" }),
+            expect.objectContaining({ action: "epub.draft.discard" }),
+          ],
+        },
+      },
+    });
+
+    const chapterResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.chapter.read", arguments: { draftId, chapterId: "chapter-1" } },
+      },
+      "editor",
+      env,
+    );
+    expect(chapterResponse).toMatchObject({ isError: true });
+    const chapterText = (chapterResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(chapterText)).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+    expect(String(chapterText)).toMatch(/discarded/i);
   });
 
 

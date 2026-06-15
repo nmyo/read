@@ -116,6 +116,7 @@ Usage:
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
   readany epub inspect <book-id> [--json] [--profile editor]
   readany epub draft create <book-id> [--json] [--profile editor]
+  readany epub draft discard <draft-id> [--json] [--profile editor] [--reason "..."]
   readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000]
   readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--json] [--profile editor]
   readany epub metadata patch <draft-id> --patch <file> [--json] [--profile editor]
@@ -347,6 +348,20 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           const draft = await data.createEpubDraftForBook(bookId, env);
           if (!draft) return failure("book_not_found", `Book ${bookId} was not found`);
           return success({ draft });
+        }
+        if (draftCommand === "discard") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure("permission_denied", "epub draft discard requires editor profile or higher");
+          }
+          const draftId = command.args[2];
+          if (!draftId) return failure("missing_draft_id", "epub draft discard requires a draft id");
+          const discarded = await data.discardEpubDraftWorkspace({
+            draftId,
+            reason: getStringOption(command, "reason"),
+            env,
+          });
+          return success({ discarded });
         }
         return failure(
           "unknown_epub_draft_command",

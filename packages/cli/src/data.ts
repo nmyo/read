@@ -4,6 +4,7 @@ import type { Book, Highlight, Note } from "@readany/core/types";
 import type { SearchMode } from "@readany/core/types";
 import {
   createEpubDraft,
+  discardEpubDraft,
   readEpubDraftHistory,
   type EpubDraftCreateResult,
 } from "@readany/core/epub/draft";
@@ -226,6 +227,18 @@ export async function getEpubDraftHistory(
 ): Promise<import("@readany/core/epub/draft").EpubDraftHistoryResult> {
   await ensureCoreInitialized(env);
   return readEpubDraftHistory(draftId);
+}
+
+export async function discardEpubDraftWorkspace(
+  options: {
+    draftId: string;
+    reason?: string;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<import("@readany/core/epub/draft").EpubDraftDiscardResult> {
+  const { draftId, reason, env = process.env } = options;
+  await ensureCoreInitialized(env);
+  return discardEpubDraft(draftId, { reason });
 }
 
 export async function diffEpubDraftWorkspace(

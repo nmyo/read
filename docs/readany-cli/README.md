@@ -15,6 +15,7 @@
 - [06-client-settings.md](06-client-settings.md)
 - [07-delivery-playbook.md](07-delivery-playbook.md)
 - [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)
+- [10-feature-delivery-spec.md](10-feature-delivery-spec.md)
 - [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md)
 
 ## 当前状态
@@ -76,4 +77,4 @@
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
 
-如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。
+如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。

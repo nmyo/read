@@ -2,6 +2,8 @@
 
 这份文档是 ReadAny CLI / External AI Access 的交付合同。它把“需要什么功能、怎么做、怎么测、怎么验收、做到什么程度停下来”写成可执行标准。
 
+如果你要把功能拆成更细的开发项、测试项和验收项，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。
+
 ## 1. 交付目标
 
 ReadAny CLI 的目标不是做一个孤立命令行工具，而是做 ReadAny 的本地能力网关：

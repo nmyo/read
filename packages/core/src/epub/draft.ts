@@ -12,7 +12,7 @@ export type EpubDraftManifest = {
   sourceHash: string;
   createdAt: string;
   updatedAt: string;
-  status: "draft";
+  status: "draft" | "discarded";
   inspect: EpubInspectResult;
 };
 
@@ -38,7 +38,19 @@ export type EpubDraftPatchHistoryEntry = {
   fields?: string[];
 };
 
-export type EpubDraftHistoryEntry = EpubDraftCreateHistoryEntry | EpubDraftPatchHistoryEntry;
+export type EpubDraftDiscardHistoryEntry = {
+  id: string;
+  timestamp: string;
+  action: "epub.draft.discard";
+  bookId: string;
+  draftId: string;
+  reason?: string;
+};
+
+export type EpubDraftHistoryEntry =
+  | EpubDraftCreateHistoryEntry
+  | EpubDraftPatchHistoryEntry
+  | EpubDraftDiscardHistoryEntry;
 
 export type EpubDraftCreateResult = {
   draftId: string;
@@ -55,8 +67,19 @@ export type EpubDraftCreateResult = {
 export type EpubDraftHistoryResult = {
   draftId: string;
   bookId: string;
+  status: EpubDraftManifest["status"];
   historyPath: string;
   entries: EpubDraftHistoryEntry[];
+};
+
+export type EpubDraftDiscardResult = {
+  draftId: string;
+  bookId: string;
+  status: "discarded";
+  discardedAt: string;
+  operationId: string;
+  manifestPath: string;
+  historyPath: string;
 };
 
 export async function createEpubDraft(
@@ -158,8 +181,85 @@ export async function readEpubDraftHistory(
   return {
     draftId,
     bookId: manifest.bookId,
+    status: manifest.status,
     historyPath: `drafts/epub/${draftId}/history.jsonl`,
     entries,
+  };
+}
+
+export async function discardEpubDraft(
+  draftId: string,
+  options: { now?: Date; reason?: string } = {},
+): Promise<EpubDraftDiscardResult> {
+  const platform = getPlatformService();
+  const dataDir = await platform.getDataDir();
+  const manifestPath = await platform.joinPath(dataDir, "drafts", "epub", draftId, "manifest.json");
+  const historyPath = await platform.joinPath(dataDir, "drafts", "epub", draftId, "history.jsonl");
+  if (!(await platform.exists(manifestPath))) {
+    throw new Error(`EPUB draft was not found: ${draftId}`);
+  }
+  if (!(await platform.exists(historyPath))) {
+    throw new Error(`EPUB draft history was not found: ${draftId}`);
+  }
+
+  const manifest = JSON.parse(await platform.readTextFile(manifestPath)) as EpubDraftManifest;
+  if (manifest.status === "discarded") {
+    throw new Error(`EPUB draft is already discarded: ${draftId}`);
+  }
+
+  const discardedAt = (options.now ?? new Date()).toISOString();
+  const operationId = generateId();
+  const nextManifest: EpubDraftManifest = {
+    ...manifest,
+    status: "discarded",
+    updatedAt: discardedAt,
+  };
+  await platform.writeTextFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
+  await appendHistoryLine(historyPath, {
+    id: operationId,
+    timestamp: discardedAt,
+    action: "epub.draft.discard",
+    bookId: manifest.bookId,
+    draftId,
+    reason: options.reason?.trim() || undefined,
+  } satisfies EpubDraftDiscardHistoryEntry);
+
+  return {
+    draftId,
+    bookId: manifest.bookId,
+    status: "discarded",
+    discardedAt,
+    operationId,
+    manifestPath: `drafts/epub/${draftId}/manifest.json`,
+    historyPath: `drafts/epub/${draftId}/history.jsonl`,
+  };
+}
+
+export async function readActiveEpubDraftManifest(draftId: string): Promise<{
+  dataDir: string;
+  manifestPath: string;
+  historyPath: string;
+  manifest: EpubDraftManifest;
+}> {
+  const platform = getPlatformService();
+  const dataDir = await platform.getDataDir();
+  const draftDir = await platform.joinPath(dataDir, "drafts", "epub", draftId);
+  const manifestPath = await platform.joinPath(draftDir, "manifest.json");
+  const historyPath = await platform.joinPath(draftDir, "history.jsonl");
+  if (!(await platform.exists(manifestPath))) {
+    throw new Error(`EPUB draft was not found: ${draftId}`);
+  }
+
+  const manifest = JSON.parse(await platform.readTextFile(manifestPath)) as EpubDraftManifest;
+  if (manifest.status === "discarded") {
+    throw new Error(`EPUB draft is discarded: ${draftId}`);
+  }
+
+  return {
+    dataDir,
+    manifestPath,
+    historyPath,
+    manifest,
   };
 }
 
@@ -181,4 +281,10 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function appendHistoryLine(path: string, entry: unknown): Promise<void> {
+  const platform = getPlatformService();
+  const existing = (await platform.exists(path)) ? await platform.readTextFile(path) : "";
+  await platform.writeTextFile(path, `${existing}${JSON.stringify(entry)}\n`);
 }

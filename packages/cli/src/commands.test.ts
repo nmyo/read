@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 15 },
+        tools: { count: 16 },
       });
     }
   });
@@ -496,6 +496,7 @@ describe("commands", () => {
       history: {
         draftId,
         bookId: "book-1",
+        status: "draft",
         historyPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/history\.jsonl$/),
         entries: [
           {
@@ -506,6 +507,71 @@ describe("commands", () => {
         ],
       },
     });
+  });
+
+  it("discards an EPUB draft and blocks further draft access", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string; historyPath: string } }).draft
+      .draftId;
+    const historyPath = (draftResult.data as { draft: { historyPath: string } }).draft.historyPath;
+
+    const readonly = await runCommand(["epub", "draft", "discard", draftId], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const discarded = await runCommand(
+      ["epub", "draft", "discard", draftId, "--profile", "editor", "--reason", "no longer needed"],
+      workspace.env,
+    );
+    expect(discarded.ok).toBe(true);
+    if (!discarded.ok) return;
+    expect(discarded.data).toMatchObject({
+      discarded: {
+        draftId,
+        bookId: "book-1",
+        status: "discarded",
+        manifestPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/manifest\.json$/),
+        historyPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/history\.jsonl$/),
+      },
+    });
+
+    const manifest = JSON.parse(
+      await readFile(join(workspace.dataRoot, `drafts/epub/${draftId}/manifest.json`), "utf8"),
+    );
+    expect(manifest.status).toBe("discarded");
+
+    const historyLines = (await readFile(join(workspace.dataRoot, historyPath), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(historyLines.at(-1)).toMatchObject({
+      action: "epub.draft.discard",
+      draftId,
+      bookId: "book-1",
+      reason: "no longer needed",
+    });
+
+    const readAfterDiscard = await runCommand(
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(readAfterDiscard).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+    if (!readAfterDiscard.ok) {
+      expect(String(readAfterDiscard.error.message)).toMatch(/discarded/i);
+    }
   });
 
   it("diffs an EPUB draft against the original with editor profile", async () => {

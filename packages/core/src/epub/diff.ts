@@ -1,5 +1,5 @@
 import { getPlatformService } from "../services";
-import type { EpubDraftManifest } from "./draft";
+import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
 import { sha256Hex, summarizeZipEntries } from "./zip";
 
 export type EpubDiffEntry = {
@@ -28,13 +28,7 @@ export type EpubDiffResult = {
 
 export async function diffEpubDraft(draftId: string): Promise<EpubDiffResult> {
   const platform = getPlatformService();
-  const dataDir = await platform.getDataDir();
-  const manifestPath = await platform.joinPath(dataDir, "drafts", "epub", draftId, "manifest.json");
-  if (!(await platform.exists(manifestPath))) {
-    throw new Error(`EPUB draft was not found: ${draftId}`);
-  }
-
-  const manifest = JSON.parse(await platform.readTextFile(manifestPath)) as EpubDraftManifest;
+  const { dataDir, manifest } = await readActiveEpubDraftManifest(draftId);
   const sourcePath = await platform.joinPath(dataDir, manifest.sourceFilePath);
   const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
   if (!(await platform.exists(sourcePath))) {

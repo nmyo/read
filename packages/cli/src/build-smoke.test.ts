@@ -144,6 +144,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "rag.search" },
           { name: "epub.inspect" },
           { name: "epub.draft.create" },
+          { name: "epub.draft.discard" },
           { name: "epub.chapter.read" },
           { name: "epub.chapter.patch" },
           { name: "epub.metadata.patch" },

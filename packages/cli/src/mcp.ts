@@ -9,6 +9,7 @@ import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
   diffEpubDraftWorkspace,
+  discardEpubDraftWorkspace,
   getBookById,
   getEpubDraftHistory,
   getIndexedChapter,
@@ -318,6 +319,14 @@ async function callReadAnyTool(
     return success({ draft });
   }
 
+  if (toolName === "epub.draft.discard") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.draft.discard requires draftId");
+    const reason = getString(args, "reason");
+    const discarded = await discardEpubDraftWorkspace({ draftId, reason, env });
+    return success({ discarded });
+  }
+
   if (toolName === "epub.chapter.read") {
     const draftId = getString(args, "draftId");
     if (!draftId) return failure("missing_draft_id", "epub.chapter.read requires draftId");
@@ -443,7 +452,12 @@ export async function handleMcpRequest(
       return result;
     }
     const args = params.arguments ?? {};
-    result = asMcpContent(await callReadAnyTool(profile, name, args, env));
+    try {
+      result = asMcpContent(await callReadAnyTool(profile, name, args, env));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown tool execution failure";
+      result = asMcpContent(failure("command_failed", message));
+    }
     await recordMcpAudit(env, profile, action, result);
     return result;
   }

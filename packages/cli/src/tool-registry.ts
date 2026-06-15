@@ -263,6 +263,29 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "epub.draft.discard",
+    description: "Discard an EPUB draft workspace and mark it as inactive.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        reason: {
+          type: "string",
+          minLength: 1,
+          description: "Optional discard reason.",
+        },
+      },
+      required: ["draftId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "epub.chapter.read",
     description: "Read a chapter resource from an EPUB draft workspace.",
     scopes: ["epub.draft"],

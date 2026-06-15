@@ -15,6 +15,7 @@ describe("tool registry", () => {
       "rag.search",
       "epub.inspect",
       "epub.draft.create",
+      "epub.draft.discard",
       "epub.chapter.read",
       "epub.chapter.patch",
       "epub.metadata.patch",
@@ -32,6 +33,7 @@ describe("tool registry", () => {
     ).toBe(true);
     expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.draft.create")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.draft.discard")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.chapter.read")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.chapter.patch")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.metadata.patch")?.risk).toBe("medium");

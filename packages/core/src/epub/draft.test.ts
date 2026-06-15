@@ -6,7 +6,7 @@ import type { Book } from "../types";
 import type { IPlatformService } from "../services";
 import { buildStoreOnlyZip, type ZipEntry } from "../utils/store-only-zip";
 import { setPlatformService } from "../services";
-import { createEpubDraft, readEpubDraftHistory } from "./draft";
+import { createEpubDraft, discardEpubDraft, readEpubDraftHistory } from "./draft";
 
 const encoder = new TextEncoder();
 
@@ -195,6 +195,7 @@ describe("createEpubDraft", () => {
     expect(history).toMatchObject({
       draftId: "draft-1",
       bookId: "book-1",
+      status: "draft",
       historyPath: "drafts/epub/draft-1/history.jsonl",
       entries: [
         {
@@ -204,5 +205,51 @@ describe("createEpubDraft", () => {
         },
       ],
     });
+  });
+
+  it("discards a draft and records the operation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-draft-"));
+    const { dataDir } = await createPlatform(root);
+    const sourcePath = join(dataDir, "books", "sample.epub");
+    await writeFile(sourcePath, buildMinimalEpub());
+    const book = {
+      id: "book-1",
+      filePath: "books/sample.epub",
+      format: "epub",
+      meta: { title: "Draftable EPUB" },
+    } as Book;
+    await createEpubDraft(book, { draftId: "draft-1" });
+
+    const discarded = await discardEpubDraft("draft-1", {
+      reason: "No longer needed",
+      now: new Date("2026-06-16T00:00:00Z"),
+    });
+
+    expect(discarded).toMatchObject({
+      draftId: "draft-1",
+      bookId: "book-1",
+      status: "discarded",
+      discardedAt: "2026-06-16T00:00:00.000Z",
+      manifestPath: "drafts/epub/draft-1/manifest.json",
+      historyPath: "drafts/epub/draft-1/history.jsonl",
+    });
+
+    const manifest = JSON.parse(
+      await readFile(join(dataDir, "drafts", "epub", "draft-1", "manifest.json"), "utf8"),
+    );
+    expect(manifest.status).toBe("discarded");
+
+    const history = await readEpubDraftHistory("draft-1");
+    expect(history.status).toBe("discarded");
+    expect(history.entries.at(-1)).toMatchObject({
+      action: "epub.draft.discard",
+      reason: "No longer needed",
+    });
+
+    await expect(
+      import("./chapter").then(({ readEpubChapterFromDraft }) =>
+        readEpubChapterFromDraft("draft-1", "chapter-1"),
+      ),
+    ).rejects.toThrow(/discarded/i);
   });
 });
