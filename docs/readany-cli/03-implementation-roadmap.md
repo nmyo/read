@@ -111,6 +111,8 @@ readany book get <book-id> --json
 readany books list
 readany books search <query>
 readany book get <book-id>
+readany chapters list <book-id>
+readany chapter get <book-id> <chapter-id>
 readany notes search <query>
 readany highlights search <query>
 readany bookmarks list <book-id>
@@ -118,14 +120,7 @@ readany skills list
 readany rag search <query> --book <book-id>
 ```
 
-未完成但属于本阶段尾巴：
-
-```text
-readany chapters list <book-id>
-readany chapter get <book-id> <chapter-id>
-```
-
-章节命令必须接入真实 EPUB/资源解析链路后再开放。
+当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
 
 ## Phase 3 - MCP Server
 
@@ -160,6 +155,8 @@ readany chapter get <book-id> <chapter-id>
 books.list
 books.search
 books.get
+chapters.list
+chapters.get
 notes.search
 highlights.search
 rag.search

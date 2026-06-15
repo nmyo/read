@@ -74,6 +74,8 @@ describe("mcp", () => {
         { name: "books.list" },
         { name: "books.search" },
         { name: "books.get" },
+        { name: "chapters.list" },
+        { name: "chapters.get" },
         { name: "notes.search" },
         { name: "highlights.search" },
         { name: "rag.search" },
@@ -155,6 +157,66 @@ describe("mcp", () => {
             },
           },
         ],
+      },
+    });
+  });
+
+  it("calls chapters list and get with readonly profile", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+
+    const listResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.list",
+          arguments: { bookId: "mcp-book" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(listResponse).toMatchObject({ isError: false });
+    const listText = (listResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(listText)).toMatchObject({
+      ok: true,
+      data: {
+        chapters: [
+          {
+            id: "1",
+            title: "Agent Access",
+            startCfi: "epubcfi(/6/20)",
+          },
+          {
+            id: "2",
+            title: "Draft Safety",
+            startCfi: "epubcfi(/6/24)",
+          },
+        ],
+      },
+    });
+
+    const getResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.get",
+          arguments: { bookId: "mcp-book", chapterId: "1" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(getResponse).toMatchObject({ isError: false });
+    const getText = (getResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(getText)).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          id: "1",
+          content: "MCP access lets external agents search ReadAny chunks safely.",
+          chunks: [{ id: "mcp-chunk-1" }],
+        },
       },
     });
   });

@@ -15,6 +15,8 @@ Current phase:
 - `readany books list`
 - `readany books search`
 - `readany book get`
+- `readany chapters list`
+- `readany chapter get`
 - `readany notes search`
 - `readany highlights search`
 - `readany rag search --book <book-id>`
@@ -26,6 +28,8 @@ Current MCP tools:
 books.list
 books.search
 books.get
+chapters.list
+chapters.get
 notes.search
 highlights.search
 rag.search

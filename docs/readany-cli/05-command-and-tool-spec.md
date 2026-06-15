@@ -55,6 +55,8 @@ readany tools list [--json]
 readany books list [--limit 50] [--json]
 readany books search <query> [--json]
 readany book get <book-id> [--json]
+readany chapters list <book-id> [--json]
+readany chapter get <book-id> <chapter-id> [--json]
 readany notes search <query> [--book <book-id>] [--json]
 readany highlights search <query> [--book <book-id>] [--json]
 readany bookmarks list <book-id> [--json]
@@ -62,12 +64,7 @@ readany skills list [--json]
 readany rag search <query> --book <book-id> [--mode bm25] [--limit 5] [--json]
 ```
 
-规划中：
-
-```bash
-readany chapters list <book-id> [--json]
-readany chapter get <book-id> <chapter-id> [--json]
-```
+当前 `chapters.*` 基于 indexed chunks 返回章节视图；原始 EPUB/PDF fallback 章节解析仍属于后续能力。
 
 ### Draft 和导出命令
 
@@ -110,12 +107,14 @@ epub.export
 books.list
 books.search
 books.get
+chapters.list
+chapters.get
 notes.search
 highlights.search
 rag.search
 ```
 
-`chapters.*`、`epub.*` 接入真实实现前只能保留在设计文档里。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
+`epub.*` 接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
 
 ## Tool 输出规则
 
@@ -188,6 +187,8 @@ type ReadAnyTool = {
 books.list
 books.search
 books.get
+chapters.list
+chapters.get
 notes.search
 highlights.search
 rag.search
@@ -196,8 +197,7 @@ rag.search
 M2 再做：
 
 ```text
-chapters.list
-chapters.get
+chapters.fallback
 knowledge.search
 ```
 

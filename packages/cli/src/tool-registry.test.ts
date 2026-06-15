@@ -8,6 +8,8 @@ describe("tool registry", () => {
       "books.list",
       "books.search",
       "books.get",
+      "chapters.list",
+      "chapters.get",
       "notes.search",
       "highlights.search",
       "rag.search",

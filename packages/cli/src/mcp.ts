@@ -8,6 +8,8 @@ import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
 import {
   getBookById,
+  getIndexedChapter,
+  listIndexedChapters,
   listBooks,
   listHighlights,
   listNotes,
@@ -122,6 +124,24 @@ async function callReadAnyTool(
     const bookId = getString(args, "bookId");
     if (!bookId) return failure("missing_book_id", "books.get requires bookId");
     return success({ book: await getBookById(bookId, env) });
+  }
+
+  if (toolName === "chapters.list") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "chapters.list requires bookId");
+    return success({ chapters: await listIndexedChapters({ bookId, env }) });
+  }
+
+  if (toolName === "chapters.get") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "chapters.get requires bookId");
+    const chapterId = getString(args, "chapterId");
+    if (!chapterId) return failure("missing_chapter_id", "chapters.get requires chapterId");
+    const chapter = await getIndexedChapter({ bookId, chapterId, env });
+    if (!chapter) {
+      return failure("chapter_not_found", `Chapter ${chapterId} was not found in ${bookId}`);
+    }
+    return success({ chapter });
   }
 
   if (toolName === "notes.search") {

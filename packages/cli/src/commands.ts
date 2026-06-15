@@ -108,6 +108,8 @@ Usage:
   readany books list [--json] [--limit 50]
   readany books search <query> [--json]
   readany book get <book-id> [--json]
+  readany chapters list <book-id> [--json]
+  readany chapter get <book-id> <chapter-id> [--json]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -206,6 +208,38 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         return success({ book: await data.getBookById(bookId, env) });
       }
       return failure("unknown_book_command", `Unknown book command: ${subcommand}`);
+    }
+
+    if (command.name === "chapters") {
+      const data = await getDataApi();
+      const subcommand = command.args[0] ?? "list";
+      if (subcommand === "list") {
+        const bookId = command.args[1];
+        if (!bookId) return failure("missing_book_id", "chapters list requires a book id");
+        return success({ chapters: await data.listIndexedChapters({ bookId, env }) });
+      }
+      return failure("unknown_chapters_command", `Unknown chapters command: ${subcommand}`);
+    }
+
+    if (command.name === "chapter") {
+      const data = await getDataApi();
+      const subcommand = command.args[0] ?? "get";
+      if (subcommand === "get") {
+        const bookId = command.args[1];
+        const chapterId = command.args[2];
+        if (!bookId) return failure("missing_book_id", "chapter get requires a book id");
+        if (!chapterId) return failure("missing_chapter_id", "chapter get requires a chapter id");
+        const chapter = await data.getIndexedChapter({
+          bookId,
+          chapterId,
+          env,
+        });
+        if (!chapter) {
+          return failure("chapter_not_found", `Chapter ${chapterId} was not found in ${bookId}`);
+        }
+        return success({ chapter });
+      }
+      return failure("unknown_chapter_command", `Unknown chapter command: ${subcommand}`);
     }
 
     if (command.name === "notes") {

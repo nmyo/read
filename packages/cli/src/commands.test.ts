@@ -118,7 +118,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 6 },
+        tools: { count: 8 },
       });
     }
   });
@@ -208,6 +208,59 @@ describe("commands", () => {
         ],
       });
     }
+  });
+
+  it("lists and reads indexed chapters from stored chunks", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const chapters = await runCommand(["chapters", "list", "book-1"], workspace.env);
+    expect(chapters.ok).toBe(true);
+    if (chapters.ok) {
+      expect(chapters.data).toMatchObject({
+        chapters: [
+          {
+            id: "1",
+            index: 1,
+            title: "Tools",
+            chunkCount: 1,
+            startCfi: "epubcfi(/6/10)",
+          },
+          {
+            id: "2",
+            index: 2,
+            title: "Drafts",
+            chunkCount: 1,
+            startCfi: "epubcfi(/6/14)",
+          },
+        ],
+      });
+    }
+
+    const chapter = await runCommand(["chapter", "get", "book-1", "2"], workspace.env);
+    expect(chapter.ok).toBe(true);
+    if (chapter.ok) {
+      expect(chapter.data).toMatchObject({
+        chapter: {
+          id: "2",
+          bookId: "book-1",
+          title: "Drafts",
+          content: "Draft-first editing keeps EPUB sources safe while AI proposes changes.",
+          chunks: [{ id: "chunk-2", startCfi: "epubcfi(/6/14)" }],
+        },
+      });
+    }
+  });
+
+  it("returns chapter_not_found for missing indexed chapters", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const result = await runCommand(["chapter", "get", "book-1", "99"], workspace.env);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "chapter_not_found" },
+    });
   });
 
   it("requires a book id for rag search", async () => {

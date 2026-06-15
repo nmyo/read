@@ -25,14 +25,15 @@
 - CLI 可构建、可测试，并提供 `readany` bin。
 - 已支持 `doctor`、`install`、`uninstall`、`skill install/uninstall/status`。
 - 已支持只读库查询：书籍、笔记、高亮、书签、skills。
+- 已支持 indexed chapter view：基于已有 chunks 索引的 `readany chapters list`、`readany chapter get` 和 MCP `chapters.*`。
 - 已支持 BM25 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id>` 和 MCP `rag.search`。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
-- MCP 当前只暴露真实实现的只读工具：`books.list`、`books.search`、`books.get`、`notes.search`、`highlights.search`、`rag.search`。
+- MCP 当前只暴露真实实现的只读工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
-- 章节正文读取。
+- 原始 EPUB/PDF fallback 章节解析。
 - Vector / hybrid RAG 检索。
 - EPUB draft/edit/export。
 - 随桌面安装包携带并注册 CLI binary。

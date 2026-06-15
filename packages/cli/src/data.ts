@@ -6,6 +6,7 @@ import {
   getAllNotes,
   getBook,
   getBooks,
+  getChunks,
   getBookmarks,
   getHighlights,
   getNotes,
@@ -112,6 +113,123 @@ export async function listBookmarks(bookId: string, env: NodeJS.ProcessEnv = pro
 export async function listSkills(env: NodeJS.ProcessEnv = process.env) {
   await ensureCoreInitialized(env);
   return getSkills();
+}
+
+export type ChapterListOptions = {
+  bookId: string;
+  env?: NodeJS.ProcessEnv;
+};
+
+export type ChapterGetOptions = ChapterListOptions & {
+  chapterId: string;
+  contentLimit?: number;
+};
+
+export type IndexedChapterSummary = {
+  id: string;
+  bookId: string;
+  index: number;
+  title: string;
+  chunkCount: number;
+  tokenCount: number;
+  startCfi: string;
+  endCfi: string;
+};
+
+export type IndexedChapter = IndexedChapterSummary & {
+  content: string;
+  contentTruncated: boolean;
+  chunks: Array<{
+    id: string;
+    content: string;
+    tokenCount: number;
+    startCfi: string;
+    endCfi: string;
+    segmentCfis?: string[];
+  }>;
+};
+
+function chapterIdFromIndex(index: number): string {
+  return String(index);
+}
+
+function getChapterIndexFromId(chapterId: string): number | null {
+  const parsed = Number.parseInt(chapterId, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export async function listIndexedChapters(options: ChapterListOptions): Promise<IndexedChapterSummary[]> {
+  const { bookId, env = process.env } = options;
+  await ensureCoreInitialized(env);
+  const chunks = await getChunks(bookId);
+  const chapters = new Map<number, IndexedChapterSummary>();
+
+  for (const chunk of chunks) {
+    const existing = chapters.get(chunk.chapterIndex);
+    if (!existing) {
+      chapters.set(chunk.chapterIndex, {
+        id: chapterIdFromIndex(chunk.chapterIndex),
+        bookId,
+        index: chunk.chapterIndex,
+        title: chunk.chapterTitle || `Chapter ${chunk.chapterIndex + 1}`,
+        chunkCount: 1,
+        tokenCount: chunk.tokenCount,
+        startCfi: chunk.startCfi,
+        endCfi: chunk.endCfi,
+      });
+      continue;
+    }
+
+    existing.chunkCount += 1;
+    existing.tokenCount += chunk.tokenCount;
+    if (!existing.startCfi && chunk.startCfi) existing.startCfi = chunk.startCfi;
+    if (chunk.endCfi) existing.endCfi = chunk.endCfi;
+  }
+
+  return Array.from(chapters.values()).sort((a, b) => a.index - b.index);
+}
+
+export async function getIndexedChapter(options: ChapterGetOptions): Promise<IndexedChapter | null> {
+  const {
+    bookId,
+    chapterId,
+    contentLimit,
+    env = process.env,
+  } = options;
+  const chapterIndex = getChapterIndexFromId(chapterId);
+  if (chapterIndex === null) return null;
+
+  await ensureCoreInitialized(env);
+  const chunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
+  if (chunks.length === 0) return null;
+
+  const maxContentChars = clampPositiveInteger(contentLimit, 12000, 50000);
+  const fullContent = chunks.map((chunk) => chunk.content).join("\n\n");
+  const content = truncateContent(fullContent, maxContentChars);
+  const tokenCount = chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+  const first = chunks[0];
+  const last = chunks[chunks.length - 1];
+
+  return {
+    id: chapterIdFromIndex(chapterIndex),
+    bookId,
+    index: chapterIndex,
+    title: first.chapterTitle || `Chapter ${chapterIndex + 1}`,
+    chunkCount: chunks.length,
+    tokenCount,
+    startCfi: first.startCfi,
+    endCfi: last.endCfi,
+    content: content.content,
+    contentTruncated: content.truncated,
+    chunks: chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      tokenCount: chunk.tokenCount,
+      startCfi: chunk.startCfi,
+      endCfi: chunk.endCfi,
+      segmentCfis: chunk.segmentCfis,
+    })),
+  };
 }
 
 export type RagSearchOptions = {

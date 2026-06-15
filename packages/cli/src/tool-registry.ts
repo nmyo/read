@@ -77,6 +77,47 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "chapters.list",
+    description: "List indexed chapters for a ReadAny book from stored chunks.",
+    scopes: ["content.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny book id.",
+        },
+      },
+      required: ["bookId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "chapters.get",
+    description: "Read an indexed chapter assembled from stored ReadAny chunks.",
+    scopes: ["content.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny book id.",
+        },
+        chapterId: {
+          type: "string",
+          minLength: 1,
+          description: "Chapter id returned by chapters.list.",
+        },
+      },
+      required: ["bookId", "chapterId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "notes.search",
     description: "Search notes in the ReadAny library.",
     scopes: ["note.read"],
