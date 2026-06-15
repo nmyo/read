@@ -16,6 +16,7 @@ import {
   listNotes,
   createEpubDraftForBook,
   inspectEpubBook,
+  readEpubChapter,
   searchRag,
   searchBooks,
 } from "./data.js";
@@ -311,6 +312,21 @@ async function callReadAnyTool(
     const draft = await createEpubDraftForBook(bookId, env);
     if (!draft) return failure("book_not_found", `Book ${bookId} was not found`);
     return success({ draft });
+  }
+
+  if (toolName === "epub.chapter.read") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.chapter.read requires draftId");
+    const chapterId = getString(args, "chapterId");
+    if (!chapterId) return failure("missing_chapter_id", "epub.chapter.read requires chapterId");
+    const chapter = await readEpubChapter({
+      draftId,
+      chapterId,
+      contentLimit: getNumber(args, "contentLimit", 12000),
+      env,
+    });
+    if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);
+    return success({ chapter });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

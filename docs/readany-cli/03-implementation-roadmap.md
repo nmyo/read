@@ -120,6 +120,7 @@ readany skills list
 readany rag search <query> --book <book-id>
 readany epub inspect <book-id> --profile editor
 readany epub draft create <book-id> --profile editor
+readany epub chapter read <draft-id> <chapter-id> --profile editor
 ```
 
 当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
@@ -164,6 +165,7 @@ highlights.search
 rag.search
 epub.inspect
 epub.draft.create
+epub.chapter.read
 ```
 
 Phase 3 完整通过还需要补齐：
@@ -211,7 +213,7 @@ Phase 3 完整通过还需要补齐：
 
 1. `epub.inspect`：解析 EPUB 结构、spine、toc、metadata、manifest。只读 inspect 版本已落地；draft 版本后续复用同一解析能力。
 2. `epub.draft.create`：复制受控资源到 draft workspace。已落地：复制原 EPUB、写 `manifest.json` 和 `history.jsonl`，原文件 hash 不变。
-3. `epub.chapter.read`：读取 draft 或原书章节。
+3. `epub.chapter.read`：读取 draft 或原书章节。已落地：读取 draft EPUB 中的 XHTML 章节文本，带 `contentLimit`。
 4. `epub.chapter.patch`：只对 draft 章节应用 patch。
 5. `epub.metadata.patch`：只对 draft metadata 应用 patch。
 6. `epub.toc.rebuild`：基于真实章节结构重建 toc。

@@ -199,6 +199,7 @@ M3 / M4 验收：
 ```bash
 readany epub draft create <book-id> --profile editor --json
 readany epub inspect <book-id> --profile editor --json
+readany epub chapter read <draft-id> <chapter-id> --profile editor --json
 readany epub chapter patch <draft-id> <chapter-id> --patch <file> --json
 readany epub validate <draft-id> --json
 readany epub export <draft-id> --json

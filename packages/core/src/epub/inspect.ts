@@ -56,9 +56,29 @@ type ZipEntryLike = {
   getData?: (writer: TextWriter) => Promise<string>;
 };
 
+export type EpubPackageResourceReader = {
+  packagePath: string;
+  packageDir: string;
+  readTextEntry: (path: string) => Promise<string | null>;
+};
+
 configure({ useWebWorkers: false });
 
 export async function inspectEpubBytes(bytes: Uint8Array): Promise<EpubInspectResult> {
+  return withEpubPackageResourceReader(bytes, async ({ packagePath, readTextEntry }) => {
+    const opfXml = await readTextEntry(packagePath);
+    if (!opfXml) {
+      throw new Error(`EPUB package document was not found: ${packagePath}`);
+    }
+
+    return inspectPackageDocument({ opfXml, packagePath, readTextEntry });
+  });
+}
+
+export async function withEpubPackageResourceReader<T>(
+  bytes: Uint8Array,
+  callback: (reader: EpubPackageResourceReader) => Promise<T>,
+): Promise<T> {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   const reader = new ZipReader(new BlobReader(new Blob([buffer])));
 
@@ -71,12 +91,8 @@ export async function inspectEpubBytes(bytes: Uint8Array): Promise<EpubInspectRe
     }
 
     const packagePath = parsePackagePath(containerXml);
-    const opfXml = await readTextEntry(packagePath);
-    if (!opfXml) {
-      throw new Error(`EPUB package document was not found: ${packagePath}`);
-    }
-
-    return inspectPackageDocument({ opfXml, packagePath, readTextEntry });
+    const packageDir = getPackageDir(packagePath);
+    return callback({ packagePath, packageDir, readTextEntry });
   } finally {
     await reader.close();
   }
@@ -122,9 +138,7 @@ async function inspectPackageDocument(options: {
 }): Promise<EpubInspectResult> {
   const doc = parseXml(options.opfXml);
   const packageElement = doc.documentElement;
-  const packageDir = options.packagePath.includes("/")
-    ? options.packagePath.slice(0, options.packagePath.lastIndexOf("/") + 1)
-    : "";
+  const packageDir = getPackageDir(options.packagePath);
   const manifestItems = elementsByLocalName(doc, "item").map((item) => ({
     id: item.getAttribute("id") ?? "",
     href: item.getAttribute("href") ?? "",
@@ -275,4 +289,10 @@ function childElements(element: Element): Element[] {
 function resolvePackagePath(packageDir: string, href: string): string {
   if (!packageDir) return href;
   return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
+}
+
+function getPackageDir(packagePath: string): string {
+  return packagePath.includes("/")
+    ? packagePath.slice(0, packagePath.lastIndexOf("/") + 1)
+    : "";
 }

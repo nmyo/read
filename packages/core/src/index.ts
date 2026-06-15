@@ -73,3 +73,5 @@ export type {
   EpubDraftHistoryEntry,
   EpubDraftManifest,
 } from "./epub/draft";
+export { readEpubChapterFromBookFile, readEpubChapterFromDraft } from "./epub/chapter";
+export type { EpubChapterReadResult } from "./epub/chapter";

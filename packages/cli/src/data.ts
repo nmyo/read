@@ -17,6 +17,10 @@ import {
   getSkills,
   initDatabase,
 } from "@readany/core/db";
+import {
+  readEpubChapterFromBookFile,
+  readEpubChapterFromDraft,
+} from "@readany/core/epub/chapter";
 import { createNodePlatformService } from "./platform/node-platform.js";
 
 let initialized = false;
@@ -157,6 +161,31 @@ export async function createEpubDraftForBook(
   const book = await getBook(bookId);
   if (!book) return null;
   return createEpubDraft(book);
+}
+
+export async function readEpubChapter(
+  options: {
+    bookId?: string;
+    draftId?: string;
+    chapterId: string;
+    contentLimit?: number;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<import("@readany/core/epub/chapter").EpubChapterReadResult | null> {
+  const { bookId, draftId, chapterId, contentLimit, env = process.env } = options;
+  await ensureCoreInitialized(env);
+
+  if (draftId) {
+    return readEpubChapterFromDraft(draftId, chapterId, { contentLimit });
+  }
+
+  if (!bookId) return null;
+  const book = await getBook(bookId);
+  if (!book) return null;
+  if (book.format !== "epub") {
+    throw new Error(`Book ${bookId} is ${book.format}; only EPUB chapter reads are currently supported.`);
+  }
+  return readEpubChapterFromBookFile(bookId, book.filePath, chapterId, { contentLimit });
 }
 
 export type ChapterListOptions = {

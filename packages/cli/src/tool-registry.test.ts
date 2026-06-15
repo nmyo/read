@@ -15,6 +15,7 @@ describe("tool registry", () => {
       "rag.search",
       "epub.inspect",
       "epub.draft.create",
+      "epub.chapter.read",
     ]);
   });
 
@@ -27,6 +28,7 @@ describe("tool registry", () => {
     ).toBe(true);
     expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.draft.create")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.chapter.read")?.risk).toBe("medium");
   });
 
   it("declares input schemas for every exposed tool", () => {

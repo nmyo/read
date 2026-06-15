@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 10 },
+        tools: { count: 11 },
       });
     }
   });
@@ -243,6 +243,57 @@ describe("commands", () => {
       bookId: "book-1",
       sourceHash: draft.sourceHash,
     });
+  });
+
+  it("reads an EPUB chapter from a draft with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+
+    const readonly = await runCommand(
+      ["epub", "chapter", "read", draftId, "chapter-1"],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      [
+        "epub",
+        "chapter",
+        "read",
+        draftId,
+        "chapter-1",
+        "--profile",
+        "editor",
+        "--limit",
+        "12",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toMatchObject({
+        chapter: {
+          source: "draft",
+          draftId,
+          bookId: "book-1",
+          id: "chapter-1",
+          href: "chapter-1.xhtml",
+          content: "Tools",
+          contentTruncated: false,
+        },
+      });
+    }
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {

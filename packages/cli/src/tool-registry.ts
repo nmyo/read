@@ -262,6 +262,35 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.chapter.read",
+    description: "Read a chapter resource from an EPUB draft workspace.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        chapterId: {
+          type: "string",
+          minLength: 1,
+          description: "EPUB manifest item id for a readable XHTML chapter.",
+        },
+        contentLimit: {
+          type: "number",
+          minimum: 1,
+          maximum: 50000,
+          description: "Maximum number of content characters to return.",
+        },
+      },
+      required: ["draftId", "chapterId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

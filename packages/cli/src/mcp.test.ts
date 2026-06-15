@@ -114,6 +114,7 @@ describe("mcp", () => {
         { name: "rag.search" },
         { name: "epub.inspect" },
         { name: "epub.draft.create" },
+        { name: "epub.chapter.read" },
       ],
     });
   });
@@ -267,6 +268,67 @@ describe("mcp", () => {
     expect(await readFile(join(env.READANY_HOME!, parsed.data.draft.draftFilePath))).toEqual(
       sourceBefore,
     );
+  });
+
+  it("gates epub.chapter.read by editor profile and reads a draft chapter", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.read",
+          arguments: { draftId, chapterId: "chapter-1" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.read",
+          arguments: { draftId, chapterId: "chapter-1", contentLimit: 12 },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          source: "draft",
+          draftId,
+          bookId: "mcp-book",
+          id: "chapter-1",
+          href: "chapter-1.xhtml",
+          content: "Agent Access",
+        },
+      },
+    });
   });
 
   it("calls rag.search with readonly profile", async () => {

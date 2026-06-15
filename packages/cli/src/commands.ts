@@ -116,6 +116,7 @@ Usage:
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
   readany epub inspect <book-id> [--json] [--profile editor]
   readany epub draft create <book-id> [--json] [--profile editor]
+  readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -346,6 +347,33 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         return failure(
           "unknown_epub_draft_command",
           `Unknown epub draft command: ${draftCommand ?? ""}`.trim(),
+        );
+      }
+      if (subcommand === "chapter") {
+        const chapterCommand = command.args[1];
+        if (chapterCommand === "read") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure("permission_denied", "epub chapter read requires editor profile or higher");
+          }
+          const draftId = command.args[2];
+          const chapterId = command.args[3];
+          if (!draftId) return failure("missing_draft_id", "epub chapter read requires a draft id");
+          if (!chapterId) {
+            return failure("missing_chapter_id", "epub chapter read requires a chapter id");
+          }
+          const chapter = await data.readEpubChapter({
+            draftId,
+            chapterId,
+            contentLimit: getLimit(command, 12000),
+            env,
+          });
+          if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);
+          return success({ chapter });
+        }
+        return failure(
+          "unknown_epub_chapter_command",
+          `Unknown epub chapter command: ${chapterCommand ?? ""}`.trim(),
         );
       }
       return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());
