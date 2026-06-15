@@ -22,6 +22,7 @@ describe("tool registry", () => {
       "epub.history",
       "epub.diff",
       "epub.validate",
+      "epub.export",
     ]);
   });
 
@@ -41,6 +42,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.history")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.diff")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.validate")?.risk).toBe("high");
+    expect(tools.find((tool) => tool.name === "epub.export")?.risk).toBe("high");
   });
 
   it("declares input schemas for every exposed tool", () => {

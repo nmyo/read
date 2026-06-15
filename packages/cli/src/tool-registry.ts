@@ -419,6 +419,33 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.export",
+    description: "Export a validated EPUB draft to a new EPUB file.",
+    scopes: ["epub.export"],
+    risk: "high",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        outputPath: {
+          type: "string",
+          minLength: 1,
+          description: "Destination EPUB path. Existing files are rejected unless overwrite is true.",
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing output file.",
+        },
+      },
+      required: ["draftId", "outputPath"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

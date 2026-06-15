@@ -123,6 +123,7 @@ Usage:
   readany epub history <draft-id> [--json] [--profile editor]
   readany epub diff <draft-id> [--json] [--profile editor]
   readany epub validate <draft-id> [--json] [--profile publisher]
+  readany epub export <draft-id> --output <path> [--json] [--profile publisher] [--overwrite]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -494,6 +495,23 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (!draftId) return failure("missing_draft_id", "epub validate requires a draft id");
         const validation = await data.validateEpubDraftWorkspace(draftId, env);
         return success({ validation });
+      }
+      if (subcommand === "export") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.export")) {
+          return failure("permission_denied", "epub export requires publisher profile or higher");
+        }
+        const draftId = command.args[1];
+        const outputPath = getStringOption(command, "output");
+        if (!draftId) return failure("missing_draft_id", "epub export requires a draft id");
+        if (!outputPath) return failure("missing_output_path", "epub export requires --output <path>");
+        const exported = await data.exportEpubDraftWorkspace({
+          draftId,
+          outputPath,
+          overwrite: command.options.overwrite === true,
+          env,
+        });
+        return success({ export: exported });
       }
       return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());
     }

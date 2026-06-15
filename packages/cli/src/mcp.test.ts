@@ -121,6 +121,7 @@ describe("mcp", () => {
         { name: "epub.history" },
         { name: "epub.diff" },
         { name: "epub.validate" },
+        { name: "epub.export" },
       ],
     });
   });
@@ -154,7 +155,7 @@ describe("mcp", () => {
     const response = await handleMcpRequest(
       {
         method: "tools/call",
-        params: { name: "epub.export", arguments: {} },
+        params: { name: "epub.toc.rebuild", arguments: {} },
       },
       "readonly",
       await createEnv(),
@@ -737,6 +738,83 @@ describe("mcp", () => {
       },
     });
     expect(String(publisherText)).not.toContain(env.READANY_HOME);
+  });
+
+  it("gates epub.export by publisher profile and writes a new EPUB", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const sourcePath = join(env.READANY_HOME!, "books", "mcp.epub");
+    const sourceBytes = await readFile(sourcePath);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+    const outputPath = join(env.READANY_HOME!, "..", "exports", "mcp-export.epub");
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.export", arguments: { draftId, outputPath } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: true });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const publisherResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.export", arguments: { draftId, outputPath } },
+      },
+      "publisher",
+      env,
+    );
+    expect(publisherResponse).toMatchObject({ isError: false });
+    const publisherText = (publisherResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(publisherText)).toMatchObject({
+      ok: true,
+      data: {
+        export: {
+          draftId,
+          bookId: "mcp-book",
+          outputPath,
+          outputHash: expect.any(String),
+          outputSize: sourceBytes.byteLength,
+          validation: {
+            valid: true,
+          },
+        },
+      },
+    });
+    expect(await readFile(outputPath)).toEqual(sourceBytes);
+    expect(await readFile(sourcePath)).toEqual(sourceBytes);
+
+    const secondResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.export", arguments: { draftId, outputPath } },
+      },
+      "publisher",
+      env,
+    );
+    expect(secondResponse).toMatchObject({ isError: true });
+    const secondText = (secondResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(secondText)).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
   });
 
   it("blocks draft reads after discard", async () => {

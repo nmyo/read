@@ -242,6 +242,8 @@ readany notes export --format markdown --json
 readany knowledge export --format obsidian --json
 ```
 
+当前已实现 `epub.validate` 和 `epub.export`；notes / knowledge export 留在后续阶段。
+
 完成标准：
 
 - export 前必须 validate。

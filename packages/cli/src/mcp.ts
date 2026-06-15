@@ -10,6 +10,7 @@ import type { ReadAnyTool } from "./tool-registry.js";
 import {
   diffEpubDraftWorkspace,
   discardEpubDraftWorkspace,
+  exportEpubDraftWorkspace,
   getBookById,
   getEpubDraftHistory,
   getIndexedChapter,
@@ -160,6 +161,9 @@ function validateToolArguments(
     }
     if (type === "number" && typeof value !== "number") {
       return failure("invalid_tool_arguments", `${tool.name}.${key} must be a number`);
+    }
+    if (type === "boolean" && typeof value !== "boolean") {
+      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a boolean`);
     }
     if (
       type === "number" &&
@@ -402,6 +406,20 @@ async function callReadAnyTool(
     if (!draftId) return failure("missing_draft_id", "epub.validate requires draftId");
     const validation = await validateEpubDraftWorkspace(draftId, env);
     return success({ validation });
+  }
+
+  if (toolName === "epub.export") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.export requires draftId");
+    const outputPath = getString(args, "outputPath");
+    if (!outputPath) return failure("missing_output_path", "epub.export requires outputPath");
+    const exported = await exportEpubDraftWorkspace({
+      draftId,
+      outputPath,
+      overwrite: args.overwrite === true,
+      env,
+    });
+    return success({ export: exported });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

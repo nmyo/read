@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 17 },
+        tools: { count: 18 },
       });
     }
   });
@@ -673,6 +673,62 @@ describe("commands", () => {
       },
     });
     expect(JSON.stringify(result.data)).not.toContain(workspace.root);
+  });
+
+  it("exports an EPUB draft with publisher profile after validation", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+    const outputPath = join(workspace.root, "exports", "agent-export.epub");
+
+    const editor = await runCommand(
+      ["epub", "export", draftId, "--output", outputPath, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(editor).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "export", draftId, "--output", outputPath, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      export: {
+        draftId,
+        bookId: "book-1",
+        outputPath,
+        outputHash: expect.any(String),
+        outputSize: sourceBefore.byteLength,
+        validation: {
+          valid: true,
+          errorCount: 0,
+        },
+      },
+    });
+    expect(await readFile(outputPath)).toEqual(sourceBefore);
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+
+    const overwriteDenied = await runCommand(
+      ["epub", "export", draftId, "--output", outputPath, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(overwriteDenied).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {
