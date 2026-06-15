@@ -113,6 +113,7 @@ describe("mcp", () => {
         { name: "highlights.search" },
         { name: "rag.search" },
         { name: "epub.inspect" },
+        { name: "epub.draft.create" },
       ],
     });
   });
@@ -207,6 +208,65 @@ describe("mcp", () => {
         },
       },
     });
+  });
+
+  it("gates epub.draft.create by editor profile and creates a draft", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const sourcePath = join(env.READANY_HOME!, "books", "mcp.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    const parsed = JSON.parse(editorText) as {
+      ok: true;
+      data: {
+        draft: {
+          draftFilePath: string;
+          manifestPath: string;
+          historyPath: string;
+          sourceHash: string;
+        };
+      };
+    };
+    expect(parsed).toMatchObject({
+      ok: true,
+      data: {
+        draft: {
+          bookId: "mcp-book",
+          sourceFilePath: "books/mcp.epub",
+          draftFilePath: expect.stringMatching(/^drafts\/epub\/mcp-book-.+\/source\.epub$/),
+          sourceHash: expect.any(String),
+        },
+      },
+    });
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    expect(await readFile(join(env.READANY_HOME!, parsed.data.draft.draftFilePath))).toEqual(
+      sourceBefore,
+    );
   });
 
   it("calls rag.search with readonly profile", async () => {

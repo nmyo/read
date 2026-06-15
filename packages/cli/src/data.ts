@@ -2,6 +2,7 @@ import { setPlatformService } from "@readany/core/services";
 import { getPlatformService } from "@readany/core/services";
 import type { Book, Highlight, Note } from "@readany/core/types";
 import type { SearchMode } from "@readany/core/types";
+import { createEpubDraft, type EpubDraftCreateResult } from "@readany/core/epub/draft";
 import { inspectEpubBytes, type EpubInspectResult } from "@readany/core/epub/inspect";
 import {
   getAllHighlights,
@@ -146,6 +147,16 @@ export async function inspectEpubBook(
     bookId,
     filePath: book.filePath,
   };
+}
+
+export async function createEpubDraftForBook(
+  bookId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<EpubDraftCreateResult | null> {
+  await ensureCoreInitialized(env);
+  const book = await getBook(bookId);
+  if (!book) return null;
+  return createEpubDraft(book);
 }
 
 export type ChapterListOptions = {

@@ -67,3 +67,9 @@ export type {
   EpubInspectSpineItem,
   EpubInspectTocItem,
 } from "./epub/inspect";
+export { createEpubDraft } from "./epub/draft";
+export type {
+  EpubDraftCreateResult,
+  EpubDraftHistoryEntry,
+  EpubDraftManifest,
+} from "./epub/draft";

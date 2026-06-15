@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 9 },
+        tools: { count: 10 },
       });
     }
   });
@@ -177,6 +177,71 @@ describe("commands", () => {
         book: "book-1",
         limit: "5",
       },
+    });
+  });
+
+  it("creates an EPUB draft with editor profile without changing the source EPUB", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const readonly = await runCommand(["epub", "draft", "create", "book-1"], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.data).toMatchObject({
+      draft: {
+        bookId: "book-1",
+        sourceFilePath: "books/agent.epub",
+        draftFilePath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/source\.epub$/),
+        manifestPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/manifest\.json$/),
+        historyPath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/history\.jsonl$/),
+        sourceHash: expect.any(String),
+        inspect: {
+          metadata: { title: "Agent Systems" },
+        },
+      },
+    });
+
+    const { draft } = result.data as {
+      draft: {
+        draftFilePath: string;
+        manifestPath: string;
+        historyPath: string;
+        sourceHash: string;
+      };
+    };
+    expect(draft.sourceHash).toHaveLength(64);
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    expect(await readFile(join(workspace.dataRoot, draft.draftFilePath))).toEqual(sourceBefore);
+
+    const manifest = JSON.parse(
+      await readFile(join(workspace.dataRoot, draft.manifestPath), "utf8"),
+    );
+    expect(manifest).toMatchObject({
+      version: 1,
+      bookId: "book-1",
+      sourceFilePath: "books/agent.epub",
+      draftFilePath: draft.draftFilePath,
+      sourceHash: draft.sourceHash,
+      status: "draft",
+    });
+
+    const history = await readFile(join(workspace.dataRoot, draft.historyPath), "utf8");
+    expect(JSON.parse(history.trim())).toMatchObject({
+      action: "epub.draft.create",
+      bookId: "book-1",
+      sourceHash: draft.sourceHash,
     });
   });
 

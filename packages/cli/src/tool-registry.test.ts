@@ -14,15 +14,19 @@ describe("tool registry", () => {
       "highlights.search",
       "rag.search",
       "epub.inspect",
+      "epub.draft.create",
     ]);
   });
 
   it("keeps write and inspect risk levels explicit", () => {
     const tools = listTools();
     expect(
-      tools.filter((tool) => tool.name !== "epub.inspect").every((tool) => tool.risk === "low"),
+      tools
+        .filter((tool) => !tool.name.startsWith("epub."))
+        .every((tool) => tool.risk === "low"),
     ).toBe(true);
     expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.draft.create")?.risk).toBe("medium");
   });
 
   it("declares input schemas for every exposed tool", () => {

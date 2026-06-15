@@ -63,9 +63,10 @@ readany bookmarks list <book-id> [--json]
 readany skills list [--json]
 readany rag search <query> --book <book-id> [--mode bm25] [--limit 5] [--json]
 readany epub inspect <book-id> [--profile editor] [--json]
+readany epub draft create <book-id> [--profile editor] [--json]
 ```
 
-当前 `chapters.*` 基于 indexed chunks 返回章节视图；`chapter get` 支持 chunk range 和 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；它不创建 draft、不修改 EPUB、不导出文件。原始 EPUB/PDF fallback 章节解析仍属于后续能力。
+当前 `chapters.*` 基于 indexed chunks 返回章节视图；`chapter get` 支持 chunk range 和 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；`epub draft create` 只复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改章节、不导出文件。原始 EPUB/PDF fallback 章节解析仍属于后续能力。
 
 ### Draft 和导出命令
 
@@ -113,9 +114,10 @@ notes.search
 highlights.search
 rag.search
 epub.inspect
+epub.draft.create
 ```
 
-`epub.inspect` 当前已经可用，但它只是只读结构检查。其余 `epub.*` 写入、draft、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
+`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
 
 ## Tool 输出规则
 
@@ -194,6 +196,7 @@ notes.search
 highlights.search
 rag.search
 epub.inspect
+epub.draft.create
 ```
 
 M2 再做：

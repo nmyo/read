@@ -14,6 +14,7 @@ import {
   listBooks,
   listHighlights,
   listNotes,
+  createEpubDraftForBook,
   inspectEpubBook,
   searchRag,
   searchBooks,
@@ -302,6 +303,14 @@ async function callReadAnyTool(
     const inspect = await inspectEpubBook(bookId, env);
     if (!inspect) return failure("book_not_found", `Book ${bookId} was not found`);
     return success({ epub: inspect });
+  }
+
+  if (toolName === "epub.draft.create") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "epub.draft.create requires bookId");
+    const draft = await createEpubDraftForBook(bookId, env);
+    if (!draft) return failure("book_not_found", `Book ${bookId} was not found`);
+    return success({ draft });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

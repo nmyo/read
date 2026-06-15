@@ -291,7 +291,7 @@ Skill 只负责告诉外部 AI：
 
 ### M3 验收
 
-- `readany epub draft create <book-id> --json`
+- `readany epub draft create <book-id> --profile editor --json`
 - `readany epub chapter patch ... --json`
 - `readany epub metadata patch ... --json`
 - `readany epub toc rebuild ... --json`

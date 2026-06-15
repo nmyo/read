@@ -115,6 +115,7 @@ Usage:
   readany chapters list <book-id> [--json]
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
   readany epub inspect <book-id> [--json] [--profile editor]
+  readany epub draft create <book-id> [--json] [--profile editor]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -328,6 +329,24 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const inspect = await data.inspectEpubBook(bookId, env);
         if (!inspect) return failure("book_not_found", `Book ${bookId} was not found`);
         return success({ epub: inspect });
+      }
+      if (subcommand === "draft") {
+        const draftCommand = command.args[1];
+        if (draftCommand === "create") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure("permission_denied", "epub draft create requires editor profile or higher");
+          }
+          const bookId = command.args[2];
+          if (!bookId) return failure("missing_book_id", "epub draft create requires a book id");
+          const draft = await data.createEpubDraftForBook(bookId, env);
+          if (!draft) return failure("book_not_found", `Book ${bookId} was not found`);
+          return success({ draft });
+        }
+        return failure(
+          "unknown_epub_draft_command",
+          `Unknown epub draft command: ${draftCommand ?? ""}`.trim(),
+        );
       }
       return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());
     }

@@ -244,6 +244,24 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.draft.create",
+    description: "Create a draft workspace for an EPUB without modifying the original book file.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB book id.",
+        },
+      },
+      required: ["bookId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

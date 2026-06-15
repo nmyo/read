@@ -26,6 +26,7 @@
     "./ai/tools/*": "./src/ai/tools/*.ts",
     "./rag": "./src/rag/index.ts",
     "./rag/*": "./src/rag/*.ts",
+    "./epub/draft": "./src/epub/draft.ts",
     "./epub/inspect": "./src/epub/inspect.ts",
     "./epub/*": "./src/epub/*.ts",
     "./db": "./src/db/index.ts",
