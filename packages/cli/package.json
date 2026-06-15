@@ -1,0 +1,25 @@
+{
+  "name": "@readany/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "readany": "./dist/bin/readany.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/make-bin-executable.js",
+    "dev": "tsx src/bin/readany.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@readany/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.2"
+  }
+}
