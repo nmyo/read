@@ -14,6 +14,7 @@ import {
   listBooks,
   listHighlights,
   listNotes,
+  inspectEpubBook,
   searchRag,
   searchBooks,
 } from "./data.js";
@@ -293,6 +294,14 @@ async function callReadAnyTool(
         env,
       }),
     });
+  }
+
+  if (toolName === "epub.inspect") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "epub.inspect requires bookId");
+    const inspect = await inspectEpubBook(bookId, env);
+    if (!inspect) return failure("book_not_found", `Book ${bookId} was not found`);
+    return success({ epub: inspect });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

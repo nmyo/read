@@ -2,10 +2,36 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { buildStoreOnlyZip, type ZipEntry } from "@readany/core/utils/store-only-zip";
 import { describe, expect, it } from "vitest";
 import { parseCommand, runCommand } from "./commands.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
 import { createSkillContent } from "./skill.js";
+
+const encoder = new TextEncoder();
+
+function textEntry(name: string, content: string): ZipEntry {
+  return { name, data: encoder.encode(content) };
+}
+
+function buildInspectableEpub(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Agent Systems</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+    ),
+    textEntry(
+      "OPS/nav.xhtml",
+      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Tools</a></li></ol></nav></body></html>`,
+    ),
+    textEntry("OPS/chapter-1.xhtml", "<html><body>Tools</body></html>"),
+  ]);
+}
 
 async function createWorkspace() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-workspace-"));
@@ -13,6 +39,7 @@ async function createWorkspace() {
   const skillsDir = join(root, "agent", "skills", "readany");
   const cliHome = join(root, "readany-home");
   await mkdir(dataRoot, { recursive: true });
+  await mkdir(join(dataRoot, "books"), { recursive: true });
   await mkdir(skillsDir, { recursive: true });
   await mkdir(cliHome, { recursive: true });
 
@@ -59,6 +86,8 @@ async function seedLibrary(dataRoot: string): Promise<void> {
     );
   `);
   db.close();
+
+  await writeFile(join(dataRoot, "books", "agent.epub"), buildInspectableEpub());
 
   const localDb = new Database(join(dataRoot, "readany_local.db"));
   localDb.exec(`
@@ -123,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 8 },
+        tools: { count: 9 },
       });
     }
   });
@@ -184,6 +213,43 @@ describe("commands", () => {
     if (highlights.ok) {
       expect(highlights.data).toMatchObject({
         highlights: [{ id: "highlight-1", text: "Draft-first editing keeps users safe." }],
+      });
+    }
+  });
+
+  it("inspects an EPUB with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const readonly = await runCommand(["epub", "inspect", "book-1"], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "inspect", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toMatchObject({
+        epub: {
+          bookId: "book-1",
+          filePath: "books/agent.epub",
+          packagePath: "OPS/package.opf",
+          metadata: {
+            title: "Agent Systems",
+            creator: "Ada Reader",
+            language: "en",
+          },
+          manifest: { count: 2 },
+          spine: { count: 1 },
+          toc: {
+            count: 1,
+            items: [{ label: "Tools", href: "chapter-1.xhtml" }],
+          },
+        },
       });
     }
   });

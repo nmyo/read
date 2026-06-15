@@ -1,6 +1,8 @@
 import { setPlatformService } from "@readany/core/services";
+import { getPlatformService } from "@readany/core/services";
 import type { Book, Highlight, Note } from "@readany/core/types";
 import type { SearchMode } from "@readany/core/types";
+import { inspectEpubBytes, type EpubInspectResult } from "@readany/core/epub/inspect";
 import {
   getAllHighlights,
   getAllNotes,
@@ -113,6 +115,37 @@ export async function listBookmarks(bookId: string, env: NodeJS.ProcessEnv = pro
 export async function listSkills(env: NodeJS.ProcessEnv = process.env) {
   await ensureCoreInitialized(env);
   return getSkills();
+}
+
+export type EpubInspectBookResult = EpubInspectResult & {
+  bookId: string;
+  filePath: string;
+};
+
+export async function inspectEpubBook(
+  bookId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<EpubInspectBookResult | null> {
+  await ensureCoreInitialized(env);
+  const book = await getBook(bookId);
+  if (!book) return null;
+  if (book.format !== "epub") {
+    throw new Error(`Book ${bookId} is ${book.format}; only EPUB inspect is currently supported.`);
+  }
+
+  const platform = getPlatformService();
+  const dataDir = await platform.getDataDir();
+  const absolutePath = await platform.joinPath(dataDir, book.filePath);
+  if (!(await platform.exists(absolutePath))) {
+    throw new Error(`Book file was not found for ${bookId}: ${book.filePath}`);
+  }
+
+  const result = await inspectEpubBytes(await platform.readFile(absolutePath));
+  return {
+    ...result,
+    bookId,
+    filePath: book.filePath,
+  };
 }
 
 export type ChapterListOptions = {

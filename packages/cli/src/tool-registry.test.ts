@@ -13,11 +13,16 @@ describe("tool registry", () => {
       "notes.search",
       "highlights.search",
       "rag.search",
+      "epub.inspect",
     ]);
   });
 
-  it("keeps first-phase tools low risk", () => {
-    expect(listTools().every((tool) => tool.risk === "low")).toBe(true);
+  it("keeps write and inspect risk levels explicit", () => {
+    const tools = listTools();
+    expect(
+      tools.filter((tool) => tool.name !== "epub.inspect").every((tool) => tool.risk === "low"),
+    ).toBe(true);
+    expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
   });
 
   it("declares input schemas for every exposed tool", () => {

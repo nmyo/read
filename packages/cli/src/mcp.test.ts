@@ -1,17 +1,44 @@
 import Database from "better-sqlite3";
-import { mkdtemp, mkdir, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildStoreOnlyZip, type ZipEntry } from "@readany/core/utils/store-only-zip";
 import { describe, expect, it } from "vitest";
 import { getAuditLogFilePath } from "./audit-log.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
 import { handleMcpRequest } from "./mcp.js";
 import { READANY_TOOLS } from "./tool-registry.js";
 
+const encoder = new TextEncoder();
+
+function textEntry(name: string, content: string): ZipEntry {
+  return { name, data: encoder.encode(content) };
+}
+
+function buildInspectableEpub(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>MCP for Readers</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+    ),
+    textEntry(
+      "OPS/nav.xhtml",
+      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Agent Access</a></li></ol></nav></body></html>`,
+    ),
+    textEntry("OPS/chapter-1.xhtml", "<html><body>Agent Access</body></html>"),
+  ]);
+}
+
 async function createEnv() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-mcp-"));
   const dataRoot = join(root, "library");
   await mkdir(dataRoot, { recursive: true });
+  await mkdir(join(dataRoot, "books"), { recursive: true });
   return {
     ...process.env,
     READANY_HOME: dataRoot,
@@ -37,6 +64,7 @@ async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
     );
   `);
   db.close();
+  await writeFile(join(env.READANY_HOME!, "books", "mcp.epub"), buildInspectableEpub());
 
   const localDb = new Database(join(env.READANY_HOME!, "readany_local.db"));
   localDb.exec(`
@@ -84,6 +112,7 @@ describe("mcp", () => {
         { name: "notes.search" },
         { name: "highlights.search" },
         { name: "rag.search" },
+        { name: "epub.inspect" },
       ],
     });
   });
@@ -128,6 +157,55 @@ describe("mcp", () => {
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
       error: { code: "unknown_tool" },
+    });
+  });
+
+  it("gates epub.inspect by editor profile", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.inspect", arguments: { bookId: "mcp-book" } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.inspect", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        epub: {
+          bookId: "mcp-book",
+          filePath: "books/mcp.epub",
+          packagePath: "OPS/package.opf",
+          metadata: {
+            title: "MCP for Readers",
+            creator: "Ada Reader",
+          },
+          toc: {
+            count: 1,
+            items: [{ label: "Agent Access" }],
+          },
+        },
+      },
     });
   });
 

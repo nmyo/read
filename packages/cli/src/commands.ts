@@ -1,6 +1,6 @@
 import { CLI_VERSION } from "./version.js";
 import { getCliPaths } from "./paths.js";
-import { isAccessProfile, parseAccessProfile } from "./profiles.js";
+import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles.js";
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode } from "./install.js";
@@ -114,6 +114,7 @@ Usage:
   readany book get <book-id> [--json]
   readany chapters list <book-id> [--json]
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
+  readany epub inspect <book-id> [--json] [--profile editor]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -312,6 +313,23 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         });
       }
       return failure("unknown_rag_command", `Unknown rag command: ${subcommand}`);
+    }
+
+    if (command.name === "epub") {
+      const data = await getDataApi();
+      const subcommand = command.args[0];
+      if (subcommand === "inspect") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.inspect")) {
+          return failure("permission_denied", "epub inspect requires editor profile or higher");
+        }
+        const bookId = command.args[1];
+        if (!bookId) return failure("missing_book_id", "epub inspect requires a book id");
+        const inspect = await data.inspectEpubBook(bookId, env);
+        if (!inspect) return failure("book_not_found", `Book ${bookId} was not found`);
+        return success({ epub: inspect });
+      }
+      return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());
     }
 
     if (command.name === "bookmarks") {

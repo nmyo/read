@@ -58,3 +58,12 @@ export type {
   WebDavImportSourceKind,
 } from "./import/webdav-import-types";
 export type { ImportBooksResult, ImportDuplicateIndex } from "./import/import-dedupe";
+
+// EPUB services
+export { inspectEpubBytes } from "./epub/inspect";
+export type {
+  EpubInspectManifestItem,
+  EpubInspectResult,
+  EpubInspectSpineItem,
+  EpubInspectTocItem,
+} from "./epub/inspect";

@@ -142,6 +142,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "notes.search" },
           { name: "highlights.search" },
           { name: "rag.search" },
+          { name: "epub.inspect" },
         ],
       },
     });
