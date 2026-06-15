@@ -118,6 +118,7 @@ describe("mcp", () => {
         { name: "epub.chapter.read" },
         { name: "epub.chapter.patch" },
         { name: "epub.metadata.patch" },
+        { name: "epub.toc.rebuild" },
         { name: "epub.history" },
         { name: "epub.diff" },
         { name: "epub.validate" },
@@ -155,7 +156,7 @@ describe("mcp", () => {
     const response = await handleMcpRequest(
       {
         method: "tools/call",
-        params: { name: "epub.toc.rebuild", arguments: {} },
+        params: { name: "epub.undo", arguments: {} },
       },
       "readonly",
       await createEnv(),
@@ -554,6 +555,59 @@ describe("mcp", () => {
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
       error: { code: "invalid_tool_arguments" },
+    });
+  });
+
+  it("gates epub.toc.rebuild by editor profile and rebuilds draft toc", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.toc.rebuild", arguments: { draftId } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.toc.rebuild", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        toc: {
+          draftId,
+          bookId: "mcp-book",
+          navPath: "OPS/nav.xhtml",
+          itemCount: 1,
+        },
+      },
     });
   });
 

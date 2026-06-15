@@ -430,14 +430,13 @@ M5：普通用户能通过桌面端完成接入，高级用户能通过 CLI/MCP 
 - ReadAny 已经能让外部 AI 读书库、笔记、高亮和已索引 chunks。
 - ReadAny 已经能让外部 AI 在 editor profile 下读取 draft operation history。
 - ReadAny 已经能让外部 AI 在 editor profile 下查看 source/draft EPUB entry diff。
+- ReadAny 已经能让外部 AI 在 publisher profile 下 validate 并 export active draft 为新 EPUB。
 - ReadAny 已经有桌面端外部 AI 访问入口。
 
 ### 现在不能对外说什么
 
-- 不能说已经支持 EPUB 精排写入。
-- 不能说已经支持导出闭环。
+- 不能说已经支持 undo 的完整精排闭环。
 - 不能说已经开放章节正文和 vector / hybrid RAG。
-- 不能说已经支持 undo / export 的完整精排闭环。
 - 不能说 MCP 已经暴露全部计划中的工具。
 
 ### 完成标准

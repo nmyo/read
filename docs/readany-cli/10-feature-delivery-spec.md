@@ -185,6 +185,7 @@ readany epub draft create <book-id> --profile editor --json
 readany epub chapter read <draft-id> <chapter-id> --profile editor --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor --json
 readany epub metadata patch <draft-id> --patch <file> --profile editor --json
+readany epub toc rebuild <draft-id> --profile editor --json
 readany epub history <draft-id> --profile editor --json
 readany epub diff <draft-id> --profile editor --json
 ```
@@ -193,10 +194,7 @@ readany epub diff <draft-id> --profile editor --json
 
 ```bash
 readany epub draft discard <draft-id> --profile editor --reason "..." --json
-readany epub toc rebuild <draft-id> --profile editor --json
 readany epub undo <draft-id> <operation-id> --profile editor --json
-readany epub validate <draft-id> --profile publisher --json
-readany epub export <draft-id> --profile publisher --output <path> --json
 ```
 
 AI 编辑能力必须覆盖：
@@ -604,7 +602,7 @@ M5 完成：
 - BM25 RAG 不是 vector / hybrid。
 - draft patch 不等于 export。
 - inspect 不修改文件。
-- export 未完成前不会出现在 `tools/list`。
+- 已实现工具才会出现在 `tools/list`，后续规划工具不能提前注册。
 
 ### 7.2 不能算完成的状态
 

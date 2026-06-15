@@ -120,6 +120,7 @@ Usage:
   readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000]
   readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--json] [--profile editor]
   readany epub metadata patch <draft-id> --patch <file> [--json] [--profile editor]
+  readany epub toc rebuild <draft-id> [--json] [--profile editor]
   readany epub history <draft-id> [--json] [--profile editor]
   readany epub diff <draft-id> [--json] [--profile editor]
   readany epub validate <draft-id> [--json] [--profile publisher]
@@ -464,6 +465,23 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         return failure(
           "unknown_epub_metadata_command",
           `Unknown epub metadata command: ${metadataCommand ?? ""}`.trim(),
+        );
+      }
+      if (subcommand === "toc") {
+        const tocCommand = command.args[1];
+        if (tocCommand === "rebuild") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure("permission_denied", "epub toc rebuild requires editor profile or higher");
+          }
+          const draftId = command.args[2];
+          if (!draftId) return failure("missing_draft_id", "epub toc rebuild requires a draft id");
+          const toc = await data.rebuildEpubTocWorkspace(draftId, env);
+          return success({ toc });
+        }
+        return failure(
+          "unknown_epub_toc_command",
+          `Unknown epub toc command: ${tocCommand ?? ""}`.trim(),
         );
       }
       if (subcommand === "history") {

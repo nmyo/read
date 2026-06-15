@@ -366,6 +366,24 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "epub.toc.rebuild",
+    description: "Rebuild the EPUB3 nav table of contents from draft spine chapters.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+      },
+      required: ["draftId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "epub.history",
     description: "Read operation history for an EPUB draft workspace.",
     scopes: ["epub.draft"],

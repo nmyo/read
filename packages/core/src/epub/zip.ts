@@ -91,6 +91,25 @@ export async function replaceZipTextEntry(
   return writer.close();
 }
 
+export async function readZipTextEntry(
+  bytes: Uint8Array,
+  targetPath: string,
+): Promise<string | null> {
+  const reader = new ZipReader(new Uint8ArrayReader(bytes));
+
+  try {
+    const entries = (await reader.getEntries()) as ZipEntryLike[];
+    const target = entries.find(
+      (entry) => !entry.directory && entry.filename === targetPath && entry.getData,
+    );
+    if (!target?.getData) return null;
+    const data = await target.getData(new Uint8ArrayWriter());
+    return new TextDecoder().decode(data);
+  } finally {
+    await reader.close();
+  }
+}
+
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   const digest = await crypto.subtle.digest("SHA-256", buffer);

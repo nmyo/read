@@ -19,6 +19,7 @@ describe("tool registry", () => {
       "epub.chapter.read",
       "epub.chapter.patch",
       "epub.metadata.patch",
+      "epub.toc.rebuild",
       "epub.history",
       "epub.diff",
       "epub.validate",
@@ -39,6 +40,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.chapter.read")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.chapter.patch")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.metadata.patch")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.toc.rebuild")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.history")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.diff")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.validate")?.risk).toBe("high");

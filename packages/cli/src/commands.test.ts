@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 18 },
+        tools: { count: 19 },
       });
     }
   });
@@ -626,6 +626,42 @@ describe("commands", () => {
             draftHash: expect.any(String),
           }),
         ]),
+      },
+    });
+    expect(JSON.stringify(result.data)).not.toContain(workspace.root);
+  });
+
+  it("rebuilds an EPUB draft toc with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+
+    const readonly = await runCommand(["epub", "toc", "rebuild", draftId], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "toc", "rebuild", draftId, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      toc: {
+        draftId,
+        bookId: "book-1",
+        navPath: "OPS/nav.xhtml",
+        itemCount: 1,
+        items: [{ id: "chapter-1", href: "chapter-1.xhtml", label: "chapter-1" }],
       },
     });
     expect(JSON.stringify(result.data)).not.toContain(workspace.root);

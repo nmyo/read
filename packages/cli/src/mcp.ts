@@ -23,6 +23,7 @@ import {
   patchEpubChapter,
   patchEpubMetadata,
   readEpubChapter,
+  rebuildEpubTocWorkspace,
   searchRag,
   searchBooks,
   validateEpubDraftWorkspace,
@@ -385,6 +386,13 @@ async function callReadAnyTool(
       env,
     });
     return success({ metadata: result });
+  }
+
+  if (toolName === "epub.toc.rebuild") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.toc.rebuild requires draftId");
+    const toc = await rebuildEpubTocWorkspace(draftId, env);
+    return success({ toc });
   }
 
   if (toolName === "epub.history") {

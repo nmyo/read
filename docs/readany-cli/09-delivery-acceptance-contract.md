@@ -443,6 +443,7 @@ M5 通过条件：
 - 外部 AI 在 editor profile 下可以读取 draft EPUB 章节文本。
 - 外部 AI 在 editor profile 下可以替换 draft 内单个 XHTML 章节资源。
 - 外部 AI 在 editor profile 下可以修改 draft OPF metadata。
+- 外部 AI 在 editor profile 下可以重建 draft EPUB3 nav 目录。
 - 外部 AI 在 editor profile 下可以读取 draft operation history。
 - 外部 AI 在 editor profile 下可以查看 source/draft EPUB entry diff。
 - 桌面端有外部 AI 访问设置入口。
@@ -456,9 +457,10 @@ M5 通过条件：
 - `epub.chapter.read` 当前只读取 draft 章节文本，不修改章节。
 - `epub.chapter.patch` 当前只替换 draft 内单个 XHTML 章节资源，不修改原书。
 - `epub.metadata.patch` 当前只修改 draft OPF metadata，不修改原书。
+- `epub.toc.rebuild` 当前只重建 EPUB3 nav 目录，不修改原书、不重建 NCX。
 - `epub.history` 当前只读取 draft operation history，不执行 undo。
 - `epub.diff` 当前只比较 source/draft EPUB entry 的 hash 和 size，不返回完整正文、不执行 undo。
-- EPUB toc rebuild、export 尚未完成前不会出现在 MCP `tools/list`。
+- `epub.export` 已经接入，但仍然要经过 publisher profile 和 validate，不会覆盖源 EPUB。
 
 ### 不能停止在这些状态
 

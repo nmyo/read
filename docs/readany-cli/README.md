@@ -16,6 +16,7 @@
 - [07-delivery-playbook.md](07-delivery-playbook.md)
 - [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)
 - [10-feature-delivery-spec.md](10-feature-delivery-spec.md)
+- [11-implementation-issue.md](11-implementation-issue.md)
 - [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md)
 
 ## 当前状态
@@ -35,12 +36,13 @@
 - 已支持 EPUB draft chapter read：`readany epub chapter read <draft-id> <chapter-id> --profile editor` 和 MCP `epub.chapter.read` 可从 draft 读取 XHTML 章节文本，带内容长度限制。
 - 已支持 EPUB draft chapter patch：`readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor` 和 MCP `epub.chapter.patch` 可替换 draft 内单个 XHTML 章节资源，写入 history，不修改原文件。
 - 已支持 EPUB draft metadata patch：`readany epub metadata patch <draft-id> --patch <file> --profile editor` 和 MCP `epub.metadata.patch` 可修改 draft OPF metadata，写入 history，不修改原文件。
+- 已支持 EPUB draft toc rebuild：`readany epub toc rebuild <draft-id> --profile editor` 和 MCP `epub.toc.rebuild` 可基于 spine XHTML 章节重建 EPUB3 nav 目录，写入 history，不修改原文件。
 - 已支持 EPUB draft history：`readany epub history <draft-id> --profile editor` 和 MCP `epub.history` 可读取 draft operation history。
 - 已支持 EPUB draft diff：`readany epub diff <draft-id> --profile editor` 和 MCP `epub.diff` 可比较 source/draft EPUB entry 的 hash 和 size。
 - 已支持 EPUB draft validate：`readany epub validate <draft-id> --profile publisher` 和 MCP `epub.validate` 可校验 active draft 的结构、metadata、spine、toc 和资源引用，不修改文件、不导出文件。
 - 已支持 EPUB draft export：`readany epub export <draft-id> --output <path> --profile publisher` 和 MCP `epub.export` 会先校验 active draft，再导出为新 EPUB，默认不覆盖已有文件、不修改原书。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
-- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.history`、`epub.diff`、`epub.validate`、`epub.export`。
+- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
 - 用户精排入口不放在设置页，放在书籍详情 / draft 工作区中；设置页只负责接入和权限管理。
 
@@ -48,7 +50,7 @@
 
 - 原始 EPUB/PDF fallback 章节解析。
 - Vector / hybrid RAG 检索。
-- EPUB toc rebuild、notes/knowledge export。`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不执行 undo、不重建目录、不覆盖原书。
+- notes/knowledge export。`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不执行 undo、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。
 - 审计日志浏览 UI。
 - 审计日志的完整写入链路。
@@ -79,4 +81,4 @@
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
 
-如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。
+如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。如果要把这件事贴成一个工程 issue，读 [11-implementation-issue.md](11-implementation-issue.md)。

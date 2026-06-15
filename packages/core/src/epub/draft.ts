@@ -28,7 +28,7 @@ export type EpubDraftCreateHistoryEntry = {
 export type EpubDraftPatchHistoryEntry = {
   id: string;
   timestamp: string;
-  action: "epub.chapter.patch" | "epub.metadata.patch";
+  action: "epub.chapter.patch" | "epub.metadata.patch" | "epub.toc.rebuild";
   bookId: string;
   draftId: string;
   chapterId?: string;
@@ -36,6 +36,7 @@ export type EpubDraftPatchHistoryEntry = {
   beforeHash: string;
   afterHash: string;
   fields?: string[];
+  itemCount?: number;
 };
 
 export type EpubDraftDiscardHistoryEntry = {
