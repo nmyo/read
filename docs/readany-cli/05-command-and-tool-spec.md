@@ -81,6 +81,15 @@ readany epub validate <draft-id> [--json]
 readany epub export <draft-id> --output <path> [--json]
 ```
 
+补充约定：
+
+- `epub.chapter.patch` 只修改 draft 中的单个章节资源，不能直接改原始书文件。
+- `epub.metadata.patch` 只修改 draft 中的 metadata。
+- `epub.validate` 只做结构和引用校验，不自动修改内容。
+- `epub.export` 默认生成新文件，不覆盖源 EPUB。
+- 用户编辑入口和 AI 编辑入口使用同一套 draft/history/diff。
+- 用户编辑入口应该在书籍详情或 draft 工作区；AI 编辑入口通过 MCP / CLI tool 调用。
+
 ## MCP Tool 命名
 
 Tool 命名使用资源域前缀：
@@ -120,6 +129,8 @@ epub.chapter.read
 ```
 
 `epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
+
+未来补齐时，`tools/list` 仍然要遵循一个原则：先完成真实实现、权限、测试和文档，再把工具放进列表。不能为了“让 AI 知道能力存在”而提前注册。
 
 ## Tool 输出规则
 
@@ -220,6 +231,8 @@ epub.export
 notes.export
 knowledge.export
 ```
+
+用户精排入口不在 MCP tool list 里，它在客户端 UI 和 draft 工作区里；MCP 只负责让外部 AI 通过受控工具修改 draft。
 
 不做：
 

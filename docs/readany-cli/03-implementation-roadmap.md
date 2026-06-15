@@ -124,6 +124,7 @@ readany epub chapter read <draft-id> <chapter-id> --profile editor
 ```
 
 当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
+用户精排入口不在 `设置 -> 外部 AI 访问`，而在书籍详情页或 draft 工作区；设置页只负责 CLI、Skill、MCP 和 profile 管理。
 
 ## Phase 3 - MCP Server
 
@@ -190,6 +191,7 @@ Phase 3 完整通过还需要补齐：
 - 原文件不动。
 - 所有改动可回放。
 - 支持撤销和 diff。
+- 用户和 AI 共用同一套 draft / history / diff 机制。
 
 优先工具：
 
@@ -208,6 +210,7 @@ Phase 3 完整通过还需要补齐：
 - `readonly` profile 调 draft 工具返回 `permission_denied`。
 - 每次 patch 都能生成 diff。
 - 用户可以丢弃 draft，原书不受影响。
+- 用户可以直接在 draft 工作区修改章节和元数据，不必等待 AI。
 
 建议实现顺序：
 
@@ -218,6 +221,8 @@ Phase 3 完整通过还需要补齐：
 5. `epub.metadata.patch`：只对 draft metadata 应用 patch。
 6. `epub.toc.rebuild`：基于真实章节结构重建 toc。
 7. `epub.diff`：展示 draft 和原书差异。
+
+用户编辑入口建议放在书籍详情页或 draft 工作区，不放在设置页。设置页只做接入、状态和权限管理。
 
 ## Phase 5 - Export / Publish
 
@@ -233,6 +238,7 @@ Phase 3 完整通过还需要补齐：
 - 导出前校验。
 - 导出后可重新导入。
 - 导出记录可追踪。
+- 导出前必须 validate。
 
 优先工具：
 
@@ -249,6 +255,7 @@ Phase 3 完整通过还需要补齐：
 - 导出前 `epub.validate` 必须通过。
 - 导出产物和原始 EPUB hash 不同，原始 EPUB hash 不变。
 - 导出失败有明确错误码和可操作提示。
+- 导出默认不覆盖原文件。
 
 ## Phase 6 - Skill 管理
 

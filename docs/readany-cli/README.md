@@ -1,8 +1,8 @@
 # ReadAny CLI / External AI Access
 
-这组文档定义 ReadAny 的本地 CLI、MCP 服务、Skill 安装器，以及桌面客户端中的外部 AI 访问入口。
+这组文档定义 ReadAny 的本地 CLI、MCP 服务、Skill 安装器，以及桌面客户端中的外部 AI 访问入口和用户精排入口。
 
-目标是把 ReadAny 的本地能力开放给外部 AI，但开放的是受控工具，不是裸数据、裸数据库、任意文件系统或任意 shell。
+目标是把 ReadAny 的本地能力开放给外部 AI，但开放的是受控工具，不是裸数据、裸数据库、任意文件系统或任意 shell。用户自己编辑和 AI 自动编辑必须落在同一套 draft / history / diff 体系里。
 
 文档目录：
 
@@ -35,6 +35,7 @@
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`、`epub.inspect`、`epub.draft.create`、`epub.chapter.read`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
+- 用户精排入口不放在设置页，放在书籍详情 / draft 工作区中；设置页只负责接入和权限管理。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
@@ -52,6 +53,7 @@
 - 默认只读，写入必须走 draft / profile / confirmation。
 - MCP 工具清单必须诚实，只暴露已经真实接线的能力。
 - 原始书籍、数据库、同步配置和凭证不会被默认写入或暴露。
+- CLI 是独立 package，支持自安装、自卸载和自诊断；Skill 只安装到通用 agent 目录，不进入项目目录。
 
 ## 最终交付线
 
@@ -59,6 +61,7 @@
 - CLI 可以独立运行 `doctor`、`mcp serve`、`skill install`、`skill uninstall`。
 - 外部 AI 可以通过 MCP 读取书库、内容、笔记和知识库。
 - 外部 AI 可以在授权 profile 下创建 draft、修改 draft、导出新文件。
+- 用户可以在 draft 工作区里手动改章节、改元数据、看 diff、撤销修改，再交给 AI 继续编辑。
 - 所有写入、导出、同步类动作都有权限、确认和审计。
 
 ## 本轮文档要回答的问题
