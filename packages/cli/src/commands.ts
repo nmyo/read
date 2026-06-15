@@ -6,6 +6,15 @@ import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode } from "./install.js";
 import { getSkillStatus, installSkill, uninstallSkill } from "./skill.js";
 import { listTools } from "./tool-registry.js";
+import {
+  getBookById,
+  listBookmarks,
+  listBooks,
+  listHighlights,
+  listNotes,
+  listSkills,
+  searchBooks,
+} from "./data.js";
 
 export type ParsedCommand = {
   name: string;
@@ -136,6 +145,81 @@ export async function runCommand(argv: string[], env = process.env): Promise<Com
 
     if (command.name === "uninstall") {
       return success(await uninstallCli({ binPath: paths.binPath, mode: command.mode }));
+    }
+
+    if (command.name === "books") {
+      const subcommand = command.args[0] ?? "list";
+      if (subcommand === "list") {
+        return success({ books: await listBooks(50, env) });
+      }
+      if (subcommand === "search") {
+        const query = command.args.slice(1).join(" ");
+        if (!query) {
+          return failure("missing_query", "books search requires a query");
+        }
+        return success({ books: await searchBooks(query, 20, env) });
+      }
+      return failure("unknown_books_command", `Unknown books command: ${subcommand}`);
+    }
+
+    if (command.name === "book") {
+      const subcommand = command.args[0] ?? "get";
+      if (subcommand === "get") {
+        const bookId = command.args[1];
+        if (!bookId) return failure("missing_book_id", "book get requires a book id");
+        return success({ book: await getBookById(bookId, env) });
+      }
+      return failure("unknown_book_command", `Unknown book command: ${subcommand}`);
+    }
+
+    if (command.name === "notes") {
+      const subcommand = command.args[0] ?? "search";
+      if (subcommand === "search") {
+        const query = command.args.slice(1).join(" ");
+        if (!query) {
+          return failure("missing_query", "notes search requires a query");
+        }
+        return success({ notes: await listNotes(undefined, 50, env).then((items) =>
+          items.filter((note) =>
+            `${note.title} ${note.content} ${(note.tags ?? []).join(" ")}`.toLowerCase().includes(query.toLowerCase()),
+          ),
+        ) });
+      }
+      return failure("unknown_notes_command", `Unknown notes command: ${subcommand}`);
+    }
+
+    if (command.name === "highlights") {
+      const subcommand = command.args[0] ?? "search";
+      if (subcommand === "search") {
+        const query = command.args.slice(1).join(" ");
+        if (!query) {
+          return failure("missing_query", "highlights search requires a query");
+        }
+        return success({ highlights: await listHighlights(undefined, 50, env).then((items) =>
+          items.filter((highlight) =>
+            `${highlight.text} ${highlight.note ?? ""}`.toLowerCase().includes(query.toLowerCase()),
+          ),
+        ) });
+      }
+      return failure("unknown_highlights_command", `Unknown highlights command: ${subcommand}`);
+    }
+
+    if (command.name === "bookmarks") {
+      const subcommand = command.args[0] ?? "list";
+      if (subcommand === "list") {
+        const bookId = command.args[1];
+        if (!bookId) return failure("missing_book_id", "bookmarks list requires a book id");
+        return success({ bookmarks: await listBookmarks(bookId, env) });
+      }
+      return failure("unknown_bookmarks_command", `Unknown bookmarks command: ${subcommand}`);
+    }
+
+    if (command.name === "skills") {
+      const subcommand = command.args[0] ?? "list";
+      if (subcommand === "list") {
+        return success({ skills: await listSkills(env) });
+      }
+      return failure("unknown_skills_command", `Unknown skills command: ${subcommand}`);
     }
 
     return failure("unknown_command", `Unknown command: ${command.name}`);

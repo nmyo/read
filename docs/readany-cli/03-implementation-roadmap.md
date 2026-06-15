@@ -86,6 +86,12 @@ readany books search "agent" --json
 readany book get <book-id> --json
 ```
 
+实现要点：
+
+- CLI 通过 Node 平台服务复用 `@readany/core` 的数据库 query 层。
+- 只读命令先打通书、笔记、高亮、书签、技能等核心数据对象。
+- 章节内容读取后续再接 EPUB/资源解析链路，不在这一阶段硬造假数据。
+
 ## Phase 3 - MCP Server
 
 目标：

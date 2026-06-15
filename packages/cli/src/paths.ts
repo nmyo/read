@@ -1,5 +1,6 @@
-import { homedir, platform } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { platform } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type CliPaths = {
@@ -12,19 +13,13 @@ export type CliPaths = {
   auditLogDir: string;
 };
 
-export function resolvePackageRoot(metaUrl = import.meta.url): string {
-  const currentFile = fileURLToPath(metaUrl);
-  const currentDir = dirname(currentFile);
-  return resolve(currentDir, "..");
+function resolveExecutablePath(env: NodeJS.ProcessEnv = process.env): string {
+  return env.READANY_CLI_BIN_PATH || process.argv[1] || fileURLToPath(import.meta.url);
 }
 
-export function resolveBinPath(metaUrl = import.meta.url): string {
-  const currentFile = fileURLToPath(metaUrl);
-  const currentDir = dirname(currentFile);
-  const packageRoot = resolvePackageRoot(metaUrl);
-  return currentDir.includes(`${sep}dist`)
-    ? join(packageRoot, "dist", "bin", "readany.js")
-    : join(packageRoot, "src", "bin", "readany.ts");
+export function resolvePackageRoot(env: NodeJS.ProcessEnv = process.env): string {
+  const executablePath = resolveExecutablePath(env);
+  return resolve(dirname(executablePath), "..", "..");
 }
 
 export function getAgentHome(env: NodeJS.ProcessEnv = process.env): string {
@@ -46,14 +41,15 @@ export function getReadAnyHome(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function getCliPaths(env: NodeJS.ProcessEnv = process.env): CliPaths {
-  const packageRoot = resolvePackageRoot();
+  const packageRoot = resolvePackageRoot(env);
   const agentHome = getAgentHome(env);
   const readanyHome = getReadAnyHome(env);
   const skillDir = join(agentHome, "skills", "readany");
+  const binPath = resolveExecutablePath(env);
 
   return {
     packageRoot,
-    binPath: resolveBinPath(),
+    binPath,
     agentHome,
     skillDir,
     skillFile: join(skillDir, "SKILL.md"),

@@ -12,6 +12,11 @@ Current phase:
 - `readany skill uninstall`
 - `readany skill status`
 - `readany tools list`
+- `readany books list`
+- `readany books search`
+- `readany book get`
+- `readany notes search`
+- `readany highlights search`
 
 The MCP server command is intentionally present but not implemented yet:
 

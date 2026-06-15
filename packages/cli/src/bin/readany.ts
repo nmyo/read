@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { runCommand, parseCommand } from "../commands.js";
 import { formatJson, formatText } from "../format.js";
 
