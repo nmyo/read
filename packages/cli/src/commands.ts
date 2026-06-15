@@ -80,7 +80,11 @@ export function parseCommand(argv: string[]): ParsedCommand {
 }
 
 function getLimit(command: ParsedCommand, fallback: number): number {
-  const raw = command.options.limit;
+  return getNumberOption(command, "limit", fallback);
+}
+
+function getNumberOption(command: ParsedCommand, name: string, fallback: number): number {
+  const raw = command.options[name];
   if (typeof raw !== "string") return fallback;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -109,7 +113,7 @@ Usage:
   readany books search <query> [--json]
   readany book get <book-id> [--json]
   readany chapters list <book-id> [--json]
-  readany chapter get <book-id> <chapter-id> [--json]
+  readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -232,6 +236,9 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const chapter = await data.getIndexedChapter({
           bookId,
           chapterId,
+          chunkStart: getNumberOption(command, "chunk-start", 1),
+          chunkCount: getNumberOption(command, "chunk-count", 0) || undefined,
+          contentLimit: getLimit(command, 12000),
           env,
         });
         if (!chapter) {

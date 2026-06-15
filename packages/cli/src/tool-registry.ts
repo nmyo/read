@@ -112,6 +112,23 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
           minLength: 1,
           description: "Chapter id returned by chapters.list.",
         },
+        chunkStart: {
+          type: "number",
+          minimum: 1,
+          description: "1-based chunk offset within the chapter.",
+        },
+        chunkCount: {
+          type: "number",
+          minimum: 1,
+          maximum: 200,
+          description: "Maximum number of indexed chunks to return.",
+        },
+        contentLimit: {
+          type: "number",
+          minimum: 1,
+          maximum: 50000,
+          description: "Maximum number of content characters to return.",
+        },
       },
       required: ["bookId", "chapterId"],
       additionalProperties: false,

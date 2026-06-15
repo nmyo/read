@@ -6,6 +6,7 @@ import type { AccessProfile, PermissionScope } from "./profiles.js";
 import { parseAccessProfile, profileHasScope } from "./profiles.js";
 import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
+import type { ReadAnyTool } from "./tool-registry.js";
 import {
   getBookById,
   getIndexedChapter,
@@ -80,7 +81,11 @@ function getString(args: Record<string, unknown>, key: string): string | undefin
 }
 
 function getLimit(args: Record<string, unknown>, fallback: number): number {
-  const value = args.limit;
+  return getNumber(args, "limit", fallback);
+}
+
+function getNumber(args: Record<string, unknown>, key: string, fallback: number): number {
+  const value = args[key];
   if (typeof value !== "number") return fallback;
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
 }
@@ -93,6 +98,42 @@ function assertToolAllowed(profile: AccessProfile, scopes: PermissionScope[]): C
       `Profile '${profile}' is missing required scopes: ${missingScopes.join(", ")}`,
     );
   }
+  return success(undefined);
+}
+
+function validateToolArguments(
+  tool: ReadAnyTool,
+  args: Record<string, unknown>,
+): CommandResult<void> {
+  const properties = tool.inputSchema.properties ?? {};
+  const allowedKeys = new Set(Object.keys(properties));
+  const unknownKeys = Object.keys(args).filter((key) => !allowedKeys.has(key));
+
+  if (!tool.inputSchema.additionalProperties && unknownKeys.length > 0) {
+    return failure(
+      "invalid_tool_arguments",
+      `Unknown arguments for ${tool.name}: ${unknownKeys.join(", ")}`,
+    );
+  }
+
+  for (const key of tool.inputSchema.required ?? []) {
+    if (!(key in args)) {
+      return failure("invalid_tool_arguments", `${tool.name} requires argument: ${key}`);
+    }
+  }
+
+  for (const [key, value] of Object.entries(args)) {
+    const schema = properties[key];
+    if (!schema || typeof schema !== "object" || !("type" in schema)) continue;
+    const type = (schema as { type?: unknown }).type;
+    if (type === "string" && typeof value !== "string") {
+      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a string`);
+    }
+    if (type === "number" && typeof value !== "number") {
+      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a number`);
+    }
+  }
+
   return success(undefined);
 }
 
@@ -109,6 +150,9 @@ async function callReadAnyTool(
 
   const allowed = assertToolAllowed(profile, tool.scopes);
   if (!allowed.ok) return allowed;
+
+  const validArguments = validateToolArguments(tool, args);
+  if (!validArguments.ok) return validArguments;
 
   if (toolName === "books.list") {
     return success({ books: await listBooks(getLimit(args, 50), env) });
@@ -137,7 +181,17 @@ async function callReadAnyTool(
     if (!bookId) return failure("missing_book_id", "chapters.get requires bookId");
     const chapterId = getString(args, "chapterId");
     if (!chapterId) return failure("missing_chapter_id", "chapters.get requires chapterId");
-    const chapter = await getIndexedChapter({ bookId, chapterId, env });
+    const chapter = await getIndexedChapter({
+      bookId,
+      chapterId,
+      chunkStart: getNumber(args, "chunkStart", 1),
+      chunkCount:
+        typeof args.chunkCount === "number" && Number.isFinite(args.chunkCount) && args.chunkCount > 0
+          ? Math.floor(args.chunkCount)
+          : undefined,
+      contentLimit: getNumber(args, "contentLimit", 12000),
+      env,
+    });
     if (!chapter) {
       return failure("chapter_not_found", `Chapter ${chapterId} was not found in ${bookId}`);
     }

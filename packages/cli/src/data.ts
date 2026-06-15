@@ -123,6 +123,8 @@ export type ChapterListOptions = {
 export type ChapterGetOptions = ChapterListOptions & {
   chapterId: string;
   contentLimit?: number;
+  chunkStart?: number;
+  chunkCount?: number;
 };
 
 export type IndexedChapterSummary = {
@@ -137,6 +139,10 @@ export type IndexedChapterSummary = {
 };
 
 export type IndexedChapter = IndexedChapterSummary & {
+  totalChunkCount: number;
+  returnedChunkCount: number;
+  chunkStart: number;
+  rangeTruncated: boolean;
   content: string;
   contentTruncated: boolean;
   chunks: Array<{
@@ -158,7 +164,9 @@ function getChapterIndexFromId(chapterId: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export async function listIndexedChapters(options: ChapterListOptions): Promise<IndexedChapterSummary[]> {
+export async function listIndexedChapters(
+  options: ChapterListOptions,
+): Promise<IndexedChapterSummary[]> {
   const { bookId, env = process.env } = options;
   await ensureCoreInitialized(env);
   const chunks = await getChunks(bookId);
@@ -194,19 +202,29 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Ind
     bookId,
     chapterId,
     contentLimit,
+    chunkStart,
+    chunkCount,
     env = process.env,
   } = options;
   const chapterIndex = getChapterIndexFromId(chapterId);
   if (chapterIndex === null) return null;
 
   await ensureCoreInitialized(env);
-  const chunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
+  const allChunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
+  if (allChunks.length === 0) return null;
+
+  const start = clampPositiveInteger(chunkStart, 1, allChunks.length);
+  const requestedCount =
+    chunkCount === undefined
+      ? allChunks.length
+      : clampPositiveInteger(chunkCount, allChunks.length, allChunks.length);
+  const chunks = allChunks.slice(start - 1, start - 1 + requestedCount);
   if (chunks.length === 0) return null;
 
   const maxContentChars = clampPositiveInteger(contentLimit, 12000, 50000);
   const fullContent = chunks.map((chunk) => chunk.content).join("\n\n");
   const content = truncateContent(fullContent, maxContentChars);
-  const tokenCount = chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+  const tokenCount = allChunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
   const first = chunks[0];
   const last = chunks[chunks.length - 1];
 
@@ -215,8 +233,12 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Ind
     bookId,
     index: chapterIndex,
     title: first.chapterTitle || `Chapter ${chapterIndex + 1}`,
-    chunkCount: chunks.length,
+    chunkCount: allChunks.length,
     tokenCount,
+    totalChunkCount: allChunks.length,
+    returnedChunkCount: chunks.length,
+    chunkStart: start,
+    rangeTruncated: chunks.length < allChunks.length,
     startCfi: first.startCfi,
     endCfi: last.endCfi,
     content: content.content,

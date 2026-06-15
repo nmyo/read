@@ -56,7 +56,7 @@ readany books list [--limit 50] [--json]
 readany books search <query> [--json]
 readany book get <book-id> [--json]
 readany chapters list <book-id> [--json]
-readany chapter get <book-id> <chapter-id> [--json]
+readany chapter get <book-id> <chapter-id> [--chunk-start 1] [--chunk-count 20] [--limit 12000] [--json]
 readany notes search <query> [--book <book-id>] [--json]
 readany highlights search <query> [--book <book-id>] [--json]
 readany bookmarks list <book-id> [--json]
@@ -64,7 +64,7 @@ readany skills list [--json]
 readany rag search <query> --book <book-id> [--mode bm25] [--limit 5] [--json]
 ```
 
-当前 `chapters.*` 基于 indexed chunks 返回章节视图；原始 EPUB/PDF fallback 章节解析仍属于后续能力。
+当前 `chapters.*` 基于 indexed chunks 返回章节视图；`chapter get` 支持 chunk range 和 content limit，避免一次返回超大正文。原始 EPUB/PDF fallback 章节解析仍属于后续能力。
 
 ### Draft 和导出命令
 

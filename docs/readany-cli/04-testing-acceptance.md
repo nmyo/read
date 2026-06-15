@@ -219,7 +219,7 @@ readany epub export <draft-id> --json
 - CLI 能启动 readonly MCP。
 - 外部 AI 可以发现 ReadAny 工具。
 - 只读查询链路跑通。
-- MCP 不展示章节、vector/hybrid RAG、EPUB draft/export 等未实现工具。
+- MCP 不展示原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB draft/export 等未实现工具。
 - 测试不依赖真实用户数据。
 
 ## 功能验收清单
@@ -242,7 +242,7 @@ readany epub export <draft-id> --json
 对外部 AI 可见的 MCP tool 还必须额外满足：
 
 ```text
-[ ] inputSchema 限制额外字段
+[ ] inputSchema 限制额外字段，MCP 调用会拒绝未声明参数
 [ ] readonly profile 权限路径有测试
 [ ] 不输出密钥、同步配置、任意本地路径
 [ ] 大结果有 limit / cursor / range 中至少一种限制
@@ -260,6 +260,8 @@ readany epub export <draft-id> --json
 [ ] 高风险动作有确认或更高 profile
 ```
 
+每次 milestone 验收建议复制 [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md) 到 `docs/readany-cli/acceptance/YYYY-MM-DD-Mx.md`，记录分支、commit、执行命令、结果摘要和已知问题。更完整的交付停止线见 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。
+
 ## 每阶段停止线
 
 ### M1 停止线
@@ -269,7 +271,7 @@ readany epub export <draft-id> --json
 - 外部 AI 能发现 ReadAny。
 - 外部 AI 能列书、搜书、读书籍元数据、搜笔记、搜高亮。
 - 桌面端能安装/卸载 Skill，复制 readonly MCP 配置。
-- `tools/list` 没有章节、vector/hybrid RAG、EPUB draft/export。
+- `tools/list` 没有原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB draft/export。
 - 所有测试通过。
 
 ### M2 停止线

@@ -50,6 +50,11 @@ async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
       9, 'epubcfi(/6/20)', 'epubcfi(/6/22)', '["epubcfi(/6/20)"]', NULL, 6000
     ),
     (
+      'mcp-chunk-1b', 'mcp-book', 1, 'Agent Access',
+      'Chunk range controls keep MCP chapter reads bounded.',
+      8, 'epubcfi(/6/22)', 'epubcfi(/6/23)', '["epubcfi(/6/22)"]', NULL, 6000
+    ),
+    (
       'mcp-chunk-2', 'mcp-book', 2, 'Draft Safety',
       'Draft-first editing protects original EPUB files.',
       7, 'epubcfi(/6/24)', 'epubcfi(/6/26)', '["epubcfi(/6/24)"]', NULL, 6000
@@ -186,6 +191,7 @@ describe("mcp", () => {
             id: "1",
             title: "Agent Access",
             startCfi: "epubcfi(/6/20)",
+            chunkCount: 2,
           },
           {
             id: "2",
@@ -201,7 +207,7 @@ describe("mcp", () => {
         method: "tools/call",
         params: {
           name: "chapters.get",
-          arguments: { bookId: "mcp-book", chapterId: "1" },
+          arguments: { bookId: "mcp-book", chapterId: "1", chunkStart: 2, chunkCount: 1 },
         },
       },
       "readonly",
@@ -214,8 +220,12 @@ describe("mcp", () => {
       data: {
         chapter: {
           id: "1",
-          content: "MCP access lets external agents search ReadAny chunks safely.",
-          chunks: [{ id: "mcp-chunk-1" }],
+          totalChunkCount: 2,
+          returnedChunkCount: 1,
+          chunkStart: 2,
+          rangeTruncated: true,
+          content: "Chunk range controls keep MCP chapter reads bounded.",
+          chunks: [{ id: "mcp-chunk-1b" }],
         },
       },
     });
@@ -238,7 +248,28 @@ describe("mcp", () => {
     const text = (response as { content: Array<{ text: string }> }).content[0].text;
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
-      error: { code: "missing_book_id" },
+      error: { code: "invalid_tool_arguments" },
+    });
+  });
+
+  it("rejects tool arguments outside the registered schema", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "books.search",
+          arguments: { query: "mcp", rawSql: "select * from books" },
+        },
+      },
+      "readonly",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
     });
   });
 

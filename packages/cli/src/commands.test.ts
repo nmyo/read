@@ -72,6 +72,11 @@ async function seedLibrary(dataRoot: string): Promise<void> {
       9, 'epubcfi(/6/10)', 'epubcfi(/6/12)', '["epubcfi(/6/10)"]', NULL, 6000
     ),
     (
+      'chunk-1b', 'book-1', 1, 'Tools',
+      'Bounded chapter ranges keep external AI responses compact.',
+      8, 'epubcfi(/6/12)', 'epubcfi(/6/13)', '["epubcfi(/6/12)"]', NULL, 6000
+    ),
+    (
       'chunk-2', 'book-1', 2, 'Drafts',
       'Draft-first editing keeps EPUB sources safe while AI proposes changes.',
       10, 'epubcfi(/6/14)', 'epubcfi(/6/16)', '["epubcfi(/6/14)"]', NULL, 6000
@@ -223,7 +228,7 @@ describe("commands", () => {
             id: "1",
             index: 1,
             title: "Tools",
-            chunkCount: 1,
+            chunkCount: 2,
             startCfi: "epubcfi(/6/10)",
           },
           {
@@ -247,6 +252,32 @@ describe("commands", () => {
           title: "Drafts",
           content: "Draft-first editing keeps EPUB sources safe while AI proposes changes.",
           chunks: [{ id: "chunk-2", startCfi: "epubcfi(/6/14)" }],
+        },
+      });
+    }
+  });
+
+  it("reads indexed chapter chunk ranges", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const result = await runCommand(
+      ["chapter", "get", "book-1", "1", "--chunk-start", "2", "--chunk-count", "1"],
+      workspace.env,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toMatchObject({
+        chapter: {
+          id: "1",
+          chunkCount: 2,
+          totalChunkCount: 2,
+          returnedChunkCount: 1,
+          chunkStart: 2,
+          rangeTruncated: true,
+          content: "Bounded chapter ranges keep external AI responses compact.",
+          chunks: [{ id: "chunk-1b" }],
         },
       });
     }

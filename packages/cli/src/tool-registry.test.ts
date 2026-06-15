@@ -34,4 +34,13 @@ describe("tool registry", () => {
     const searchTools = listTools().filter((tool) => tool.name.endsWith(".search"));
     expect(searchTools.every((tool) => tool.inputSchema.required?.includes("query"))).toBe(true);
   });
+
+  it("exposes range controls for chapter reads", () => {
+    const chapterTool = listTools().find((tool) => tool.name === "chapters.get");
+    expect(chapterTool?.inputSchema.properties).toMatchObject({
+      chunkStart: expect.any(Object),
+      chunkCount: expect.any(Object),
+      contentLimit: expect.any(Object),
+    });
+  });
 });
