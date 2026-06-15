@@ -1157,6 +1157,80 @@ describe("mcp", () => {
     });
   });
 
+  it("falls back to epub chapters when no chunks are indexed", async () => {
+    const env = await createEnv();
+    await resetCoreForTests();
+    await ensureCoreInitialized(env);
+    const db = new Database(join(env.READANY_HOME!, "readany.db"));
+    db.exec(`
+      INSERT INTO books (
+        id, file_path, format, title, author, publisher, language, isbn, description,
+        cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+        group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+        is_vectorized, vectorize_progress, tags, file_hash, sync_status
+      ) VALUES (
+        'fallback-book', 'books/fallback.epub', 'epub', 'Fallback Book', 'Ada Reader', NULL, 'en',
+        NULL, 'Fallback epub only', NULL, NULL, NULL, NULL, '["AI"]',
+        100, 1, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 0, 0,
+        '["epub"]', 'hash-fallback', 'local'
+      );
+    `);
+    db.close();
+    await writeFile(join(env.READANY_HOME!, "books", "fallback.epub"), buildInspectableEpub());
+
+    const listResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.list",
+          arguments: { bookId: "fallback-book" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(listResponse).toMatchObject({ isError: false });
+    const listText = (listResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(listText)).toMatchObject({
+      ok: true,
+      data: {
+        chapters: [
+          {
+            source: "epub",
+            id: "chapter-1",
+            title: "Agent Access",
+            href: "chapter-1.xhtml",
+          },
+        ],
+      },
+    });
+
+    const getResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.get",
+          arguments: { bookId: "fallback-book", chapterId: "chapter-1" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(getResponse).toMatchObject({ isError: false });
+    const getText = (getResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(getText)).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          source: "book",
+          bookId: "fallback-book",
+          id: "chapter-1",
+          content: "Agent Access",
+        },
+      },
+    });
+  });
+
   it("rejects rag.search without a book id", async () => {
     const response = await handleMcpRequest(
       {

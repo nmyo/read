@@ -29,7 +29,7 @@
 - CLI 可构建、可测试，并提供 `readany` bin。
 - 已支持 `doctor`、`install`、`uninstall`、`skill install/uninstall/status`。
 - 已支持只读库查询：书籍、笔记、高亮、书签、skills。
-- 已支持 indexed chapter view：基于已有 chunks 索引的 `readany chapters list`、`readany chapter get` 和 MCP `chapters.*`。
+- 已支持 chapter view：`readany chapters list`、`readany chapter get` 和 MCP `chapters.*` 会优先返回 indexed chunks；没有 chunks 且书籍是 EPUB 时，会 fallback 到真实 EPUB spine/manifest 读取章节目录和正文。
 - 已支持 BM25 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id>` 和 MCP `rag.search`。
 - 已支持 EPUB inspect：`readany epub inspect <book-id> --profile editor` 和 MCP `epub.inspect` 可读取 EPUB package、metadata、manifest、spine、toc 结构。
 - 已支持 EPUB draft create：`readany epub draft create <book-id> --profile editor` 和 MCP `epub.draft.create` 会复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改原文件。
@@ -50,7 +50,7 @@
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
-- 原始 EPUB/PDF fallback 章节解析。
+- 原始 PDF fallback 章节解析。
 - Vector / hybrid RAG 检索。
 - knowledge export。`notes.export` 只导出单本书的 notes/highlights；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不执行 undo、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。

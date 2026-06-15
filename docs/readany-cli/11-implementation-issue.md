@@ -41,7 +41,7 @@ ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受
 - `readany doctor/install/uninstall/tools list`。
 - `readany skill install/uninstall/status`。
 - 只读书库、笔记、高亮、书签、skills 查询。
-- indexed chunks 章节读取。
+- indexed chunks 章节读取和未索引 EPUB fallback。
 - BM25 RAG over chunks。
 - stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - 审计日志读取：`readany audit list --json` 和 MCP `audit.list` 可读取最近 CLI/MCP 调用元数据。
@@ -77,7 +77,7 @@ epub.export
 
 当前还不能对外宣称：
 
-- 未索引 EPUB/PDF fallback 章节解析已经完成。
+- PDF fallback 章节解析可用。
 - vector / hybrid RAG 已经完成。
 - knowledge export 已经完成。
 - 用户 draft 工作区完整 UI 已经完成。
@@ -154,9 +154,9 @@ printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
 
 当前边界：
 
-- `chapters.*` 当前是 indexed chunks 视图。
+- `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB fallback。
 - `rag.search` 当前是 BM25 over chunks。
-- 未索引 EPUB/PDF fallback 和 vector / hybrid 是后续交付。
+- PDF fallback 和 vector / hybrid 是后续交付。
 
 验收：
 

@@ -224,7 +224,7 @@ readany epub export <draft-id> --json
 - CLI 能启动 readonly MCP。
 - 外部 AI 可以发现 ReadAny 工具。
 - 只读查询链路跑通。
-- MCP 不展示原始 EPUB/PDF fallback 解析、vector/hybrid RAG、knowledge export 等未实现工具。
+- MCP 不展示 PDF fallback 解析、vector/hybrid RAG、knowledge export 等未实现工具；未索引 EPUB fallback 只作为 `chapters.*` 的已测行为存在，不新增伪工具。
 - 测试不依赖真实用户数据。
 
 ## 功能验收清单
@@ -277,7 +277,7 @@ readany epub export <draft-id> --json
 - 外部 AI 能发现 ReadAny。
 - 外部 AI 能列书、搜书、读书籍元数据、搜笔记、搜高亮。
 - 桌面端能安装/卸载 Skill，复制 readonly MCP 配置。
-- `tools/list` 没有原始 EPUB/PDF fallback 解析、vector/hybrid RAG、knowledge export。
+- `tools/list` 没有 PDF fallback 解析、vector/hybrid RAG、knowledge export。
 - 所有测试通过。
 
 ### M2 停止线
@@ -288,6 +288,7 @@ readany epub export <draft-id> --json
 - `rag.search` 能基于真实索引返回结果。
 - 结果包含可回跳的 book/chapter/chunk 引用。
 - 大正文不会一次性无上限返回。
+- 未索引 EPUB 能通过 `chapters.list/get` fallback 读取真实 spine 章节。
 
 ### M3 停止线
 

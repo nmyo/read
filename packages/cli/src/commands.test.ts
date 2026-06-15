@@ -910,6 +910,68 @@ describe("commands", () => {
     }
   });
 
+  it("falls back to epub chapters when no chunks are indexed", async () => {
+    const workspace = await createWorkspace();
+    await resetCoreForTests();
+    await ensureCoreInitialized(workspace.env);
+
+    const db = new Database(join(workspace.dataRoot, "readany.db"));
+    db.exec(`
+      INSERT INTO books (
+        id, file_path, format, title, author, publisher, language, isbn, description,
+        cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+        group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+        is_vectorized, vectorize_progress, tags, file_hash, sync_status
+      ) VALUES (
+        'epub-book', 'books/epub-book.epub', 'epub', 'Fallback EPUB', 'Ada Reader', NULL, 'en',
+        NULL, 'A fallback epub only', NULL, NULL, NULL, NULL, '["AI"]',
+        100, 2, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 0, 0,
+        '["epub"]', 'hash-epub', 'local'
+      );
+    `);
+    db.close();
+    await writeFile(join(workspace.dataRoot, "books", "epub-book.epub"), buildInspectableEpub());
+
+    const book = await runCommand(["book", "get", "epub-book"], workspace.env);
+    expect(book.ok).toBe(true);
+    if (book.ok) {
+      expect(book.data).toMatchObject({
+        book: {
+          id: "epub-book",
+          format: "epub",
+        },
+      });
+    }
+
+    const chapters = await runCommand(["chapters", "list", "epub-book"], workspace.env);
+    expect(chapters.ok).toBe(true);
+    if (chapters.ok) {
+      expect(chapters.data).toMatchObject({
+        chapters: [
+          {
+            source: "epub",
+            id: "chapter-1",
+            title: "Tools",
+            href: "chapter-1.xhtml",
+          },
+        ],
+      });
+    }
+
+    const chapter = await runCommand(["chapter", "get", "epub-book", "chapter-1"], workspace.env);
+    expect(chapter.ok).toBe(true);
+    if (chapter.ok) {
+      expect(chapter.data).toMatchObject({
+        chapter: {
+          source: "book",
+          bookId: "epub-book",
+          id: "chapter-1",
+          content: "Tools",
+        },
+      });
+    }
+  });
+
   it("reads indexed chapter chunk ranges", async () => {
     const workspace = await createWorkspace();
     await seedLibrary(workspace.dataRoot);

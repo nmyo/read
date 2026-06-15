@@ -327,6 +327,7 @@ export type ChapterGetOptions = ChapterListOptions & {
 };
 
 export type IndexedChapterSummary = {
+  source: "indexed";
   id: string;
   bookId: string;
   index: number;
@@ -338,6 +339,7 @@ export type IndexedChapterSummary = {
 };
 
 export type IndexedChapter = IndexedChapterSummary & {
+  source: "indexed";
   totalChunkCount: number;
   returnedChunkCount: number;
   chunkStart: number;
@@ -354,6 +356,21 @@ export type IndexedChapter = IndexedChapterSummary & {
   }>;
 };
 
+export type FallbackChapterSummary = {
+  source: "epub";
+  id: string;
+  bookId: string;
+  index: number;
+  title: string;
+  href: string;
+  mediaType?: string;
+};
+
+export type ChapterSummary = IndexedChapterSummary | FallbackChapterSummary;
+export type ChapterReadResult =
+  | IndexedChapter
+  | import("@readany/core/epub/chapter").EpubChapterReadResult;
+
 function chapterIdFromIndex(index: number): string {
   return String(index);
 }
@@ -365,7 +382,7 @@ function getChapterIndexFromId(chapterId: string): number | null {
 
 export async function listIndexedChapters(
   options: ChapterListOptions,
-): Promise<IndexedChapterSummary[]> {
+): Promise<ChapterSummary[]> {
   const { bookId, env = process.env } = options;
   await ensureCoreInitialized(env);
   const chunks = await getChunks(bookId);
@@ -375,6 +392,7 @@ export async function listIndexedChapters(
     const existing = chapters.get(chunk.chapterIndex);
     if (!existing) {
       chapters.set(chunk.chapterIndex, {
+        source: "indexed",
         id: chapterIdFromIndex(chunk.chapterIndex),
         bookId,
         index: chunk.chapterIndex,
@@ -393,10 +411,12 @@ export async function listIndexedChapters(
     if (chunk.endCfi) existing.endCfi = chunk.endCfi;
   }
 
-  return Array.from(chapters.values()).sort((a, b) => a.index - b.index);
+  const indexed = Array.from(chapters.values()).sort((a, b) => a.index - b.index);
+  if (indexed.length > 0) return indexed;
+  return listEpubFallbackChapters(bookId, env);
 }
 
-export async function getIndexedChapter(options: ChapterGetOptions): Promise<IndexedChapter | null> {
+export async function getIndexedChapter(options: ChapterGetOptions): Promise<ChapterReadResult | null> {
   const {
     bookId,
     chapterId,
@@ -405,12 +425,17 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Ind
     chunkCount,
     env = process.env,
   } = options;
-  const chapterIndex = getChapterIndexFromId(chapterId);
-  if (chapterIndex === null) return null;
 
   await ensureCoreInitialized(env);
+  const chapterIndex = getChapterIndexFromId(chapterId);
+  if (chapterIndex === null) {
+    return getEpubFallbackChapter({ bookId, chapterId, contentLimit });
+  }
+
   const allChunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
-  if (allChunks.length === 0) return null;
+  if (allChunks.length === 0) {
+    return getEpubFallbackChapter({ bookId, chapterId, contentLimit });
+  }
 
   const start = clampPositiveInteger(chunkStart, 1, allChunks.length);
   const requestedCount =
@@ -428,6 +453,7 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Ind
   const last = chunks[chunks.length - 1];
 
   return {
+    source: "indexed",
     id: chapterIdFromIndex(chapterIndex),
     bookId,
     index: chapterIndex,
@@ -451,6 +477,67 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Ind
       segmentCfis: chunk.segmentCfis,
     })),
   };
+}
+
+async function listEpubFallbackChapters(
+  bookId: string,
+  env: NodeJS.ProcessEnv,
+): Promise<FallbackChapterSummary[]> {
+  const book = await getBook(bookId);
+  if (!book || book.format !== "epub") return [];
+  const inspect = await inspectEpubBook(bookId, env);
+  if (!inspect) return [];
+  const packageDir = getPackageDir(inspect.packagePath);
+  const tocByHref = new Map(
+    inspect.toc.items.map((item) => [stripHrefFragment(item.href), item.label]),
+  );
+
+  return inspect.spine.items
+    .filter((item) => item.idref && item.linear !== "no" && item.mediaType?.includes("html"))
+    .map((item, index) => ({
+      source: "epub" as const,
+      id: item.idref,
+      bookId,
+      index,
+      title:
+        (item.href && tocByHref.get(stripHrefFragment(item.href))) ||
+        (item.href && tocByHref.get(stripHrefFragment(resolvePackagePath(packageDir, item.href)))) ||
+        `Chapter ${index + 1}`,
+      href: item.href ?? "",
+      mediaType: item.mediaType,
+    }));
+}
+
+async function getEpubFallbackChapter(options: {
+  bookId: string;
+  chapterId: string;
+  contentLimit?: number;
+}): Promise<import("@readany/core/epub/chapter").EpubChapterReadResult | null> {
+  const book = await getBook(options.bookId);
+  if (!book || book.format !== "epub") return null;
+  try {
+    return await readEpubChapterFromBookFile(options.bookId, book.filePath, options.chapterId, {
+      contentLimit: options.contentLimit,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/chapter resource was not found/i.test(message)) return null;
+    throw error;
+  }
+}
+
+function stripHrefFragment(href: string): string {
+  return href.split("#")[0];
+}
+
+function getPackageDir(packagePath: string): string {
+  const index = packagePath.lastIndexOf("/");
+  return index >= 0 ? packagePath.slice(0, index + 1) : "";
+}
+
+function resolvePackagePath(packageDir: string, href: string): string {
+  if (!packageDir) return href;
+  return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
 }
 
 export type RagSearchOptions = {

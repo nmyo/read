@@ -127,7 +127,7 @@ readany epub history <draft-id> --profile editor
 readany epub diff <draft-id> --profile editor
 ```
 
-当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
+当前章节命令优先基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；没有 chunks 且书籍是 EPUB 时，会 fallback 到真实 EPUB spine/manifest。PDF fallback 解析链路后续再开放。
 用户精排入口不在 `设置 -> 外部 AI 访问`，而在书籍详情页或 draft 工作区；设置页只负责 CLI、Skill、MCP 和 profile 管理。
 
 ## Phase 3 - MCP Server
