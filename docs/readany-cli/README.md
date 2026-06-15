@@ -32,8 +32,9 @@
 - 已支持 EPUB inspect：`readany epub inspect <book-id> --profile editor` 和 MCP `epub.inspect` 可读取 EPUB package、metadata、manifest、spine、toc 结构。
 - 已支持 EPUB draft create：`readany epub draft create <book-id> --profile editor` 和 MCP `epub.draft.create` 会复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改原文件。
 - 已支持 EPUB draft chapter read：`readany epub chapter read <draft-id> <chapter-id> --profile editor` 和 MCP `epub.chapter.read` 可从 draft 读取 XHTML 章节文本，带内容长度限制。
+- 已支持 EPUB draft chapter patch：`readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor` 和 MCP `epub.chapter.patch` 可替换 draft 内单个 XHTML 章节资源，写入 history，不修改原文件。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
-- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`、`epub.inspect`、`epub.draft.create`、`epub.chapter.read`。
+- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`notes.search`、`highlights.search`、`rag.search`、`epub.inspect`、`epub.draft.create`、`epub.chapter.read`、`epub.chapter.patch`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
 - 用户精排入口不放在设置页，放在书籍详情 / draft 工作区中；设置页只负责接入和权限管理。
 
@@ -41,7 +42,7 @@
 
 - 原始 EPUB/PDF fallback 章节解析。
 - Vector / hybrid RAG 检索。
-- EPUB patch/edit/export。`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.chapter.read` 只读取 draft 章节文本，不修改章节、不导出。
+- EPUB metadata patch / toc rebuild / validate / export。`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单章 XHTML，不修改 metadata、toc 或导出文件。
 - 随桌面安装包携带并注册 CLI binary。
 - 审计日志浏览 UI。
 - 审计日志的完整写入链路。

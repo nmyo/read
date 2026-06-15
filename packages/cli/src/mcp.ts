@@ -16,6 +16,7 @@ import {
   listNotes,
   createEpubDraftForBook,
   inspectEpubBook,
+  patchEpubChapter,
   readEpubChapter,
   searchRag,
   searchBooks,
@@ -327,6 +328,22 @@ async function callReadAnyTool(
     });
     if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);
     return success({ chapter });
+  }
+
+  if (toolName === "epub.chapter.patch") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.chapter.patch requires draftId");
+    const chapterId = getString(args, "chapterId");
+    if (!chapterId) return failure("missing_chapter_id", "epub.chapter.patch requires chapterId");
+    const xhtml = getString(args, "xhtml");
+    if (!xhtml) return failure("missing_xhtml", "epub.chapter.patch requires xhtml");
+    const patch = await patchEpubChapter({
+      draftId,
+      chapterId,
+      xhtml,
+      env,
+    });
+    return success({ patch });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

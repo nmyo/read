@@ -7,7 +7,7 @@ import type { IPlatformService } from "../services";
 import { setPlatformService } from "../services";
 import { buildStoreOnlyZip, type ZipEntry } from "../utils/store-only-zip";
 import { createEpubDraft } from "./draft";
-import { readEpubChapterFromDraft } from "./chapter";
+import { patchEpubChapterInDraft, readEpubChapterFromDraft } from "./chapter";
 
 const encoder = new TextEncoder();
 
@@ -143,6 +143,77 @@ describe("readEpubChapterFromDraft", () => {
       content: "First Chapter Draft ",
       contentTruncated: true,
       contentLimit: 20,
+    });
+  });
+
+  it("patches a chapter resource in the draft without changing the source EPUB", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-chapter-"));
+    const dataDir = await createPlatform(root);
+    const sourcePath = join(dataDir, "books", "sample.epub");
+    const sourceBytes = buildEpub();
+    await writeFile(sourcePath, sourceBytes);
+    const book = {
+      id: "book-1",
+      filePath: "books/sample.epub",
+      format: "epub",
+      meta: { title: "Chapter Draft" },
+    } as Book;
+    const draft = await createEpubDraft(book, { draftId: "draft-1" });
+
+    const patched = await patchEpubChapterInDraft(
+      draft.draftId,
+      "chapter-1",
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Revised Chapter</h1><p>Clean draft text.</p></body></html>`,
+      { now: new Date("2026-06-16T00:00:00.000Z"), previewLimit: 80 },
+    );
+
+    expect(patched).toMatchObject({
+      draftId: "draft-1",
+      bookId: "book-1",
+      chapterId: "chapter-1",
+      href: "chapter-1.xhtml",
+      resourcePath: "OPS/chapter-1.xhtml",
+      changed: true,
+      updatedAt: "2026-06-16T00:00:00.000Z",
+      title: "Revised Chapter",
+      contentPreview: "Revised Chapter Clean draft text.",
+      contentPreviewTruncated: false,
+      manifestPath: "drafts/epub/draft-1/manifest.json",
+      historyPath: "drafts/epub/draft-1/history.jsonl",
+    });
+    expect(patched.beforeHash).toHaveLength(64);
+    expect(patched.afterHash).toHaveLength(64);
+    expect(patched.afterHash).not.toBe(patched.beforeHash);
+
+    expect(Array.from(await readFile(sourcePath))).toEqual(Array.from(sourceBytes));
+    const chapter = await readEpubChapterFromDraft(draft.draftId, "chapter-1");
+    expect(chapter).toMatchObject({
+      title: "Revised Chapter",
+      content: "Revised Chapter Clean draft text.",
+    });
+
+    const manifest = JSON.parse(
+      await readFile(join(dataDir, "drafts", "epub", "draft-1", "manifest.json"), "utf8"),
+    );
+    expect(manifest).toMatchObject({
+      updatedAt: "2026-06-16T00:00:00.000Z",
+      inspect: {
+        metadata: { title: "Chapter Draft" },
+      },
+    });
+
+    const historyLines = (
+      await readFile(join(dataDir, "drafts", "epub", "draft-1", "history.jsonl"), "utf8")
+    ).trim().split("\n").map((line) => JSON.parse(line));
+    expect(historyLines).toHaveLength(2);
+    expect(historyLines[1]).toMatchObject({
+      action: "epub.chapter.patch",
+      bookId: "book-1",
+      draftId: "draft-1",
+      chapterId: "chapter-1",
+      href: "chapter-1.xhtml",
+      beforeHash: patched.beforeHash,
+      afterHash: patched.afterHash,
     });
   });
 });

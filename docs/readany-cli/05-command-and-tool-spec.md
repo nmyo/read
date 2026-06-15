@@ -65,6 +65,7 @@ readany rag search <query> --book <book-id> [--mode bm25] [--limit 5] [--json]
 readany epub inspect <book-id> [--profile editor] [--json]
 readany epub draft create <book-id> [--profile editor] [--json]
 readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--json]
+readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--profile editor] [--json]
 ```
 
 当前 `chapters.*` 基于 indexed chunks 返回章节视图；`chapter get` 支持 chunk range 和 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；`epub draft create` 只复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改章节、不导出文件；`epub chapter read` 只读取 draft 章节文本。原始 EPUB/PDF fallback 章节解析仍属于后续能力。
@@ -75,7 +76,7 @@ readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12
 
 ```bash
 readany epub draft create <book-id> [--json]
-readany epub chapter patch <draft-id> <chapter-id> --patch <file>
+readany epub chapter patch <draft-id> <chapter-id> --xhtml <file>
 readany epub metadata patch <draft-id> --patch <file>
 readany epub validate <draft-id> [--json]
 readany epub export <draft-id> --output <path> [--json]
@@ -126,9 +127,10 @@ rag.search
 epub.inspect
 epub.draft.create
 epub.chapter.read
+epub.chapter.patch
 ```
 
-`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
+`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。`epub.chapter.patch` 当前已经可用，但它只替换 draft 内单个 XHTML 章节资源。其余 `epub.*` 写入、validate、export 工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前只开放 indexed chunks 视图；原始 EPUB/PDF fallback 解析后续接入。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
 
 未来补齐时，`tools/list` 仍然要遵循一个原则：先完成真实实现、权限、测试和文档，再把工具放进列表。不能为了“让 AI 知道能力存在”而提前注册。
 
@@ -211,6 +213,7 @@ rag.search
 epub.inspect
 epub.draft.create
 epub.chapter.read
+epub.chapter.patch
 ```
 
 M2 再做：
@@ -223,7 +226,6 @@ knowledge.search
 M3 / M4 再做：
 
 ```text
-epub.chapter.patch
 epub.metadata.patch
 epub.toc.rebuild
 epub.validate

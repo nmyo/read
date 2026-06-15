@@ -16,7 +16,7 @@ export type EpubDraftManifest = {
   inspect: EpubInspectResult;
 };
 
-export type EpubDraftHistoryEntry = {
+export type EpubDraftCreateHistoryEntry = {
   id: string;
   timestamp: string;
   action: "epub.draft.create";
@@ -24,6 +24,20 @@ export type EpubDraftHistoryEntry = {
   draftId: string;
   sourceHash: string;
 };
+
+export type EpubDraftPatchHistoryEntry = {
+  id: string;
+  timestamp: string;
+  action: "epub.chapter.patch";
+  bookId: string;
+  draftId: string;
+  chapterId: string;
+  href: string;
+  beforeHash: string;
+  afterHash: string;
+};
+
+export type EpubDraftHistoryEntry = EpubDraftCreateHistoryEntry | EpubDraftPatchHistoryEntry;
 
 export type EpubDraftCreateResult = {
   draftId: string;

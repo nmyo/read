@@ -115,6 +115,7 @@ describe("mcp", () => {
         { name: "epub.inspect" },
         { name: "epub.draft.create" },
         { name: "epub.chapter.read" },
+        { name: "epub.chapter.patch" },
       ],
     });
   });
@@ -331,6 +332,78 @@ describe("mcp", () => {
     });
   });
 
+  it("gates epub.chapter.patch by editor profile and patches a draft chapter", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.patch",
+          arguments: {
+            draftId,
+            chapterId: "chapter-1",
+            xhtml:
+              `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Agent Updated</h1><p>Patched by MCP.</p></body></html>`,
+          },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.patch",
+          arguments: {
+            draftId,
+            chapterId: "chapter-1",
+            xhtml:
+              `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Agent Updated</h1><p>Patched by MCP.</p></body></html>`,
+          },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        patch: {
+          draftId,
+          bookId: "mcp-book",
+          chapterId: "chapter-1",
+          href: "chapter-1.xhtml",
+          resourcePath: "OPS/chapter-1.xhtml",
+          changed: true,
+          title: "Agent Updated",
+        },
+      },
+    });
+  });
+
   it("calls rag.search with readonly profile", async () => {
     const env = await createEnv();
     await seedBook(env);
@@ -463,6 +536,41 @@ describe("mcp", () => {
       },
       "readonly",
       await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
+    });
+  });
+
+  it("rejects epub.chapter.patch without xhtml", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.patch",
+          arguments: { draftId, chapterId: "chapter-1" },
+        },
+      },
+      "editor",
+      env,
     );
 
     expect(response).toMatchObject({ isError: true });

@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 11 },
+        tools: { count: 12 },
       });
     }
   });
@@ -294,6 +294,93 @@ describe("commands", () => {
         },
       });
     }
+  });
+
+  it("patches an EPUB draft chapter with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string; historyPath: string } }).draft
+      .draftId;
+    const historyPath = (draftResult.data as { draft: { historyPath: string } }).draft.historyPath;
+    const xhtmlPath = join(workspace.root, "chapter.xhtml");
+    await writeFile(
+      xhtmlPath,
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Updated Tools</h1><p>Draft chapter patched by the editor.</p></body></html>`,
+      "utf8",
+    );
+
+    const readonly = await runCommand(
+      ["epub", "chapter", "patch", draftId, "chapter-1", "--xhtml", xhtmlPath],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      [
+        "epub",
+        "chapter",
+        "patch",
+        draftId,
+        "chapter-1",
+        "--xhtml",
+        xhtmlPath,
+        "--profile",
+        "editor",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      patch: {
+        draftId,
+        bookId: "book-1",
+        chapterId: "chapter-1",
+        href: "chapter-1.xhtml",
+        resourcePath: "OPS/chapter-1.xhtml",
+        changed: true,
+        title: "Updated Tools",
+        contentPreview: "Updated Tools Draft chapter patched by the editor.",
+      },
+    });
+
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    const readResult = await runCommand(
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(readResult).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          title: "Updated Tools",
+          content: "Updated Tools Draft chapter patched by the editor.",
+        },
+      },
+    });
+
+    const historyLines = (await readFile(join(workspace.dataRoot, historyPath), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(historyLines.at(-1)).toMatchObject({
+      action: "epub.chapter.patch",
+      draftId,
+      bookId: "book-1",
+      chapterId: "chapter-1",
+    });
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {

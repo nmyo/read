@@ -291,6 +291,34 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.chapter.patch",
+    description: "Replace a readable XHTML chapter resource inside an EPUB draft workspace.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        chapterId: {
+          type: "string",
+          minLength: 1,
+          description: "EPUB manifest item id for the XHTML chapter to replace.",
+        },
+        xhtml: {
+          type: "string",
+          minLength: 1,
+          description: "Full replacement XHTML document for the chapter.",
+        },
+      },
+      required: ["draftId", "chapterId", "xhtml"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {
