@@ -2,12 +2,47 @@ import {
   TextReader,
   Uint8ArrayReader,
   Uint8ArrayWriter,
+  BlobReader,
   ZipReader,
   ZipWriter,
   configure,
 } from "@zip.js/zip.js";
 
 configure({ useWebWorkers: false });
+
+export type ZipEntrySummary = {
+  path: string;
+  size: number;
+  sha256: string;
+};
+
+type ZipEntryLike = {
+  filename: string;
+  directory?: boolean;
+  getData?: (writer: Uint8ArrayWriter) => Promise<Uint8Array>;
+};
+
+export async function summarizeZipEntries(bytes: Uint8Array): Promise<ZipEntrySummary[]> {
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const reader = new ZipReader(new BlobReader(new Blob([buffer])));
+
+  try {
+    const entries = (await reader.getEntries()) as ZipEntryLike[];
+    const summaries: ZipEntrySummary[] = [];
+    for (const entry of entries) {
+      if (entry.directory || !entry.getData) continue;
+      const data = await entry.getData(new Uint8ArrayWriter());
+      summaries.push({
+        path: entry.filename,
+        size: data.byteLength,
+        sha256: await sha256Hex(data),
+      });
+    }
+    return summaries.sort((a, b) => a.path.localeCompare(b.path));
+  } finally {
+    await reader.close();
+  }
+}
 
 export async function replaceZipTextEntry(
   bytes: Uint8Array,

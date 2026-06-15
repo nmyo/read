@@ -7,6 +7,7 @@ import {
   readEpubDraftHistory,
   type EpubDraftCreateResult,
 } from "@readany/core/epub/draft";
+import { diffEpubDraft } from "@readany/core/epub/diff";
 import { inspectEpubBytes, type EpubInspectResult } from "@readany/core/epub/inspect";
 import {
   getAllHighlights,
@@ -225,6 +226,14 @@ export async function getEpubDraftHistory(
 ): Promise<import("@readany/core/epub/draft").EpubDraftHistoryResult> {
   await ensureCoreInitialized(env);
   return readEpubDraftHistory(draftId);
+}
+
+export async function diffEpubDraftWorkspace(
+  draftId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<import("@readany/core/epub/diff").EpubDiffResult> {
+  await ensureCoreInitialized(env);
+  return diffEpubDraft(draftId);
 }
 
 export type ChapterListOptions = {

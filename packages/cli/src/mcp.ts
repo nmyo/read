@@ -8,6 +8,7 @@ import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
+  diffEpubDraftWorkspace,
   getBookById,
   getEpubDraftHistory,
   getIndexedChapter,
@@ -377,6 +378,13 @@ async function callReadAnyTool(
     if (!draftId) return failure("missing_draft_id", "epub.history requires draftId");
     const history = await getEpubDraftHistory(draftId, env);
     return success({ history });
+  }
+
+  if (toolName === "epub.diff") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.diff requires draftId");
+    const diff = await diffEpubDraftWorkspace(draftId, env);
+    return success({ diff });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

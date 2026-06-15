@@ -174,6 +174,7 @@ Draft 工作区：用户手动编辑、看 diff、撤销、导出。
 - chapter patch
 - metadata patch
 - history read
+- diff read
 - toc rebuild
 - diff / history / undo
 - AI 建议：封面、元数据、目录、章节结构、全书修复计划
@@ -400,9 +401,10 @@ M5：普通用户能通过桌面端完成接入，高级用户能通过 CLI/MCP 
 - `readany epub chapter patch ... --json`
 - `readany epub metadata patch ... --json`
 - `readany epub history <draft-id> --profile editor --json`
+- `readany epub diff <draft-id> --profile editor --json`
 - `readany epub toc rebuild ... --json`
 - AI 能修本章，也能修全书
-- 用户能查看 operation history，diff / undo 完成后再进入完整 M3 验收
+- 用户能查看 operation history 和 source/draft EPUB entry diff，undo 完成后再进入完整 M3 验收
 - 原始 EPUB hash 不变
 
 ### M4 验收
@@ -427,6 +429,7 @@ M5：普通用户能通过桌面端完成接入，高级用户能通过 CLI/MCP 
 - ReadAny 已经有 readonly MCP。
 - ReadAny 已经能让外部 AI 读书库、笔记、高亮和已索引 chunks。
 - ReadAny 已经能让外部 AI 在 editor profile 下读取 draft operation history。
+- ReadAny 已经能让外部 AI 在 editor profile 下查看 source/draft EPUB entry diff。
 - ReadAny 已经有桌面端外部 AI 访问入口。
 
 ### 现在不能对外说什么
@@ -434,7 +437,7 @@ M5：普通用户能通过桌面端完成接入，高级用户能通过 CLI/MCP 
 - 不能说已经支持 EPUB 精排写入。
 - 不能说已经支持导出闭环。
 - 不能说已经开放章节正文和 vector / hybrid RAG。
-- 不能说已经支持 diff / undo / validate / export 的完整精排闭环。
+- 不能说已经支持 undo / validate / export 的完整精排闭环。
 - 不能说 MCP 已经暴露全部计划中的工具。
 
 ### 完成标准

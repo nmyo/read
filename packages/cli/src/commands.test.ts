@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 14 },
+        tools: { count: 15 },
       });
     }
   });
@@ -506,6 +506,63 @@ describe("commands", () => {
         ],
       },
     });
+  });
+
+  it("diffs an EPUB draft against the original with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+
+    const xhtmlPath = join(workspace.root, "chapter.xhtml");
+    await writeFile(
+      xhtmlPath,
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Diffed Tools</h1><p>Draft chapter changed before diff.</p></body></html>`,
+      "utf8",
+    );
+    const patchResult = await runCommand(
+      ["epub", "chapter", "patch", draftId, "chapter-1", "--xhtml", xhtmlPath, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(patchResult.ok).toBe(true);
+
+    const readonly = await runCommand(["epub", "diff", draftId], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "diff", draftId, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      diff: {
+        draftId,
+        bookId: "book-1",
+        sourceFilePath: "books/agent.epub",
+        draftFilePath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/source\.epub$/),
+        changedCount: 1,
+        modifiedCount: 1,
+        entries: expect.arrayContaining([
+          expect.objectContaining({
+            path: "OPS/chapter-1.xhtml",
+            status: "modified",
+            sourceHash: expect.any(String),
+            draftHash: expect.any(String),
+          }),
+        ]),
+      },
+    });
+    expect(JSON.stringify(result.data)).not.toContain(workspace.root);
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {

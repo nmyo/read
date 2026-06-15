@@ -118,6 +118,7 @@ describe("mcp", () => {
         { name: "epub.chapter.patch" },
         { name: "epub.metadata.patch" },
         { name: "epub.history" },
+        { name: "epub.diff" },
       ],
     });
   });
@@ -548,6 +549,82 @@ describe("mcp", () => {
           draftId,
           bookId: "mcp-book",
           entries: [{ action: "epub.draft.create", draftId }],
+        },
+      },
+    });
+  });
+
+  it("gates epub.diff by editor profile and returns draft resource changes", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const patchResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.patch",
+          arguments: {
+            draftId,
+            chapterId: "chapter-1",
+            xhtml:
+              `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Diffed Agent Access</h1><p>MCP diff changed this chapter.</p></body></html>`,
+          },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(patchResponse).toMatchObject({ isError: false });
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.diff", arguments: { draftId } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.diff", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        diff: {
+          draftId,
+          bookId: "mcp-book",
+          changedCount: 1,
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              path: "OPS/chapter-1.xhtml",
+              status: "modified",
+            }),
+          ]),
         },
       },
     });

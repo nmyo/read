@@ -120,6 +120,7 @@ Usage:
   readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--json] [--profile editor]
   readany epub metadata patch <draft-id> --patch <file> [--json] [--profile editor]
   readany epub history <draft-id> [--json] [--profile editor]
+  readany epub diff <draft-id> [--json] [--profile editor]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -457,6 +458,16 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (!draftId) return failure("missing_draft_id", "epub history requires a draft id");
         const history = await data.getEpubDraftHistory(draftId, env);
         return success({ history });
+      }
+      if (subcommand === "diff") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.draft")) {
+          return failure("permission_denied", "epub diff requires editor profile or higher");
+        }
+        const draftId = command.args[1];
+        if (!draftId) return failure("missing_draft_id", "epub diff requires a draft id");
+        const diff = await data.diffEpubDraftWorkspace(draftId, env);
+        return success({ diff });
       }
       return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());
     }

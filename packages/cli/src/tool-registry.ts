@@ -360,6 +360,24 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.diff",
+    description: "Compare an EPUB draft workspace against its original source EPUB.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+      },
+      required: ["draftId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

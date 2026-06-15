@@ -203,6 +203,7 @@ readany epub chapter read <draft-id> <chapter-id> --profile editor --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --json
 readany epub metadata patch <draft-id> --patch <file> --json
 readany epub history <draft-id> --profile editor --json
+readany epub diff <draft-id> --profile editor --json
 readany epub validate <draft-id> --json
 readany epub export <draft-id> --json
 ```
@@ -294,7 +295,7 @@ readany epub export <draft-id> --json
 
 - AI 能创建 draft。
 - AI 能修改当前章或元数据。
-- 用户能查看 operation history；diff/undo 完成后再进入完整 M3 验收。
+- 用户能查看 operation history 和 source/draft EPUB entry diff；undo 完成后再进入完整 M3 验收。
 - 原始 EPUB 不被修改。
 
 ### M4 停止线
