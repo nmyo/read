@@ -1,10 +1,11 @@
 import { CLI_VERSION } from "./version.js";
 import { getCliPaths } from "./paths.js";
-import { parseAccessProfile } from "./profiles.js";
+import { isAccessProfile, parseAccessProfile } from "./profiles.js";
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode } from "./install.js";
 import { getSkillStatus, installSkill, uninstallSkill } from "./skill.js";
+import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
 import {
   getBookById,
@@ -118,7 +119,11 @@ Usage:
 `;
 }
 
-export async function runCommand(argv: string[], env = process.env): Promise<CommandResult> {
+function shouldAuditCommand(command: ParsedCommand): boolean {
+  return !["--version", "version", "help", "--help", "-h"].includes(command.name);
+}
+
+async function executeCommand(argv: string[], env = process.env): Promise<CommandResult> {
   const command = parseCommand(argv);
   const paths = getCliPaths(env);
 
@@ -268,4 +273,22 @@ export async function runCommand(argv: string[], env = process.env): Promise<Com
       error instanceof Error ? error.message : String(error),
     );
   }
+}
+
+export async function runCommand(argv: string[], env = process.env): Promise<CommandResult> {
+  const command = parseCommand(argv);
+  const result = await executeCommand(argv, env);
+
+  if (shouldAuditCommand(command)) {
+    await appendCliAuditEntry(env, {
+      timestamp: new Date().toISOString(),
+      source: "cli",
+      action: [command.name, ...command.args].filter(Boolean).join(" "),
+      profile: command.profile && isAccessProfile(command.profile) ? command.profile : undefined,
+      ok: result.ok,
+      code: result.ok ? undefined : result.error.code,
+    });
+  }
+
+  return result;
 }

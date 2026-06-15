@@ -1,10 +1,12 @@
 import Database from "better-sqlite3";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getAuditLogFilePath } from "./audit-log.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
 import { handleMcpRequest } from "./mcp.js";
+import { READANY_TOOLS } from "./tool-registry.js";
 
 async function createEnv() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-mcp-"));
@@ -100,5 +102,63 @@ describe("mcp", () => {
       ok: false,
       error: { code: "unknown_tool" },
     });
+  });
+
+  it("records MCP audit entries without leaking tool arguments", async () => {
+    const env = await createEnv();
+    await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "books.search",
+          arguments: { query: "secret-search-text" },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    const auditPath = getAuditLogFilePath(
+      join(env.READANY_HOME!, "logs", "cli"),
+      new Date().toISOString(),
+    );
+    const auditContent = await readFile(auditPath, "utf8");
+    expect(auditContent).toContain('"source":"mcp"');
+    expect(auditContent).toContain('"action":"tools/call:books.search"');
+    expect(auditContent).not.toContain("secret-search-text");
+  });
+
+  it("rejects tools when the profile is missing required scopes", async () => {
+    const temporaryTool = {
+      name: "test.admin.backup",
+      description: "Test admin-only tool.",
+      scopes: ["admin.backup"],
+      risk: "high",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+      },
+    } as const;
+    (READANY_TOOLS as unknown as typeof temporaryTool[]).push(temporaryTool);
+
+    try {
+      const response = await handleMcpRequest(
+        {
+          method: "tools/call",
+          params: { name: temporaryTool.name, arguments: {} },
+        },
+        "readonly",
+        await createEnv(),
+      );
+
+      expect(response).toMatchObject({ isError: true });
+      const text = (response as { content: Array<{ text: string }> }).content[0].text;
+      expect(JSON.parse(text)).toMatchObject({
+        ok: false,
+        error: { code: "permission_denied" },
+      });
+    } finally {
+      (READANY_TOOLS as unknown as typeof temporaryTool[]).pop();
+    }
   });
 });

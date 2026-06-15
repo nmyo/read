@@ -163,4 +163,14 @@ describe("commands", () => {
       });
     }
   });
+
+  it("does not fail when audit logs are unavailable", async () => {
+    const workspace = await createWorkspace();
+    await mkdir(join(workspace.dataRoot, "logs"), { recursive: true });
+    const blockedLogDir = join(workspace.dataRoot, "logs", "cli");
+    await writeFile(blockedLogDir, "not-a-directory", "utf8");
+
+    const result = await runCommand(["tools", "list"], workspace.env);
+    expect(result.ok).toBe(true);
+  });
 });

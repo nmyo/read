@@ -4,6 +4,7 @@ import type { CommandResult } from "./result.js";
 import { failure, success } from "./result.js";
 import type { AccessProfile, PermissionScope } from "./profiles.js";
 import { parseAccessProfile, profileHasScope } from "./profiles.js";
+import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
 import {
   getBookById,
@@ -24,6 +25,38 @@ type ToolCallParams = {
   name?: string;
   arguments?: Record<string, unknown>;
 };
+
+function getResultErrorCode(result: unknown): string | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  if ("error" in result) return "jsonrpc_error";
+  if (!("isError" in result) || result.isError !== true) return undefined;
+  const content = (result as { content?: Array<{ text?: string }> }).content;
+  const text = content?.[0]?.text;
+  if (!text) return "tool_error";
+  try {
+    const parsed = JSON.parse(text) as CommandResult;
+    return parsed.ok ? undefined : parsed.error.code;
+  } catch {
+    return "tool_error";
+  }
+}
+
+async function recordMcpAudit(
+  env: NodeJS.ProcessEnv,
+  profile: AccessProfile,
+  action: string,
+  result: unknown,
+): Promise<void> {
+  const code = getResultErrorCode(result);
+  await appendCliAuditEntry(env, {
+    timestamp: new Date().toISOString(),
+    source: "mcp",
+    action,
+    profile,
+    ok: !code,
+    code,
+  });
+}
 
 function toMcpTool(tool: ReturnType<typeof listTools>[number]) {
   return {
@@ -136,8 +169,11 @@ export async function handleMcpRequest(
   profile: AccessProfile,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<unknown> {
+  let action = request.method ?? "unknown";
+  let result: unknown;
+
   if (request.method === "initialize") {
-    return {
+    result = {
       protocolVersion: "2024-11-05",
       capabilities: {
         tools: {},
@@ -147,28 +183,41 @@ export async function handleMcpRequest(
         version: "0.1.0",
       },
     };
+    await recordMcpAudit(env, profile, action, result);
+    return result;
   }
 
   if (request.method === "tools/list") {
-    return {
+    result = {
       tools: listTools().map(toMcpTool),
     };
+    await recordMcpAudit(env, profile, action, result);
+    return result;
   }
 
   if (request.method === "tools/call") {
     const params = parseArgs(request.params) as ToolCallParams;
     const name = params.name;
-    if (!name) return asMcpContent(failure("missing_tool_name", "tools/call requires name"));
+    action = name ? `tools/call:${name}` : "tools/call";
+    if (!name) {
+      result = asMcpContent(failure("missing_tool_name", "tools/call requires name"));
+      await recordMcpAudit(env, profile, action, result);
+      return result;
+    }
     const args = params.arguments ?? {};
-    return asMcpContent(await callReadAnyTool(profile, name, args, env));
+    result = asMcpContent(await callReadAnyTool(profile, name, args, env));
+    await recordMcpAudit(env, profile, action, result);
+    return result;
   }
 
-  return {
+  result = {
     error: {
       code: -32601,
       message: `Unknown MCP method: ${request.method ?? ""}`.trim(),
     },
   };
+  await recordMcpAudit(env, profile, action, result);
+  return result;
 }
 
 export async function serveMcp(argvProfile: string | undefined, env = process.env): Promise<void> {
