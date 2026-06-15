@@ -1,0 +1,104 @@
+import Database from "better-sqlite3";
+import { mkdtemp, mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
+import { handleMcpRequest } from "./mcp.js";
+
+async function createEnv() {
+  const root = await mkdtemp(join(tmpdir(), "readany-cli-mcp-"));
+  const dataRoot = join(root, "library");
+  await mkdir(dataRoot, { recursive: true });
+  return {
+    ...process.env,
+    READANY_HOME: dataRoot,
+    AGENT_HOME: join(root, "agent"),
+  } as NodeJS.ProcessEnv;
+}
+
+async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
+  await resetCoreForTests();
+  await ensureCoreInitialized(env);
+  const db = new Database(join(env.READANY_HOME!, "readany.db"));
+  db.exec(`
+    INSERT INTO books (
+      id, file_path, format, title, author, publisher, language, isbn, description,
+      cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+      group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+      is_vectorized, vectorize_progress, tags, file_hash, sync_status
+    ) VALUES (
+      'mcp-book', 'books/mcp.epub', 'epub', 'MCP for Readers', 'Ada Reader', NULL, 'en',
+      NULL, 'MCP access for ReadAny', NULL, NULL, NULL, NULL, '["AI"]',
+      100, 8, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 1, 1,
+      '["mcp"]', 'hash-mcp', 'local'
+    );
+  `);
+  db.close();
+}
+
+describe("mcp", () => {
+  it("returns server capabilities during initialize", async () => {
+    const response = await handleMcpRequest({ method: "initialize" }, "readonly", await createEnv());
+    expect(response).toMatchObject({
+      capabilities: { tools: {} },
+      serverInfo: { name: "readany" },
+    });
+  });
+
+  it("lists implemented readonly tools only", async () => {
+    const response = await handleMcpRequest({ method: "tools/list" }, "readonly", await createEnv());
+    expect(response).toMatchObject({
+      tools: [
+        { name: "books.list" },
+        { name: "books.search" },
+        { name: "books.get" },
+        { name: "notes.search" },
+        { name: "highlights.search" },
+      ],
+    });
+  });
+
+  it("calls a readonly tool", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "books.search",
+          arguments: { query: "mcp" },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    expect(response).toMatchObject({ isError: false });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: true,
+      data: {
+        books: [{ id: "mcp-book", meta: { title: "MCP for Readers" } }],
+      },
+    });
+  });
+
+  it("rejects unknown tools", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.export", arguments: {} },
+      },
+      "readonly",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "unknown_tool" },
+    });
+  });
+});

@@ -69,6 +69,7 @@ describe("commands", () => {
       json: true,
       profile: "editor",
       mode: undefined,
+      options: {},
     });
   });
 
@@ -98,17 +99,8 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 8 },
+        tools: { count: 5 },
       });
-    }
-  });
-
-  it("returns a clear not implemented response for mcp serve", async () => {
-    const result = await runCommand(["mcp", "serve", "--profile", "readonly"], await createWorkspace().then((w) => w.env));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("not_implemented");
-      expect(result.error.message).toContain("MCP server is not implemented yet");
     }
   });
 
@@ -119,6 +111,20 @@ describe("commands", () => {
     if (result.ok) {
       expect(result.data).toMatchObject({ books: [] });
     }
+  });
+
+  it("parses generic string options", () => {
+    expect(parseCommand(["notes", "search", "agent", "--book", "book-1", "--limit", "5"])).toEqual({
+      name: "notes",
+      args: ["search", "agent"],
+      json: false,
+      profile: undefined,
+      mode: undefined,
+      options: {
+        book: "book-1",
+        limit: "5",
+      },
+    });
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {

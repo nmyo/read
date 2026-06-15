@@ -11,6 +11,27 @@ mcp server  -> 外部 AI 访问入口
 skill       -> 外部 AI 的使用说明与调用模板
 ```
 
+实际调用链：
+
+```text
+External AI
+  -> MCP client
+  -> readany mcp serve
+  -> packages/cli tool registry
+  -> packages/cli command/data adapter
+  -> packages/core domain/query layer
+  -> ReadAny local database and managed files
+```
+
+CLI 命令行调用链：
+
+```text
+Human / script
+  -> readany <command>
+  -> packages/cli command runner
+  -> packages/core
+```
+
 ## 代码组织建议
 
 ```text
@@ -48,6 +69,14 @@ CLI 不应该直接实现业务逻辑。业务逻辑优先沉到 `@readany/core`
 - 调用 core 能力。
 - 输出结构化结果。
 - 记录审计日志。
+
+当前实现里，Node 平台适配放在：
+
+```text
+packages/cli/src/platform/node-platform.ts
+```
+
+它负责在 Node 环境里复用 `@readany/core` 的数据库和查询层。后续新能力优先进入 core，再由 CLI 适配调用；不要把 EPUB 解析、RAG、draft 规则直接堆在命令解析文件里。
 
 ## Skill 角色
 
@@ -92,6 +121,14 @@ MCP server 默认使用 stdio，便于 Codex、Claude Desktop、Cursor 等本地
 readany mcp serve --profile readonly
 ```
 
+第一阶段 MCP 使用 stdio JSON-RPC：
+
+- `initialize`
+- `tools/list`
+- `tools/call`
+
+返回内容封装为 ReadAny 标准 `CommandResult` JSON，便于外部 agent 做可靠解析。
+
 如果未来需要常驻后台服务，再增加：
 
 ```bash
@@ -108,6 +145,8 @@ readany daemon stop
 - 不暴露任意 shell。
 - 不暴露任意文件系统根。
 - 只允许 workspace 范围访问。
+- 不在默认输出里暴露本地绝对路径。
+- 不在 MCP 工具列表中暴露未实现能力。
 
 ### 写入规则
 
@@ -116,6 +155,14 @@ readany daemon stop
 - 先生成 plan。
 - 再应用到 draft。
 - 最后用户确认导出或提交。
+
+写入链路必须满足：
+
+- 输入经过 schema 校验。
+- profile 拥有所需 scope。
+- 写入目标是 draft、note、knowledge document 等受控对象。
+- 高风险动作进入确认队列，不由外部 AI 静默执行。
+- 记录审计日志。
 
 ### 权限分层
 
@@ -157,6 +204,8 @@ admin.backup
 - 批量修改书库。
 - 修改同步配置。
 - 读凭证。
+- 导出到用户授权目录之外。
+- 执行批量 draft patch。
 
 ## 运行模式
 
@@ -201,6 +250,15 @@ CLI 需要能识别：
 - skill 安装状态。
 - 审计日志位置。
 
+环境变量约定：
+
+```text
+READANY_HOME  ReadAny 本地数据根目录，测试和外部启动时可显式传入。
+AGENT_HOME    通用 agent home，用于安装 ~/.agent 风格的 skill。
+```
+
+测试必须显式传 `READANY_HOME` / `AGENT_HOME`，避免读写开发者真实书库。
+
 ## 审计日志
 
 写操作、导出操作、同步操作必须记录：
@@ -215,3 +273,40 @@ CLI 需要能识别：
 - 成功或失败。
 
 日志不应该记录完整正文、API key、同步密码等敏感数据。
+
+## 工具注册规则
+
+每个 MCP tool 都必须先进入 tool registry，并声明：
+
+- tool name。
+- description。
+- scopes。
+- risk。
+- input schema。
+- output shape。
+- 是否已真实接线。
+
+`tools/list` 只能返回真实可调用的工具。规划中的工具可以写入文档，但不能注册到 MCP。
+
+## 错误模型
+
+CLI 和 MCP 都使用统一结果结构：
+
+```ts
+type CommandResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; details?: unknown } };
+```
+
+错误必须可机器读取。常见错误码：
+
+```text
+missing_query
+missing_book_id
+unknown_tool
+permission_denied
+not_implemented
+invalid_profile
+workspace_out_of_bounds
+confirmation_required
+```

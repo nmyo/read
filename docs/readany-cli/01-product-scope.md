@@ -27,6 +27,20 @@ ReadAny 不是把数据“开放给 AI”，而是把“能力”开放给 AI。
 - AI 能操作的是受控对象。
 - AI 不能直接接触任意文件系统、任意 SQL、任意进程。
 
+## 能力分层
+
+ReadAny CLI 不是单一命令工具，而是一组逐步开放的本地能力：
+
+| 层级 | 用户价值 | AI 能力 | 默认权限 |
+| --- | --- | --- | --- |
+| Library | 找书、看元数据、看进度 | 列书、搜书、读书籍元数据 | `readonly` |
+| Content | 理解正文和上下文 | 读目录、章节、选区、引用位置 | `readonly` |
+| Notes | 整理阅读资产 | 搜笔记、高亮、书签、标签 | `readonly` / `assistant` |
+| Knowledge | 做知识整理 | RAG、主题聚合、引用回链 | `readonly` / `assistant` |
+| Draft | 改内容但不碰原文件 | 创建草稿、修章、修元数据、修 CSS | `editor` |
+| Export | 生成新产物 | 导出 EPUB、Markdown、Obsidian、报告 | `publisher` |
+| Admin | 管理本地状态 | 导入、同步、备份、诊断 | `admin` |
+
 ## 主要场景
 
 ### 1. 读书库
@@ -93,6 +107,14 @@ ReadAny 不是把数据“开放给 AI”，而是把“能力”开放给 AI。
 把这本 EPUB 精排成中文阅读版，修复目录，统一标题样式，导出一个新文件。
 ```
 
+精排必须遵守 draft-first：
+
+- 原始 EPUB 不被直接修改。
+- AI 修改的是 draft 中的受控资源。
+- 每次修改记录 operation history。
+- 导出时生成新文件。
+- 覆盖原文件必须是后续高风险能力，且必须用户确认。
+
 ### 5. 导入和导出
 
 外部 AI 可以：
@@ -143,15 +165,48 @@ ReadAny 不是把数据“开放给 AI”，而是把“能力”开放给 AI。
 - 默认 workspace 限制。
 - 默认显式授权写入。
 
-## 第一阶段范围
+## 当前已实现范围
+
+当前代码已经实现：
+
+1. CLI 独立 package：`packages/cli`。
+2. `readany doctor`、`readany install`、`readany uninstall`。
+3. `readany skill install`、`readany skill uninstall`、`readany skill status`。
+4. `readany tools list`。
+5. `readany books list/search`、`readany book get`。
+6. `readany notes search`、`readany highlights search`。
+7. `readany bookmarks list`、`readany skills list`。
+8. `readany mcp serve --profile readonly` 的 stdio JSON-RPC 最小协议。
+
+当前 MCP 只暴露：
+
+```text
+books.list
+books.search
+books.get
+notes.search
+highlights.search
+```
+
+## 第一阶段目标范围
 
 第一阶段只需要跑通：
 
 1. CLI 独立 package。
 2. `readany doctor`。
 3. `readany mcp serve --profile readonly`。
-4. 书库、书籍、章节、笔记、高亮的只读查询。
+4. 书库、书籍、笔记、高亮的只读查询。
 5. Skill 安装到通用 agent 目录。
 6. 桌面客户端设置页能管理 CLI 和 Skill 状态。
 
-EPUB 精排、导出、同步、备份可以在后续阶段接入。
+章节正文、RAG、EPUB 精排、导出、同步、备份在后续阶段接入。接入前不允许伪造工具，不允许在 MCP `tools/list` 里提前出现。
+
+## 完整可用范围
+
+完整可用指外部 AI 可以完成一个闭环任务：
+
+```text
+找书 -> 读内容 -> 读笔记/高亮 -> 检索知识 -> 创建 draft -> 修改章节/元数据/CSS -> 验证 -> 导出新文件 -> 写入审计
+```
+
+这条闭环跑通前，ReadAny CLI 只能称为外部 AI 只读入口；跑通后，才称为外部 AI 编辑和出版入口。

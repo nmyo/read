@@ -32,6 +32,8 @@ readany skill uninstall
 readany skill status --json
 ```
 
+设置页是客户端功能，不做在移动端第一版。移动端后续可以做查看、确认、撤销，但不负责安装 CLI 或注册外部 agent。
+
 ## 状态卡片
 
 建议分成四块：
@@ -82,6 +84,21 @@ readany skill status --json
 - 测试连接。
 - 切换 profile。
 
+复制配置时给外部 agent 的最小片段：
+
+```json
+{
+  "mcpServers": {
+    "readany": {
+      "command": "readany",
+      "args": ["mcp", "serve", "--profile", "readonly"]
+    }
+  }
+}
+```
+
+第一版只提供 readonly 配置。更高 profile 需要用户在设置页明确开启。
+
 ### 4. Activity Log
 
 展示最近：
@@ -119,3 +136,45 @@ readany skill status --json
 - 后台自动启动 MCP。
 - 移动端管理页。
 - 高风险操作远程确认。
+
+## UI 验收细节
+
+设置页必须让用户看懂四件事：
+
+1. CLI 是否安装，版本是否匹配。
+2. Skill 是否安装到通用 agent 目录。
+3. MCP readonly 如何被外部 agent 调用。
+4. 当前 profile 能做什么、不能做什么。
+
+按钮行为：
+
+- 安装 CLI：调用随包 CLI 的 `install`。
+- 卸载 CLI：调用 `readany uninstall`。
+- 修复 CLI：先跑 `doctor --json`，再根据失败项执行 install 或 path 修复。
+- 安装 Skill：调用 `readany skill install`。
+- 卸载 Skill：调用 `readany skill uninstall`。
+- 测试 MCP：启动一次 `readany mcp serve --profile readonly` 并发送 `initialize` / `tools/list` smoke。
+
+失败态必须展示：
+
+- 命令。
+- 错误码。
+- 简短错误说明。
+- 建议动作。
+
+## 做到什么程度为止
+
+客户端 M1 做到：
+
+- 用户能在桌面客户端安装 CLI。
+- 用户能安装或卸载 Skill。
+- 用户能复制 readonly MCP 配置。
+- 用户能看到 doctor 检查项。
+- 用户知道 readonly 不允许写入和导出。
+
+客户端 M4 做到：
+
+- 用户能切换 profile。
+- 用户能查看最近 agent 调用日志。
+- 用户能确认高风险导出。
+- 用户能打开 draft、查看 diff、批准导出。

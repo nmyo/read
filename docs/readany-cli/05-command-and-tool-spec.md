@@ -2,6 +2,12 @@
 
 ## CLI 命令
 
+命令分为三类：
+
+- 已实现：可以写入 README、help、测试和用户文档。
+- 规划中：只写在设计文档，不进入 CLI help 和 MCP `tools/list`。
+- 禁止类：不设计、不实现，例如任意 shell、任意 SQL。
+
 ### 基础命令
 
 ```bash
@@ -42,14 +48,25 @@ $AGENT_HOME/skills/readany
 
 ### 只读数据命令
 
+已实现：
+
 ```bash
-readany books list [--limit 50] [--cursor <cursor>] [--json]
+readany tools list [--json]
+readany books list [--limit 50] [--json]
 readany books search <query> [--json]
 readany book get <book-id> [--json]
-readany chapters list <book-id> [--json]
-readany chapter get <book-id> <chapter-id> [--json]
 readany notes search <query> [--book <book-id>] [--json]
 readany highlights search <query> [--book <book-id>] [--json]
+readany bookmarks list <book-id> [--json]
+readany skills list [--json]
+```
+
+规划中：
+
+```bash
+readany chapters list <book-id> [--json]
+readany chapter get <book-id> <chapter-id> [--json]
+readany rag search <query> [--book <book-id>] [--json]
 ```
 
 ### Draft 和导出命令
@@ -87,6 +104,18 @@ epub.validate
 epub.export
 ```
 
+当前 `tools/list` 只允许返回：
+
+```text
+books.list
+books.search
+books.get
+notes.search
+highlights.search
+```
+
+`chapters.*`、`rag.search`、`epub.*` 接入真实实现前只能保留在设计文档里。
+
 ## Tool 输出规则
 
 所有工具输出都必须：
@@ -115,6 +144,22 @@ type ToolResult<T> = {
 };
 ```
 
+MCP `tools/call` 返回 MCP content：
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"ok\":true,\"data\":{}}"
+    }
+  ],
+  "isError": false
+}
+```
+
+其中 `text` 内容是 ReadAny `CommandResult` JSON。
+
 ## Tool Registry
 
 每个 tool 必须声明：
@@ -123,8 +168,6 @@ type ToolResult<T> = {
 type ReadAnyTool = {
   name: string;
   description: string;
-  inputSchema: unknown;
-  outputSchema: unknown;
   scopes: string[];
   risk: "low" | "medium" | "high";
 };
@@ -138,24 +181,49 @@ type ReadAnyTool = {
 
 ## 第一批 Tool
 
-第一阶段只做：
+当前已实现：
 
 ```text
 books.list
 books.search
 books.get
-chapters.list
-chapters.get
 notes.search
 highlights.search
-rag.search
 ```
 
-第一阶段不做：
+M2 再做：
 
 ```text
+chapters.list
+chapters.get
+rag.search
+knowledge.search
+```
+
+M3 / M4 再做：
+
+```text
+epub.inspect
+epub.draft.create
+epub.chapter.read
 epub.chapter.patch
+epub.metadata.patch
+epub.toc.rebuild
+epub.validate
 epub.export
+notes.export
+knowledge.export
+```
+
+不做：
+
+```text
+shell.exec
+sql.query
+filesystem.read.any
+filesystem.write.any
 sync.run
 admin.backup
 ```
+
+`sync.run` 和 `admin.backup` 不是永远不做，而是不进入默认外部 AI 能力；未来只能放进 `admin` profile，并且必须用户确认。

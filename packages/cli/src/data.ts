@@ -64,22 +64,41 @@ export async function getBookById(bookId: string, env: NodeJS.ProcessEnv = proce
   return getBook(bookId);
 }
 
-export async function listHighlights(
-  bookId?: string,
-  limit = 50,
-  env: NodeJS.ProcessEnv = process.env,
-) {
+export type SearchAnnotationsOptions = {
+  query?: string;
+  bookId?: string;
+  limit?: number;
+  env?: NodeJS.ProcessEnv;
+};
+
+export async function listHighlights(options: SearchAnnotationsOptions = {}) {
+  const { bookId, query, limit = 50, env = process.env } = options;
   await ensureCoreInitialized(env);
-  return bookId ? getHighlights(bookId) : getAllHighlights(limit);
+  const highlights = bookId ? await getHighlights(bookId) : await getAllHighlights(limit);
+  const needle = query?.trim().toLowerCase();
+  if (!needle) return highlights.slice(0, limit);
+  return highlights
+    .filter((highlight) =>
+      `${highlight.text} ${highlight.note ?? ""} ${highlight.chapterTitle ?? ""}`
+        .toLowerCase()
+        .includes(needle),
+    )
+    .slice(0, limit);
 }
 
-export async function listNotes(
-  bookId?: string,
-  limit = 50,
-  env: NodeJS.ProcessEnv = process.env,
-) {
+export async function listNotes(options: SearchAnnotationsOptions = {}) {
+  const { bookId, query, limit = 50, env = process.env } = options;
   await ensureCoreInitialized(env);
-  return bookId ? getNotes(bookId) : getAllNotes(limit);
+  const notes = bookId ? await getNotes(bookId) : await getAllNotes(limit);
+  const needle = query?.trim().toLowerCase();
+  if (!needle) return notes.slice(0, limit);
+  return notes
+    .filter((note) =>
+      `${note.title} ${note.content} ${note.chapterTitle ?? ""} ${(note.tags ?? []).join(" ")}`
+        .toLowerCase()
+        .includes(needle),
+    )
+    .slice(0, limit);
 }
 
 export async function listBookmarks(bookId: string, env: NodeJS.ProcessEnv = process.env) {

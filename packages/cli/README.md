@@ -17,19 +17,25 @@ Current phase:
 - `readany book get`
 - `readany notes search`
 - `readany highlights search`
+- `readany mcp serve --profile readonly`
 
-The MCP server command is intentionally present but not implemented yet:
+Current MCP tools:
 
-```bash
-readany mcp serve --profile readonly
+```text
+books.list
+books.search
+books.get
+notes.search
+highlights.search
 ```
 
 Development:
 
 ```bash
-pnpm cli -- --version
-pnpm cli:test
-pnpm cli:build
+pnpm --filter @readany/cli dev -- --version
+pnpm --filter @readany/cli check
+pnpm --filter @readany/cli test
+pnpm --filter @readany/cli build
 ```
 
 Design docs live in `docs/readany-cli`.
