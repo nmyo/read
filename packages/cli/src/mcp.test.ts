@@ -273,6 +273,48 @@ describe("mcp", () => {
     });
   });
 
+  it("enforces tool argument schema limits", async () => {
+    const env = await createEnv();
+    const cases = [
+      {
+        name: "books.search",
+        arguments: { query: "   " },
+        message: "empty string",
+      },
+      {
+        name: "books.list",
+        arguments: { limit: 1000 },
+        message: "number maximum",
+      },
+      {
+        name: "rag.search",
+        arguments: { query: "mcp", bookId: "mcp-book", mode: "hybrid" },
+        message: "enum value",
+      },
+    ];
+
+    for (const item of cases) {
+      const response = await handleMcpRequest(
+        {
+          method: "tools/call",
+          params: {
+            name: item.name,
+            arguments: item.arguments,
+          },
+        },
+        "readonly",
+        env,
+      );
+
+      expect(response, item.message).toMatchObject({ isError: true });
+      const text = (response as { content: Array<{ text: string }> }).content[0].text;
+      expect(JSON.parse(text), item.message).toMatchObject({
+        ok: false,
+        error: { code: "invalid_tool_arguments" },
+      });
+    }
+  });
+
   it("records MCP audit entries without leaking tool arguments", async () => {
     const env = await createEnv();
     await handleMcpRequest(

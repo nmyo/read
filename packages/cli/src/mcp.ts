@@ -30,6 +30,14 @@ type ToolCallParams = {
   arguments?: Record<string, unknown>;
 };
 
+type ToolPropertySchema = {
+  type?: unknown;
+  minLength?: unknown;
+  minimum?: unknown;
+  maximum?: unknown;
+  enum?: unknown;
+};
+
 function getResultErrorCode(result: unknown): string | undefined {
   if (!result || typeof result !== "object") return undefined;
   if ("error" in result) return "jsonrpc_error";
@@ -125,12 +133,55 @@ function validateToolArguments(
   for (const [key, value] of Object.entries(args)) {
     const schema = properties[key];
     if (!schema || typeof schema !== "object" || !("type" in schema)) continue;
-    const type = (schema as { type?: unknown }).type;
+    const typedSchema = schema as ToolPropertySchema;
+    const type = typedSchema.type;
     if (type === "string" && typeof value !== "string") {
       return failure("invalid_tool_arguments", `${tool.name}.${key} must be a string`);
     }
+    if (
+      type === "string" &&
+      typeof value === "string" &&
+      typeof typedSchema.minLength === "number" &&
+      value.trim().length < typedSchema.minLength
+    ) {
+      return failure(
+        "invalid_tool_arguments",
+        `${tool.name}.${key} must be at least ${typedSchema.minLength} characters`,
+      );
+    }
     if (type === "number" && typeof value !== "number") {
       return failure("invalid_tool_arguments", `${tool.name}.${key} must be a number`);
+    }
+    if (
+      type === "number" &&
+      typeof value === "number" &&
+      typeof typedSchema.minimum === "number" &&
+      value < typedSchema.minimum
+    ) {
+      return failure(
+        "invalid_tool_arguments",
+        `${tool.name}.${key} must be greater than or equal to ${typedSchema.minimum}`,
+      );
+    }
+    if (
+      type === "number" &&
+      typeof value === "number" &&
+      typeof typedSchema.maximum === "number" &&
+      value > typedSchema.maximum
+    ) {
+      return failure(
+        "invalid_tool_arguments",
+        `${tool.name}.${key} must be less than or equal to ${typedSchema.maximum}`,
+      );
+    }
+    if (
+      Array.isArray(typedSchema.enum) &&
+      !typedSchema.enum.some((allowedValue) => allowedValue === value)
+    ) {
+      return failure(
+        "invalid_tool_arguments",
+        `${tool.name}.${key} must be one of: ${typedSchema.enum.join(", ")}`,
+      );
     }
   }
 

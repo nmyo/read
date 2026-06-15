@@ -164,6 +164,19 @@ readany daemon stop
 - 高风险动作进入确认队列，不由外部 AI 静默执行。
 - 记录审计日志。
 
+### 参数校验规则
+
+MCP tool 的 input schema 不只是展示用元数据，调用入口必须实际校验：
+
+- `required`
+- `additionalProperties: false`
+- `string.minLength`
+- `number.minimum`
+- `number.maximum`
+- `enum`
+
+当前实现只接受 tool registry 中已经声明的参数，不接受多余字段，也不接受超出 schema 边界的值。
+
 ### 权限分层
 
 建议至少分成：
