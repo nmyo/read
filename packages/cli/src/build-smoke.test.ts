@@ -143,6 +143,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "notes.export" },
           { name: "highlights.search" },
           { name: "rag.search" },
+          { name: "audit.list" },
           { name: "epub.inspect" },
           { name: "epub.draft.create" },
           { name: "epub.draft.discard" },

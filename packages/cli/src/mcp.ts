@@ -4,7 +4,11 @@ import type { CommandResult } from "./result.js";
 import { failure, success } from "./result.js";
 import type { AccessProfile, PermissionScope } from "./profiles.js";
 import { parseAccessProfile, profileHasScope } from "./profiles.js";
-import { appendCliAuditEntry } from "./audit-log.js";
+import {
+  appendCliAuditEntry,
+  isCliAuditSource,
+  listCliAuditEntries,
+} from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
@@ -332,6 +336,23 @@ async function callReadAnyTool(
         mode,
         limit: getLimit(args, 5),
         env,
+      }),
+    });
+  }
+
+  if (toolName === "audit.list") {
+    const sourceOption = getString(args, "source");
+    if (sourceOption && !isCliAuditSource(sourceOption)) {
+      return failure("invalid_audit_source", "audit.list source must be cli or mcp");
+    }
+    const source = sourceOption && isCliAuditSource(sourceOption) ? sourceOption : undefined;
+    return success({
+      audit: await listCliAuditEntries(env, {
+        limit: getLimit(args, 50),
+        source,
+        ok: typeof args.ok === "boolean" ? args.ok : undefined,
+        actionPrefix: getString(args, "actionPrefix"),
+        date: getString(args, "date"),
       }),
     });
   }

@@ -127,6 +127,7 @@ chapters.get
 notes.search
 highlights.search
 rag.search
+audit.list
 ```
 
 完成标准：
@@ -414,6 +415,7 @@ pnpm --filter app build
 - input schema 校验。
 - skill install / uninstall。
 - audit log 摘要。
+- `readany audit list --json` 和 MCP `audit.list` 摘要。
 - draft history。
 - 原始 EPUB hash 不变。
 

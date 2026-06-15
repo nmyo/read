@@ -14,6 +14,7 @@ describe("tool registry", () => {
       "notes.export",
       "highlights.search",
       "rag.search",
+      "audit.list",
       "epub.inspect",
       "epub.draft.create",
       "epub.draft.discard",

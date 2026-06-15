@@ -169,6 +169,7 @@ notes.search
 notes.export
 highlights.search
 rag.search
+audit.list
 epub.inspect
 epub.draft.create
 epub.draft.discard
@@ -186,7 +187,7 @@ Phase 3 完整通过还需要补齐：
 
 - MCP profile 权限测试覆盖。
 - MCP stdio smoke 脚本或 fixture。已落地：`packages/cli/src/build-smoke.test.ts` 会启动构建后的 `dist/bin/readany.js mcp serve --profile readonly`，并通过 stdin 验证 `initialize`、`tools/list`、`tools/call`。
-- 审计日志最小记录。已落地：CLI / MCP 调用写入 `READANY_HOME/logs/cli`，测试覆盖不记录完整工具参数。
+- 审计日志最小记录。已落地：CLI / MCP 调用写入 `READANY_HOME/logs/cli`，`readany audit list --json` 和 MCP `audit.list` 可读取最近记录，测试覆盖不记录完整工具参数。
 - 客户端可复制的 MCP 配置片段。
 
 ## Phase 4 - Draft / Edit

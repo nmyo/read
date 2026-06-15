@@ -44,6 +44,7 @@ ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受
 - indexed chunks 章节读取。
 - BM25 RAG over chunks。
 - stdio MCP：`initialize`、`tools/list`、`tools/call`。
+- 审计日志读取：`readany audit list --json` 和 MCP `audit.list` 可读取最近 CLI/MCP 调用元数据。
 - EPUB draft 链路：`inspect`、`draft create`、`draft discard`、`chapter read`、`chapter patch`、`metadata patch`、`toc rebuild`、`history`、`diff`、`validate`、`export`。
 - notes export：单本书 notes/highlights 导出为 Markdown、JSON、Obsidian 或 Notion 文件。
 - 桌面端 `设置 -> 外部 AI 访问` 入口，可管理 CLI / Skill / readonly MCP 配置。
@@ -60,6 +61,7 @@ notes.search
 notes.export
 highlights.search
 rag.search
+audit.list
 epub.inspect
 epub.draft.create
 epub.draft.discard
@@ -215,6 +217,7 @@ test "$ORIGINAL_HASH" = "$(shasum -a 256 sample.epub | awk '{print $1}')"
 - `notes.export`
 - knowledge export。
 - 导出审计。
+- audit list 不返回完整正文、工具参数、密钥或同步凭证。
 - publisher profile 或等价明确授权。
 
 当前边界：

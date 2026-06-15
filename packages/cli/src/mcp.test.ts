@@ -128,6 +128,7 @@ describe("mcp", () => {
         { name: "notes.export" },
         { name: "highlights.search" },
         { name: "rag.search" },
+        { name: "audit.list" },
         { name: "epub.inspect" },
         { name: "epub.draft.create" },
         { name: "epub.draft.discard" },
@@ -241,6 +242,51 @@ describe("mcp", () => {
       ok: false,
       error: { code: "unknown_tool" },
     });
+  });
+
+  it("lists recent audit entries without leaking tool arguments", async () => {
+    const env = await createEnv();
+    await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "books.search",
+          arguments: { query: "secret-mcp-query" },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "audit.list",
+          arguments: { source: "mcp", limit: 5 },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(response).toMatchObject({ isError: false });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: true,
+      data: {
+        audit: {
+          limit: 5,
+          entries: [
+            {
+              source: "mcp",
+              action: "tools/call:books.search",
+              ok: true,
+            },
+          ],
+        },
+      },
+    });
+    expect(text).not.toContain("secret-mcp-query");
   });
 
   it("gates epub.inspect by editor profile", async () => {

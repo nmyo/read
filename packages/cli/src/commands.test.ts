@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 20 },
+        tools: { count: 21 },
       });
     }
   });
@@ -1021,6 +1021,52 @@ describe("commands", () => {
       ok: false,
       error: { code: "unsupported_rag_mode" },
     });
+  });
+
+  it("lists audit entries without leaking command arguments", async () => {
+    const workspace = await createWorkspace();
+    await runCommand(["books", "search", "secret-query"], workspace.env);
+    await runCommand(["epub", "export", "draft-secret", "--output", "secret.epub"], workspace.env);
+
+    const result = await runCommand(["audit", "list", "--json", "--limit", "5"], workspace.env);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      audit: {
+        limit: 5,
+        entries: [
+          {
+            source: "cli",
+            action: "epub export",
+            ok: false,
+            code: "permission_denied",
+          },
+          {
+            source: "cli",
+            action: "books search",
+            ok: true,
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(result.data)).not.toContain("secret-query");
+    expect(JSON.stringify(result.data)).not.toContain("draft-secret");
+    expect(JSON.stringify(result.data)).not.toContain("secret.epub");
+
+    const failedOnly = await runCommand(["audit", "list", "--failed"], workspace.env);
+    expect(failedOnly.ok).toBe(true);
+    if (failedOnly.ok) {
+      expect(failedOnly.data).toMatchObject({
+        audit: {
+          entries: [
+            {
+              action: "epub export",
+              ok: false,
+            },
+          ],
+        },
+      });
+    }
   });
 
   it("does not fail when audit logs are unavailable", async () => {
