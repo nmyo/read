@@ -22,6 +22,7 @@ import {
   readEpubChapterFromBookFile,
   readEpubChapterFromDraft,
 } from "@readany/core/epub/chapter";
+import { patchEpubMetadataInDraft } from "@readany/core/epub/metadata";
 import { createNodePlatformService } from "./platform/node-platform.js";
 
 let initialized = false;
@@ -200,6 +201,18 @@ export async function patchEpubChapter(
   const { draftId, chapterId, xhtml, env = process.env } = options;
   await ensureCoreInitialized(env);
   return patchEpubChapterInDraft(draftId, chapterId, xhtml);
+}
+
+export async function patchEpubMetadata(
+  options: {
+    draftId: string;
+    patch: import("@readany/core/epub/metadata").EpubMetadataPatch;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<import("@readany/core/epub/metadata").EpubMetadataPatchResult> {
+  const { draftId, patch, env = process.env } = options;
+  await ensureCoreInitialized(env);
+  return patchEpubMetadataInDraft(draftId, patch);
 }
 
 export type ChapterListOptions = {

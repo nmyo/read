@@ -201,6 +201,7 @@ readany epub draft create <book-id> --profile editor --json
 readany epub inspect <book-id> --profile editor --json
 readany epub chapter read <draft-id> <chapter-id> --profile editor --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --json
+readany epub metadata patch <draft-id> --patch <file> --json
 readany epub validate <draft-id> --json
 readany epub export <draft-id> --json
 ```
@@ -221,7 +222,7 @@ readany epub export <draft-id> --json
 - CLI 能启动 readonly MCP。
 - 外部 AI 可以发现 ReadAny 工具。
 - 只读查询链路跑通。
-- MCP 不展示原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB metadata patch / toc rebuild / validate / export 等未实现工具。
+- MCP 不展示原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB toc rebuild / validate / export 等未实现工具。
 - 测试不依赖真实用户数据。
 
 ## 功能验收清单
@@ -274,7 +275,7 @@ readany epub export <draft-id> --json
 - 外部 AI 能发现 ReadAny。
 - 外部 AI 能列书、搜书、读书籍元数据、搜笔记、搜高亮。
 - 桌面端能安装/卸载 Skill，复制 readonly MCP 配置。
-- `tools/list` 没有原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB metadata patch / toc rebuild / validate / export。
+- `tools/list` 没有原始 EPUB/PDF fallback 解析、vector/hybrid RAG、EPUB toc rebuild / validate / export。
 - 所有测试通过。
 
 ### M2 停止线

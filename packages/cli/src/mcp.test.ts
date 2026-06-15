@@ -116,6 +116,7 @@ describe("mcp", () => {
         { name: "epub.draft.create" },
         { name: "epub.chapter.read" },
         { name: "epub.chapter.patch" },
+        { name: "epub.metadata.patch" },
       ],
     });
   });
@@ -403,6 +404,102 @@ describe("mcp", () => {
       },
     });
   });
+
+  it("gates epub.metadata.patch by editor profile and patches draft metadata", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.metadata.patch",
+          arguments: {
+            draftId,
+            metadata: { title: "MCP Metadata Revised" },
+          },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.metadata.patch",
+          arguments: {
+            draftId,
+            metadata: {
+              title: "MCP Metadata Revised",
+              creator: "Ada Editor",
+              subjects: ["AI", "MCP"],
+            },
+          },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        metadata: {
+          draftId,
+          bookId: "mcp-book",
+          packagePath: "OPS/package.opf",
+          changed: true,
+          metadata: {
+            title: "MCP Metadata Revised",
+            creator: "Ada Editor",
+            subjects: ["AI", "MCP"],
+          },
+        },
+      },
+    });
+  });
+
+  it("rejects epub.metadata.patch without a metadata object", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.metadata.patch",
+          arguments: { draftId: "draft-1", metadata: "title" },
+        },
+      },
+      "editor",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
+    });
+  });
+
 
   it("calls rag.search with readonly profile", async () => {
     const env = await createEnv();

@@ -1,19 +1,10 @@
 import { DOMParser } from "@xmldom/xmldom";
-import {
-  TextReader,
-  Uint8ArrayReader,
-  Uint8ArrayWriter,
-  ZipReader,
-  ZipWriter,
-  configure,
-} from "@zip.js/zip.js";
 import { getPlatformService } from "../services";
 import type { EpubDraftManifest } from "./draft";
 import { generateId } from "../utils/generate-id";
 import { inspectEpubBytes } from "./inspect";
 import { withEpubPackageResourceReader } from "./inspect";
-
-configure({ useWebWorkers: false });
+import { replaceZipTextEntry, sha256Hex } from "./zip";
 
 export type EpubChapterReadResult = {
   source: "draft" | "book";
@@ -306,63 +297,8 @@ function resolvePackagePath(packageDir: string, href: string): string {
   return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
 }
 
-async function replaceZipTextEntry(
-  bytes: Uint8Array,
-  targetPath: string,
-  content: string,
-): Promise<Uint8Array> {
-  const reader = new ZipReader(new Uint8ArrayReader(bytes));
-  const writer = new ZipWriter(new Uint8ArrayWriter(), { extendedTimestamp: false });
-  const writeOptions = {
-    level: 0,
-    lastAccessDate: new Date(0),
-    lastModDate: new Date(0),
-  };
-  let replaced = false;
-
-  try {
-    const entries = await reader.getEntries();
-    for (const entry of entries) {
-      if (entry.directory) {
-        await writer.add(entry.filename, undefined, { directory: true });
-        continue;
-      }
-
-      if (entry.filename === targetPath) {
-        await writer.add(entry.filename, new TextReader(content), writeOptions);
-        replaced = true;
-        continue;
-      }
-
-      if (!entry.getData) continue;
-      await writer.add(
-        entry.filename,
-        new Uint8ArrayReader(await entry.getData(new Uint8ArrayWriter())),
-        writeOptions,
-      );
-    }
-  } finally {
-    await reader.close();
-  }
-
-  if (!replaced) {
-    await writer.close();
-    throw new Error(`EPUB chapter file was not found: ${targetPath}`);
-  }
-
-  return writer.close();
-}
-
 async function appendHistoryLine(path: string, entry: unknown): Promise<void> {
   const platform = getPlatformService();
   const existing = (await platform.exists(path)) ? await platform.readTextFile(path) : "";
   await platform.writeTextFile(path, `${existing}${JSON.stringify(entry)}\n`);
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }

@@ -118,6 +118,7 @@ Usage:
   readany epub draft create <book-id> [--json] [--profile editor]
   readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000]
   readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--json] [--profile editor]
+  readany epub metadata patch <draft-id> --patch <file> [--json] [--profile editor]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
   readany rag search <query> --book <book-id> [--json] [--limit 5]
@@ -352,10 +353,13 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
       }
       if (subcommand === "chapter") {
         const chapterCommand = command.args[1];
-      if (chapterCommand === "read") {
+        if (chapterCommand === "read") {
           const profile = parseAccessProfile(command.profile);
           if (!profileHasScope(profile, "epub.draft")) {
-            return failure("permission_denied", "epub chapter read requires editor profile or higher");
+            return failure(
+              "permission_denied",
+              "epub chapter read requires editor profile or higher",
+            );
           }
           const draftId = command.args[2];
           const chapterId = command.args[3];
@@ -370,36 +374,77 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
             env,
           });
           if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);
-        return success({ chapter });
+          return success({ chapter });
+        }
+        if (chapterCommand === "patch") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure(
+              "permission_denied",
+              "epub chapter patch requires editor profile or higher",
+            );
+          }
+          const draftId = command.args[2];
+          const chapterId = command.args[3];
+          const xhtmlPath = getStringOption(command, "xhtml");
+          if (!draftId) return failure("missing_draft_id", "epub chapter patch requires a draft id");
+          if (!chapterId) {
+            return failure("missing_chapter_id", "epub chapter patch requires a chapter id");
+          }
+          if (!xhtmlPath) {
+            return failure("missing_xhtml_file", "epub chapter patch requires --xhtml <file>");
+          }
+          const { readFile } = await import("node:fs/promises");
+          const xhtml = await readFile(xhtmlPath, "utf8");
+          const patch = await data.patchEpubChapter({
+            draftId,
+            chapterId,
+            xhtml,
+            env,
+          });
+          return success({ patch });
+        }
+        return failure(
+          "unknown_epub_chapter_command",
+          `Unknown epub chapter command: ${chapterCommand ?? ""}`.trim(),
+        );
       }
-      if (chapterCommand === "patch") {
-        const profile = parseAccessProfile(command.profile);
-        if (!profileHasScope(profile, "epub.draft")) {
-          return failure("permission_denied", "epub chapter patch requires editor profile or higher");
+      if (subcommand === "metadata") {
+        const metadataCommand = command.args[1];
+        if (metadataCommand === "patch") {
+          const profile = parseAccessProfile(command.profile);
+          if (!profileHasScope(profile, "epub.draft")) {
+            return failure(
+              "permission_denied",
+              "epub metadata patch requires editor profile or higher",
+            );
+          }
+          const draftId = command.args[2];
+          const patchPath = getStringOption(command, "patch");
+          if (!draftId) return failure("missing_draft_id", "epub metadata patch requires a draft id");
+          if (!patchPath) {
+            return failure("missing_patch_file", "epub metadata patch requires --patch <file>");
+          }
+          const { readFile } = await import("node:fs/promises");
+          const patch = JSON.parse(await readFile(patchPath, "utf8")) as {
+            title?: string;
+            creator?: string;
+            language?: string;
+            publisher?: string;
+            description?: string;
+            modified?: string;
+            subjects?: string[];
+          };
+          const result = await data.patchEpubMetadata({
+            draftId,
+            patch,
+            env,
+          });
+          return success({ metadata: result });
         }
-        const draftId = command.args[2];
-        const chapterId = command.args[3];
-        const xhtmlPath = getStringOption(command, "xhtml");
-        if (!draftId) return failure("missing_draft_id", "epub chapter patch requires a draft id");
-        if (!chapterId) {
-          return failure("missing_chapter_id", "epub chapter patch requires a chapter id");
-        }
-        if (!xhtmlPath) {
-          return failure("missing_xhtml_file", "epub chapter patch requires --xhtml <file>");
-        }
-        const { readFile } = await import("node:fs/promises");
-        const xhtml = await readFile(xhtmlPath, "utf8");
-        const patch = await data.patchEpubChapter({
-          draftId,
-          chapterId,
-          xhtml,
-          env,
-        });
-        return success({ patch });
-      }
-      return failure(
-        "unknown_epub_chapter_command",
-        `Unknown epub chapter command: ${chapterCommand ?? ""}`.trim(),
+        return failure(
+          "unknown_epub_metadata_command",
+          `Unknown epub metadata command: ${metadataCommand ?? ""}`.trim(),
         );
       }
       return failure("unknown_epub_command", `Unknown epub command: ${subcommand ?? ""}`.trim());

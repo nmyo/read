@@ -146,6 +146,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "epub.draft.create" },
           { name: "epub.chapter.read" },
           { name: "epub.chapter.patch" },
+          { name: "epub.metadata.patch" },
         ],
       },
     });

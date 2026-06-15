@@ -17,6 +17,7 @@ import {
   createEpubDraftForBook,
   inspectEpubBook,
   patchEpubChapter,
+  patchEpubMetadata,
   readEpubChapter,
   searchRag,
   searchBooks,
@@ -344,6 +345,30 @@ async function callReadAnyTool(
       env,
     });
     return success({ patch });
+  }
+
+  if (toolName === "epub.metadata.patch") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.metadata.patch requires draftId");
+    const metadata = args.metadata;
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+      return failure("invalid_tool_arguments", "epub.metadata.patch requires metadata object");
+    }
+    const patch = metadata as {
+      title?: string;
+      creator?: string;
+      language?: string;
+      publisher?: string;
+      description?: string;
+      modified?: string;
+      subjects?: string[];
+    };
+    const result = await patchEpubMetadata({
+      draftId,
+      patch,
+      env,
+    });
+    return success({ metadata: result });
   }
 
   return failure("not_implemented", `${toolName} is registered but not implemented yet.`);

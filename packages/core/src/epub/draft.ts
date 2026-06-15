@@ -28,13 +28,14 @@ export type EpubDraftCreateHistoryEntry = {
 export type EpubDraftPatchHistoryEntry = {
   id: string;
   timestamp: string;
-  action: "epub.chapter.patch";
+  action: "epub.chapter.patch" | "epub.metadata.patch";
   bookId: string;
   draftId: string;
-  chapterId: string;
-  href: string;
+  chapterId?: string;
+  href?: string;
   beforeHash: string;
   afterHash: string;
+  fields?: string[];
 };
 
 export type EpubDraftHistoryEntry = EpubDraftCreateHistoryEntry | EpubDraftPatchHistoryEntry;

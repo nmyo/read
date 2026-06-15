@@ -122,6 +122,7 @@ readany epub inspect <book-id> --profile editor
 readany epub draft create <book-id> --profile editor
 readany epub chapter read <draft-id> <chapter-id> --profile editor
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor
+readany epub metadata patch <draft-id> --patch <file> --profile editor
 ```
 
 当前章节命令基于已经写入 `chunks` 表的 indexed content 聚合章节目录和正文；原始 EPUB/PDF fallback 解析链路后续再开放。
@@ -151,7 +152,7 @@ readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile edit
 实现要点：
 
 - 先实现 stdio JSON-RPC 入口，支持 `initialize`、`tools/list`、`tools/call`。
-- MCP 只暴露已经真实接线的工具；vector/hybrid RAG、EPUB metadata patch / toc rebuild / validate / export 在接通前不出现在 `tools/list`。
+- MCP 只暴露已经真实接线的工具；vector/hybrid RAG、EPUB toc rebuild / validate / export 在接通前不出现在 `tools/list`。
 - MCP 返回 ReadAny 标准 `CommandResult` JSON，便于外部 agent 可靠解析。
 
 当前 MCP 已实现工具：
@@ -169,6 +170,7 @@ epub.inspect
 epub.draft.create
 epub.chapter.read
 epub.chapter.patch
+epub.metadata.patch
 ```
 
 Phase 3 完整通过还需要补齐：
@@ -220,7 +222,7 @@ Phase 3 完整通过还需要补齐：
 2. `epub.draft.create`：复制受控资源到 draft workspace。已落地：复制原 EPUB、写 `manifest.json` 和 `history.jsonl`，原文件 hash 不变。
 3. `epub.chapter.read`：读取 draft 或原书章节。已落地：读取 draft EPUB 中的 XHTML 章节文本，带 `contentLimit`。
 4. `epub.chapter.patch`：只对 draft 章节应用 patch。已落地：替换 draft 内单个 XHTML 章节资源，并写入 history。
-5. `epub.metadata.patch`：只对 draft metadata 应用 patch。
+5. `epub.metadata.patch`：只对 draft metadata 应用 patch。已落地：修改 draft OPF metadata，并写入 history。
 6. `epub.toc.rebuild`：基于真实章节结构重建 toc。
 7. `epub.diff`：展示 draft 和原书差异。
 

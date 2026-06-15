@@ -152,7 +152,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 12 },
+        tools: { count: 13 },
       });
     }
   });
@@ -380,6 +380,91 @@ describe("commands", () => {
       draftId,
       bookId: "book-1",
       chapterId: "chapter-1",
+    });
+  });
+
+  it("patches EPUB draft metadata with editor profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string; historyPath: string } }).draft
+      .draftId;
+    const historyPath = (draftResult.data as { draft: { historyPath: string } }).draft.historyPath;
+    const patchPath = join(workspace.root, "metadata.json");
+    await writeFile(
+      patchPath,
+      JSON.stringify({
+        title: "Agent Systems Revised",
+        creator: "Ada Editor",
+        language: "zh-CN",
+        publisher: "ReadAny Drafts",
+        description: "Revised metadata from a controlled draft patch.",
+        subjects: ["AI", "Agents"],
+        modified: "2026-06-16T00:00:00Z",
+      }),
+      "utf8",
+    );
+
+    const readonly = await runCommand(
+      ["epub", "metadata", "patch", draftId, "--patch", patchPath],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      [
+        "epub",
+        "metadata",
+        "patch",
+        draftId,
+        "--patch",
+        patchPath,
+        "--profile",
+        "editor",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      metadata: {
+        draftId,
+        bookId: "book-1",
+        packagePath: "OPS/package.opf",
+        changed: true,
+        metadata: {
+          title: "Agent Systems Revised",
+          creator: "Ada Editor",
+          language: "zh-CN",
+          publisher: "ReadAny Drafts",
+          description: "Revised metadata from a controlled draft patch.",
+          modified: "2026-06-16T00:00:00Z",
+          subjects: ["AI", "Agents"],
+        },
+      },
+    });
+
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    const historyLines = (await readFile(join(workspace.dataRoot, historyPath), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(historyLines.at(-1)).toMatchObject({
+      action: "epub.metadata.patch",
+      draftId,
+      bookId: "book-1",
+      fields: ["title", "creator", "language", "publisher", "description", "modified", "subjects"],
     });
   });
 

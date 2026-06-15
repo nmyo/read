@@ -319,6 +319,29 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "epub.metadata.patch",
+    description: "Patch metadata fields inside an EPUB draft workspace package document.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        metadata: {
+          type: "object",
+          description:
+            "Metadata fields to patch: title, creator, language, publisher, description, modified, subjects.",
+        },
+      },
+      required: ["draftId", "metadata"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {
