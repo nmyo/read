@@ -1,0 +1,319 @@
+import { Button } from "@/components/ui/button";
+import { getPlatformService } from "@readany/core/services";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  Bot,
+  CheckCircle2,
+  Clipboard,
+  FileCheck2,
+  RefreshCw,
+  ShieldCheck,
+  Terminal,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+type CliAction =
+  | "version"
+  | "install"
+  | "uninstall"
+  | "doctor"
+  | "tools_list"
+  | "skill_status"
+  | "skill_install"
+  | "skill_uninstall";
+
+type CliRunResult = {
+  ok: boolean;
+  action: string;
+  command: string;
+  args: string[];
+  status?: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+type CommandResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; details?: unknown } };
+
+type DoctorReport = {
+  version: string;
+  profile: string;
+  tools: { count: number };
+  checks: Array<{ name: string; ok: boolean; message: string }>;
+};
+
+type SkillStatus = {
+  installed: boolean;
+  path: string;
+  version?: string;
+};
+
+const MCP_CONFIG = JSON.stringify(
+  {
+    mcpServers: {
+      readany: {
+        command: "readany",
+        args: ["mcp", "serve", "--profile", "readonly"],
+      },
+    },
+  },
+  null,
+  2,
+);
+
+function parseCliJson<T>(result?: CliRunResult): CommandResult<T> | undefined {
+  if (!result) return undefined;
+  const text = result.stdout.trim();
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text) as CommandResult<T>;
+  } catch {
+    return undefined;
+  }
+}
+
+function statusLabel(ok: boolean, yes: string, no: string) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+        ok ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"
+      }`}
+    >
+      {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+      {ok ? yes : no}
+    </span>
+  );
+}
+
+function outputSummary(result?: CliRunResult, parsed?: CommandResult) {
+  if (!result) return "尚未运行。";
+  if (parsed?.ok === false) return parsed.error.message;
+  if (result.ok) return "命令执行成功。";
+  return result.stderr.trim() || result.stdout.trim() || `命令退出码 ${result.status ?? "unknown"}`;
+}
+
+export function ExternalAISettings() {
+  const [loadingAction, setLoadingAction] = useState<CliAction | null>(null);
+  const [versionResult, setVersionResult] = useState<CliRunResult>();
+  const [doctorResult, setDoctorResult] = useState<CliRunResult>();
+  const [skillResult, setSkillResult] = useState<CliRunResult>();
+  const [toolsResult, setToolsResult] = useState<CliRunResult>();
+  const [copied, setCopied] = useState(false);
+
+  const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
+  const skill = useMemo(() => parseCliJson<SkillStatus>(skillResult), [skillResult]);
+  const tools = useMemo(
+    () => parseCliJson<{ tools: Array<{ name: string; risk: string }> }>(toolsResult),
+    [toolsResult],
+  );
+
+  const cliAvailable = Boolean(versionResult?.ok);
+  const cliVersion = versionResult?.ok ? versionResult.stdout.trim() : "";
+  const skillInstalled = skill?.ok ? skill.data.installed : false;
+  const readonlyToolNames = tools?.ok ? tools.data.tools.map((tool) => tool.name) : [];
+
+  async function runCli(action: CliAction) {
+    setLoadingAction(action);
+    try {
+      const result = await invoke<CliRunResult>("readany_cli_run", { action });
+      if (action === "version") setVersionResult(result);
+      if (action === "doctor") setDoctorResult(result);
+      if (action === "tools_list") setToolsResult(result);
+      if (action.startsWith("skill_")) setSkillResult(result);
+      return result;
+    } catch (error) {
+      const failed: CliRunResult = {
+        ok: false,
+        action,
+        command: "readany",
+        args: [],
+        stdout: "",
+        stderr: error instanceof Error ? error.message : String(error),
+      };
+      if (action === "version") setVersionResult(failed);
+      if (action === "doctor") setDoctorResult(failed);
+      if (action === "tools_list") setToolsResult(failed);
+      if (action.startsWith("skill_")) setSkillResult(failed);
+      return failed;
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function refreshAll() {
+    await runCli("version");
+    await runCli("doctor");
+    await runCli("skill_status");
+    await runCli("tools_list");
+  }
+
+  async function handleSkillInstall() {
+    await runCli("skill_install");
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
+  async function handleCliInstall() {
+    await runCli("install");
+    await refreshAll();
+  }
+
+  async function handleCliUninstall() {
+    await runCli("uninstall");
+    await refreshAll();
+  }
+
+  async function handleSkillUninstall() {
+    await runCli("skill_uninstall");
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
+  async function copyMcpConfig() {
+    await getPlatformService().copyToClipboard(MCP_CONFIG);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  useEffect(() => {
+    void refreshAll();
+  }, []);
+
+  const busy = loadingAction !== null;
+
+  return (
+    <div className="space-y-4 p-4 pt-3">
+      <section className="rounded-lg bg-muted/60 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-foreground">ReadAny CLI</h2>
+              {statusLabel(cliAvailable, "可用", "未检测到")}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              桌面端通过受限命令检测 CLI，不开放任意 shell。
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={refreshAll} disabled={busy}>
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+            诊断
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCliInstall} disabled={busy}>
+            安装
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCliUninstall} disabled={busy}>
+            卸载
+          </Button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">版本</p>
+            <p className="mt-1 truncate font-mono text-xs text-foreground">
+              {cliVersion || "未安装或 PATH 不可用"}
+            </p>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Profile</p>
+            <p className="mt-1 truncate font-mono text-xs text-foreground">
+              {doctor?.ok ? doctor.data.profile : "readonly"}
+            </p>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Tools</p>
+            <p className="mt-1 truncate font-mono text-xs text-foreground">
+              {doctor?.ok ? doctor.data.tools.count : readonlyToolNames.length || "-"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {doctor?.ok
+            ? doctor.data.checks.map((check) => (
+                <div
+                  key={check.name}
+                  className="flex items-start justify-between gap-3 rounded-md bg-background px-3 py-2"
+                >
+                  <div>
+                    <p className="font-mono text-xs text-foreground">{check.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{check.message}</p>
+                  </div>
+                  {statusLabel(check.ok, "通过", "失败")}
+                </div>
+              ))
+            : null}
+          {!doctor?.ok && (
+            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+              {outputSummary(doctorResult, doctor)}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg bg-muted/60 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-foreground">External AI Skill</h2>
+              {statusLabel(skillInstalled, "已安装", "未安装")}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Skill 安装到通用 agent 目录，只提供使用说明，不保存书库数据或密钥。
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleSkillInstall} disabled={busy}>
+              安装
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleSkillUninstall} disabled={busy}>
+              卸载
+            </Button>
+          </div>
+        </div>
+        <div className="mt-3 rounded-md bg-background px-3 py-2">
+          <p className="text-[11px] text-muted-foreground">安装位置</p>
+          <p className="mt-1 break-all font-mono text-xs text-foreground">
+            {skill?.ok ? skill.data.path : outputSummary(skillResult, skill)}
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg bg-muted/60 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-foreground">MCP readonly access</h2>
+              {statusLabel(cliAvailable, "可配置", "等待 CLI")}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              第一版只提供 readonly 配置。安装 CLI 不等于授权写入，安装 Skill 也不等于开放导出。
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={copyMcpConfig}>
+            <Clipboard className="mr-1.5 h-3.5 w-3.5" />
+            {copied ? "已复制" : "复制配置"}
+          </Button>
+        </div>
+
+        <pre className="mt-3 max-h-44 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+          {MCP_CONFIG}
+        </pre>
+
+        <div className="mt-3 rounded-md bg-background px-3 py-2">
+          <div className="flex items-center gap-2">
+            <FileCheck2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">当前 MCP 工具</p>
+          </div>
+          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+            {readonlyToolNames.length > 0 ? readonlyToolNames.join(", ") : "运行诊断后显示。"}
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}

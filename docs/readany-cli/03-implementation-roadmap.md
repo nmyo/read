@@ -305,7 +305,22 @@ Phase 7 完成标准：
 - 设置页能解释“安装 CLI / 安装 Skill / 开启 MCP / 提升 profile”的区别。
 - 第一版不需要后台 daemon，不需要移动端安装入口。
 
+当前已落地：
+
+- `设置 -> 外部 AI 访问` tab。
+- 受限 Tauri command：只允许调用 ReadAny CLI allowlist 动作，不开放任意 shell。
+- CLI version / doctor / tools list / skill status 展示。
+- Skill install / uninstall。
+- readonly MCP 配置复制。
+
+当前缺口：
+
+- 设置页 install / uninstall 仍依赖 PATH 中已有 `readany`，还没有从桌面安装包内置 CLI binary 完成“未安装也能安装”的闭环。
+- 审计日志浏览 UI 未接入。
+
 ## 里程碑定义
+
+更细的执行顺序、验收证据和 issue 拆分见 [07-delivery-playbook.md](07-delivery-playbook.md)。
 
 ### M1 - 只读外部 AI 入口
 

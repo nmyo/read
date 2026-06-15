@@ -12,6 +12,7 @@
 - [04-testing-acceptance.md](04-testing-acceptance.md)
 - [05-command-and-tool-spec.md](05-command-and-tool-spec.md)
 - [06-client-settings.md](06-client-settings.md)
+- [07-delivery-playbook.md](07-delivery-playbook.md)
 
 ## 当前状态
 
@@ -25,13 +26,15 @@
 - 已支持只读库查询：书籍、笔记、高亮、书签、skills。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - MCP 当前只暴露真实实现的只读工具：`books.list`、`books.search`、`books.get`、`notes.search`、`highlights.search`。
+- 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
 - 章节正文读取。
 - RAG 检索。
 - EPUB draft/edit/export。
-- 客户端设置页集成。
+- 随桌面安装包携带并注册 CLI binary。
+- 审计日志浏览 UI。
 - 审计日志的完整写入链路。
 
 ## 设计原则
@@ -57,3 +60,5 @@
 3. 每一阶段怎么实现。
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
+
+如果只读一份执行文档，先读 [07-delivery-playbook.md](07-delivery-playbook.md)。它把功能范围、实现顺序、测试策略、验收证据和不通过条件放在一起。

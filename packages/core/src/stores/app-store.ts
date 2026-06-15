@@ -27,6 +27,7 @@ export type SettingsTab =
   | "tts"
   | "translation"
   | "sync"
+  | "externalAi"
   | "feedback"
   | "about";
 

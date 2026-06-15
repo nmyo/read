@@ -142,6 +142,14 @@ pnpm --filter @readany/cli test
 pnpm --filter @readany/cli build
 ```
 
+同时需要检查：
+
+- `git diff --check` 不报空白错误。
+- 测试中显式传入临时 `READANY_HOME` / `AGENT_HOME`。
+- `readany tools list --json` 和 MCP `tools/list` 没有出现规划中但未实现的工具。
+- 新增命令必须有 text 和 JSON 输出的基础覆盖。
+- 新增 MCP tool 必须有 schema、权限拒绝、成功调用三类测试。
+
 M1 验收：
 
 ```bash
@@ -198,6 +206,44 @@ readany epub export <draft-id> --json
 - 只读查询链路跑通。
 - MCP 不展示章节、RAG、EPUB draft/export 等未实现工具。
 - 测试不依赖真实用户数据。
+
+## 验收记录模板
+
+每个 milestone 完成时，在 PR 或验收记录里保留以下信息：
+
+```md
+# ReadAny CLI Mx Acceptance
+
+- Date:
+- Branch:
+- Commit:
+- OS:
+- Node:
+- pnpm:
+- READANY_HOME:
+- AGENT_HOME:
+
+## Commands
+
+- [ ] pnpm --filter @readany/cli check
+- [ ] pnpm --filter @readany/cli test
+- [ ] pnpm --filter @readany/cli build
+- [ ] readany doctor --json
+- [ ] readany tools list --json
+- [ ] readany mcp serve --profile readonly smoke
+
+## Evidence
+
+- Tools exposed:
+- Audit log path:
+- Fixtures used:
+- External agent tested:
+
+## Result
+
+- Pass / Fail:
+- Known issues:
+```
 
 ## Done 的定义
 

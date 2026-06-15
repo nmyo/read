@@ -1,0 +1,456 @@
+# ReadAny CLI Delivery Playbook
+
+这份文档是 ReadAny CLI / External AI Access 的执行手册。它回答四个问题：
+
+1. 要做什么功能。
+2. 按什么顺序做。
+3. 怎么测试和留下验收证据。
+4. 做到什么程度可以说这一阶段完成。
+
+## 最终目标
+
+ReadAny CLI 要成为 ReadAny 的本地能力网关，让外部 AI 可以在安全边界内使用 ReadAny 的能力：
+
+```text
+发现书库 -> 读取内容 -> 搜索知识 -> 生成建议 -> 创建草稿 -> 修改 EPUB -> 校验 -> 导出新产物
+```
+
+完整能力不是一次性交付。第一阶段只做只读外部 AI 入口；编辑、精排、导出必须在 draft-first 和权限模型稳定后再开放。
+
+## 交付原则
+
+- 能力先进入 `@readany/core` 或清晰的领域服务，再由 CLI/MCP 调用。
+- MCP `tools/list` 只返回已经真实实现并有测试的工具。
+- 默认 profile 是 `readonly`。
+- 写入能力必须先落到 draft，不直接修改原始 EPUB。
+- 导出、同步、批量修改、覆盖文件都必须有权限和确认。
+- 测试必须使用临时 `READANY_HOME` / `AGENT_HOME`。
+- 文档、命令、tool registry、测试必须保持一致。
+
+## 功能清单
+
+### M1 - 只读外部 AI 入口
+
+必须完成：
+
+- 独立 `packages/cli` package。
+- `readany --version`。
+- `readany doctor --json`。
+- `readany install` / `readany uninstall`。
+- `readany skill install` / `readany skill uninstall` / `readany skill status --json`。
+- `readany tools list --json`。
+- 书籍、笔记、高亮、书签的只读 CLI 命令。
+- `readany mcp serve --profile readonly`。
+- MCP `initialize`、`tools/list`、`tools/call`。
+- MCP 只暴露真实实现的只读工具。
+- 最小审计日志：记录来源、动作、profile、是否成功、错误码，不记录正文。
+
+M1 不包含：
+
+- 章节正文。
+- RAG 检索。
+- EPUB draft。
+- EPUB patch。
+- EPUB export。
+- 后台 daemon。
+- 移动端 CLI 管理。
+
+完成线：
+
+```text
+外部 AI 可以发现 ReadAny，可以列书、搜书、读书籍元数据、搜笔记和高亮。
+readonly profile 无法调用任何写入工具。
+```
+
+### M2 - 内容读取和知识检索
+
+必须完成：
+
+- `readany chapters list <book-id> --json`。
+- `readany chapter get <book-id> <chapter-id> --json`。
+- `readany rag search <query> --json`。
+- MCP tools：`chapters.list`、`chapters.get`、`rag.search`。
+- 当前书、当前章、选区上下文的资源表达。
+- 大正文分页或范围读取，避免一次返回整本书。
+
+完成线：
+
+```text
+外部 AI 可以基于真实章节内容和 RAG 结果回答问题，并能给出可回跳的引用位置。
+```
+
+### M3 - AI 编辑和 EPUB 精排
+
+必须完成：
+
+- `readany epub inspect <book-id> --json`。
+- `readany epub draft create <book-id> --json`。
+- `readany epub chapter patch <draft-id> <chapter-id> --patch <file> --json`。
+- `readany epub metadata patch <draft-id> --patch <file> --json`。
+- `readany epub toc rebuild <draft-id> --json`。
+- `readany epub diff <draft-id> --json`。
+- draft operation history。
+- patch 失败可回滚。
+- 原始 EPUB hash 不变。
+
+完成线：
+
+```text
+AI 可以修当前章或全书 draft，用户可以查看 diff、撤销、继续编辑，原始文件不被修改。
+```
+
+### M4 - 导出和客户端集成
+
+必须完成：
+
+- `readany epub validate <draft-id> --json`。
+- `readany epub export <draft-id> --output <path> --json`。
+- notes / knowledge export。
+- 桌面客户端设置页：外部 AI 访问。
+- 设置页可安装/卸载/修复 CLI。
+- 设置页可安装/卸载 Skill。
+- 设置页可复制 readonly MCP 配置。
+- 设置页可查看 doctor 检查项和最近审计日志。
+- 设置页可切换 profile，但高风险 profile 必须解释影响。
+
+完成线：
+
+```text
+用户能从桌面客户端打开外部 AI 访问，完成 CLI/Skill/MCP 配置，并把 AI 修改后的 EPUB 导出为新文件。
+```
+
+### M5 - 完整可用
+
+必须完成：
+
+- macOS / Windows / Linux 安装体验稳定。
+- 至少验证两个外部 agent，其中一个必须支持 MCP。
+- 读、搜、整理、精排、导出闭环跑通。
+- 审计日志可筛选、可查看失败原因。
+- 文档和 UI 都明确解释权限边界。
+
+完成线：
+
+```text
+普通用户不读命令行文档，也能在桌面客户端完成外部 AI 接入；高级用户和外部 agent 可以通过 CLI/MCP 使用完整能力。
+```
+
+## 实现顺序
+
+### 1. CLI 基础层
+
+实现：
+
+- package 构建。
+- bin 入口。
+- 命令解析。
+- JSON/text 输出。
+- 统一 `CommandResult`。
+- path/profile 解析。
+
+验收：
+
+```bash
+pnpm --filter @readany/cli check
+pnpm --filter @readany/cli test
+pnpm --filter @readany/cli build
+node packages/cli/dist/bin/readany.js --version
+node packages/cli/dist/bin/readany.js doctor --json
+```
+
+### 2. 数据读取层
+
+实现：
+
+- CLI 通过 Node platform adapter 调用 `@readany/core`。
+- 只读命令使用真实本地数据库或测试 fixture。
+- 返回结果分页，字段稳定。
+
+验收：
+
+```bash
+node packages/cli/dist/bin/readany.js books list --json
+node packages/cli/dist/bin/readany.js books search "keyword" --json
+node packages/cli/dist/bin/readany.js book get <book-id> --json
+node packages/cli/dist/bin/readany.js notes search "keyword" --json
+node packages/cli/dist/bin/readany.js highlights search "keyword" --json
+```
+
+### 3. Tool Registry 和 MCP
+
+实现：
+
+- 每个 tool 声明 name、description、scopes、risk、inputSchema。
+- MCP `tools/list` 从 registry 生成。
+- MCP `tools/call` 统一走权限检查。
+- 未实现工具不能注册。
+
+验收：
+
+```bash
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n' \
+  | node packages/cli/dist/bin/readany.js mcp serve --profile readonly
+
+printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
+  | node packages/cli/dist/bin/readany.js mcp serve --profile readonly
+```
+
+必须检查：
+
+- 返回列表只包含真实工具。
+- `readonly` profile 调写工具返回 `permission_denied`。
+- 错误响应可被外部 agent 解析。
+
+### 4. Skill 安装器
+
+实现：
+
+- 安装到 `$AGENT_HOME/skills/readany` 或 `~/.agent/skills/readany`。
+- Skill 内容包含 MCP 配置、权限边界、draft-first 规则。
+- 卸载只删除 ReadAny 管理的文件。
+
+验收：
+
+```bash
+AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill install
+AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill status --json
+AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill uninstall
+```
+
+### 5. Desktop 设置页
+
+实现：
+
+- 入口：`设置 -> 外部 AI 访问`。
+- 调用 Tauri command 或随包 CLI 执行 doctor/install/skill 命令。
+- 展示 CLI、Skill、MCP、profile、审计日志状态。
+- 提供 readonly MCP 配置复制。
+
+验收：
+
+- 未安装 CLI 时显示可安装状态。
+- 已安装 CLI 时显示版本。
+- `doctor --json` 失败项可读。
+- Skill 可安装和卸载。
+- MCP 配置复制后可在外部 agent 使用。
+
+### 6. Draft 和 Export
+
+实现：
+
+- EPUB inspect 先读结构，不改文件。
+- draft create 复制受控资源到 draft workspace。
+- patch 只改 draft。
+- validate 通过后才能 export。
+- export 默认输出新文件，不覆盖原文件。
+
+验收：
+
+```bash
+ORIGINAL_HASH="$(shasum -a 256 sample.epub)"
+readany epub draft create <book-id> --json
+readany epub chapter patch <draft-id> <chapter-id> --patch patch.json --json
+readany epub validate <draft-id> --json
+readany epub export <draft-id> --output exported.epub --json
+shasum -a 256 sample.epub
+```
+
+必须确认：
+
+- 原始 hash 不变。
+- draft history 有记录。
+- diff 可查看。
+- 导出 EPUB 可重新导入 ReadAny。
+
+## 测试策略
+
+### 单元测试
+
+覆盖：
+
+- 命令解析。
+- profile/scope 权限。
+- path 解析。
+- tool registry schema。
+- skill 安装/卸载。
+- audit log 写入。
+- draft operation 记录。
+
+要求：
+
+- 不访问真实用户目录。
+- 不依赖真实书库。
+- 对错误码做断言。
+
+### 集成测试
+
+覆盖：
+
+- CLI 调 core 查询。
+- MCP stdio 请求/响应。
+- readonly 权限拒绝写工具。
+- Skill 安装到临时 `AGENT_HOME`。
+- 审计日志写入临时 `READANY_HOME`。
+
+要求：
+
+- 测试 seed 数据可重复。
+- 测试不能因为本机已有 ReadAny 数据而通过。
+
+### E2E 测试
+
+覆盖：
+
+- 安装/卸载 CLI。
+- doctor。
+- MCP tools/list 和 tools/call。
+- 设置页外部 AI 访问。
+- draft patch。
+- EPUB validate/export。
+
+建议 fixtures：
+
+```text
+packages/cli/fixtures/library/
+packages/cli/fixtures/books/minimal.epub
+packages/cli/fixtures/books/broken-toc.epub
+packages/cli/fixtures/patches/chapter-title.patch.json
+```
+
+### 手工验收
+
+每个 milestone 至少留一份验收记录：
+
+```text
+docs/readany-cli/acceptance/YYYY-MM-DD-Mx.md
+```
+
+记录内容：
+
+- 分支和 commit。
+- 操作系统。
+- Node/pnpm 版本。
+- 执行命令。
+- 结果摘要。
+- 已知问题。
+- 是否通过。
+
+## 必须保留的验收证据
+
+M1：
+
+- `pnpm --filter @readany/cli check` 输出通过。
+- `pnpm --filter @readany/cli test` 输出通过。
+- `pnpm --filter @readany/cli build` 输出通过。
+- `tools/list` 不包含未实现工具。
+- readonly 权限拒绝写工具的测试。
+- 临时 `READANY_HOME` 下产生 audit log。
+
+M2：
+
+- sample EPUB 章节列表和章节正文读取结果。
+- RAG 搜索结果包含引用位置。
+- 大正文分页测试。
+
+M3：
+
+- 原始 EPUB hash 前后一致。
+- draft history 样例。
+- patch diff 样例。
+- rollback/undo 测试。
+
+M4：
+
+- 导出 EPUB 重新导入成功。
+- 设置页截图或测试记录。
+- MCP 配置复制后在外部 agent 成功列 tools。
+- 审计日志能看到导出记录。
+
+## 不通过条件
+
+出现以下任一情况，本阶段不算完成：
+
+- MCP 暴露规划中但未实现的工具。
+- 文档说已支持，但 CLI help、registry 或测试没有对应实现。
+- 测试读取真实用户书库。
+- `readonly` profile 能写入、导出或同步。
+- patch 直接修改原始 EPUB。
+- export 默认覆盖原始文件。
+- Skill 卸载删除非 ReadAny 管理内容。
+- 审计日志记录完整正文、密钥或同步凭证。
+- 设置页让用户误以为安装 Skill 等于授权写入。
+
+## Issue 拆分建议
+
+建议按 milestone 拆 issue，不要把完整 CLI 放进一个巨大 issue。
+
+### Issue 1 - M1 readonly CLI and MCP
+
+范围：
+
+- CLI package。
+- doctor/install/uninstall。
+- readonly data commands。
+- MCP initialize/tools/list/tools/call。
+- skill install/status/uninstall。
+- audit log 最小链路。
+
+验收：
+
+- CLI check/test/build 通过。
+- MCP readonly smoke 通过。
+- tools/list 只包含真实工具。
+
+### Issue 2 - Desktop External AI Access settings
+
+范围：
+
+- 设置页入口。
+- CLI/Skill/MCP 状态。
+- doctor 结果展示。
+- readonly MCP 配置复制。
+
+验收：
+
+- 用户能在桌面客户端完成 M1 配置。
+
+### Issue 3 - Content and RAG
+
+范围：
+
+- 章节目录。
+- 章节正文。
+- RAG search。
+- 引用定位。
+
+验收：
+
+- 外部 AI 可基于真实正文和引用回答问题。
+
+### Issue 4 - EPUB draft editing
+
+范围：
+
+- inspect。
+- draft create。
+- chapter/metadata/toc patch。
+- diff/undo/history。
+
+验收：
+
+- AI 能修改 draft，原 EPUB 不变。
+
+### Issue 5 - Export and publish
+
+范围：
+
+- validate。
+- export。
+- notes/knowledge export。
+- 审计日志浏览。
+- profile 切换和高风险确认。
+
+验收：
+
+- 修改后的 EPUB 可导出并重新导入。
+

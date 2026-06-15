@@ -124,11 +124,11 @@ readany skill status --json
 
 第一阶段设置页只需要：
 
-- 能检测 CLI。
-- 能安装 / 卸载 skill。
-- 能展示 readonly MCP 启动命令。
-- 能复制 MCP 配置。
-- 能跑 `doctor --json` 并展示结果。
+- 能检测 CLI。已落地：通过受限 Tauri command 调用 allowlist 中的 ReadAny CLI 动作。
+- 能安装 / 卸载 skill。已落地：设置页调用 `readany skill install/uninstall/status --json`。
+- 能展示 readonly MCP 启动命令。已落地。
+- 能复制 MCP 配置。已落地。
+- 能跑 `doctor --json` 并展示结果。已落地。
 
 第一阶段不需要：
 
@@ -136,6 +136,12 @@ readany skill status --json
 - 后台自动启动 MCP。
 - 移动端管理页。
 - 高风险操作远程确认。
+
+当前限制：
+
+- 桌面设置页当前通过 PATH 中的 `readany` 执行 install / uninstall / doctor / skill / tools 操作；后续随桌面安装包携带 CLI binary 后，应优先调用随包 binary，再由 CLI 自己安装全局 shim。
+- 设置页只提供 readonly MCP 配置，不开放 editor / publisher profile。
+- 审计日志只在 CLI 侧写入，设置页浏览审计日志留到 M4。
 
 ## UI 验收细节
 
@@ -171,6 +177,8 @@ readany skill status --json
 - 用户能复制 readonly MCP 配置。
 - 用户能看到 doctor 检查项。
 - 用户知道 readonly 不允许写入和导出。
+
+当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，但完整“未安装时仍可从随包 binary 安装”的体验需要等桌面安装包携带 CLI binary 后验收。
 
 客户端 M4 做到：
 
