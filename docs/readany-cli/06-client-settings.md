@@ -141,7 +141,7 @@ readany skill status --json
 
 - 桌面设置页当前通过受限 Tauri command 调用 ReadAny CLI allowlist 动作。
 - `install` / `uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。
-- 由于当前 CLI 是 Node bundle，并且仍 external `better-sqlite3`，完整离线只读查询还依赖 Node 和原生模块运行时；后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
+- 当前 CLI 是 Node bundle。管理命令已经拆成不加载 `better-sqlite3` 的路径，因此安装、卸载、Skill 管理和基础诊断不需要 SQLite 原生模块；书库读取、MCP 查询等数据能力仍依赖 Node 和 `better-sqlite3` 运行时。后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
 - 设置页只提供 readonly MCP 配置，不开放 editor / publisher profile。
 - 审计日志只在 CLI 侧写入，设置页浏览审计日志留到 M4。
 

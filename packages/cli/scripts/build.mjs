@@ -1,16 +1,22 @@
 import { build } from "esbuild";
-import { chmod, mkdir } from "node:fs/promises";
+import { chmod, mkdir, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, "..");
-const outFile = resolve(rootDir, "dist/bin/readany.js");
+const outDir = resolve(rootDir, "dist");
+const outFile = resolve(outDir, "bin/readany.js");
+
+await rm(outDir, { recursive: true, force: true });
 
 await build({
   entryPoints: [resolve(rootDir, "src/bin/readany.ts")],
-  outfile: outFile,
+  outdir: outDir,
+  entryNames: "bin/readany",
+  chunkNames: "chunks/[name]-[hash]",
   bundle: true,
+  splitting: true,
   platform: "node",
   format: "esm",
   target: "node20",

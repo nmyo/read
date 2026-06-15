@@ -316,7 +316,7 @@ Phase 7 完成标准：
 
 当前缺口：
 
-- 当前 CLI 仍是 Node 脚本，且依赖 external `better-sqlite3` 原生模块；要达到普通用户无需 Node / node_modules 的安装体验，还需要把 CLI 打成独立 binary，或随包携带完整 Node 运行时和原生依赖。
+- 当前 CLI 仍是 Node 脚本。管理命令已经懒加载数据层，不会为 install / uninstall / skill / doctor 加载 external `better-sqlite3`；但书库读取和 MCP 数据工具仍需要 Node / native module 运行时。要达到普通用户完整无需 Node / node_modules 的体验，还需要把 CLI 打成独立 binary，或随包携带完整运行时依赖。
 - 审计日志浏览 UI 未接入。
 
 ## 里程碑定义

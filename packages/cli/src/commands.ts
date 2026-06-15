@@ -7,15 +7,6 @@ import { installCli, uninstallCli, type InstallMode } from "./install.js";
 import { getSkillStatus, installSkill, uninstallSkill } from "./skill.js";
 import { appendCliAuditEntry } from "./audit-log.js";
 import { listTools } from "./tool-registry.js";
-import {
-  getBookById,
-  listBookmarks,
-  listBooks,
-  listHighlights,
-  listNotes,
-  listSkills,
-  searchBooks,
-} from "./data.js";
 
 export type ParsedCommand = {
   name: string;
@@ -98,6 +89,10 @@ function getLimit(command: ParsedCommand, fallback: number): number {
 function getStringOption(command: ParsedCommand, name: string): string | undefined {
   const value = command.options[name];
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+async function getDataApi() {
+  return import("./data.js");
 }
 
 export function createHelpText(): string {
@@ -186,31 +181,34 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     }
 
     if (command.name === "books") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "list";
       if (subcommand === "list") {
-        return success({ books: await listBooks(getLimit(command, 50), env) });
+        return success({ books: await data.listBooks(getLimit(command, 50), env) });
       }
       if (subcommand === "search") {
         const query = command.args.slice(1).join(" ");
         if (!query) {
           return failure("missing_query", "books search requires a query");
         }
-        return success({ books: await searchBooks(query, getLimit(command, 20), env) });
+        return success({ books: await data.searchBooks(query, getLimit(command, 20), env) });
       }
       return failure("unknown_books_command", `Unknown books command: ${subcommand}`);
     }
 
     if (command.name === "book") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "get";
       if (subcommand === "get") {
         const bookId = command.args[1];
         if (!bookId) return failure("missing_book_id", "book get requires a book id");
-        return success({ book: await getBookById(bookId, env) });
+        return success({ book: await data.getBookById(bookId, env) });
       }
       return failure("unknown_book_command", `Unknown book command: ${subcommand}`);
     }
 
     if (command.name === "notes") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "search";
       if (subcommand === "search") {
         const query = command.args.slice(1).join(" ");
@@ -218,7 +216,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           return failure("missing_query", "notes search requires a query");
         }
         return success({
-          notes: await listNotes({
+          notes: await data.listNotes({
             query,
             bookId: getStringOption(command, "book"),
             limit: getLimit(command, 50),
@@ -230,6 +228,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     }
 
     if (command.name === "highlights") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "search";
       if (subcommand === "search") {
         const query = command.args.slice(1).join(" ");
@@ -237,7 +236,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           return failure("missing_query", "highlights search requires a query");
         }
         return success({
-          highlights: await listHighlights({
+          highlights: await data.listHighlights({
             query,
             bookId: getStringOption(command, "book"),
             limit: getLimit(command, 50),
@@ -249,19 +248,21 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     }
 
     if (command.name === "bookmarks") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "list";
       if (subcommand === "list") {
         const bookId = command.args[1];
         if (!bookId) return failure("missing_book_id", "bookmarks list requires a book id");
-        return success({ bookmarks: await listBookmarks(bookId, env) });
+        return success({ bookmarks: await data.listBookmarks(bookId, env) });
       }
       return failure("unknown_bookmarks_command", `Unknown bookmarks command: ${subcommand}`);
     }
 
     if (command.name === "skills") {
+      const data = await getDataApi();
       const subcommand = command.args[0] ?? "list";
       if (subcommand === "list") {
-        return success({ skills: await listSkills(env) });
+        return success({ skills: await data.listSkills(env) });
       }
       return failure("unknown_skills_command", `Unknown skills command: ${subcommand}`);
     }
