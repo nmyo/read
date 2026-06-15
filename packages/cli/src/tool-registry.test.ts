@@ -10,6 +10,7 @@ describe("tool registry", () => {
       "books.get",
       "notes.search",
       "highlights.search",
+      "rag.search",
     ]);
   });
 

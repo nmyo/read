@@ -37,6 +37,25 @@ async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
     );
   `);
   db.close();
+
+  const localDb = new Database(join(env.READANY_HOME!, "readany_local.db"));
+  localDb.exec(`
+    INSERT INTO chunks (
+      id, book_id, chapter_index, chapter_title, content, token_count,
+      start_cfi, end_cfi, segment_cfis, embedding, updated_at
+    ) VALUES
+    (
+      'mcp-chunk-1', 'mcp-book', 1, 'Agent Access',
+      'MCP access lets external agents search ReadAny chunks safely.',
+      9, 'epubcfi(/6/20)', 'epubcfi(/6/22)', '["epubcfi(/6/20)"]', NULL, 6000
+    ),
+    (
+      'mcp-chunk-2', 'mcp-book', 2, 'Draft Safety',
+      'Draft-first editing protects original EPUB files.',
+      7, 'epubcfi(/6/24)', 'epubcfi(/6/26)', '["epubcfi(/6/24)"]', NULL, 6000
+    );
+  `);
+  localDb.close();
 }
 
 describe("mcp", () => {
@@ -57,6 +76,7 @@ describe("mcp", () => {
         { name: "books.get" },
         { name: "notes.search" },
         { name: "highlights.search" },
+        { name: "rag.search" },
       ],
     });
   });
@@ -101,6 +121,62 @@ describe("mcp", () => {
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
       error: { code: "unknown_tool" },
+    });
+  });
+
+  it("calls rag.search with readonly profile", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "rag.search",
+          arguments: { query: "external agents", bookId: "mcp-book", limit: 1 },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    expect(response).toMatchObject({ isError: false });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: true,
+      data: {
+        results: [
+          {
+            matchType: "bm25",
+            chunk: {
+              id: "mcp-chunk-1",
+              bookId: "mcp-book",
+              chapterTitle: "Agent Access",
+              startCfi: "epubcfi(/6/20)",
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects rag.search without a book id", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "rag.search",
+          arguments: { query: "external agents" },
+        },
+      },
+      "readonly",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "missing_book_id" },
     });
   });
 

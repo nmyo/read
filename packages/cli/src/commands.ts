@@ -110,6 +110,7 @@ Usage:
   readany book get <book-id> [--json]
   readany notes search <query> [--json] [--book <book-id>]
   readany highlights search <query> [--json] [--book <book-id>]
+  readany rag search <query> --book <book-id> [--json] [--limit 5]
   readany mcp serve --profile readonly
 `;
 }
@@ -245,6 +246,31 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         });
       }
       return failure("unknown_highlights_command", `Unknown highlights command: ${subcommand}`);
+    }
+
+    if (command.name === "rag") {
+      const data = await getDataApi();
+      const subcommand = command.args[0] ?? "search";
+      if (subcommand === "search") {
+        const query = command.args.slice(1).join(" ");
+        if (!query) return failure("missing_query", "rag search requires a query");
+        const bookId = getStringOption(command, "book");
+        if (!bookId) return failure("missing_book_id", "rag search requires --book <book-id>");
+        const mode = getStringOption(command, "mode") ?? "bm25";
+        if (mode !== "bm25") {
+          return failure("unsupported_rag_mode", "Only --mode bm25 is currently supported");
+        }
+        return success({
+          results: await data.searchRag({
+            query,
+            bookId,
+            mode,
+            limit: getLimit(command, 5),
+            env,
+          }),
+        });
+      }
+      return failure("unknown_rag_command", `Unknown rag command: ${subcommand}`);
     }
 
     if (command.name === "bookmarks") {

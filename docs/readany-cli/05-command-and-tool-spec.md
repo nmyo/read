@@ -59,6 +59,7 @@ readany notes search <query> [--book <book-id>] [--json]
 readany highlights search <query> [--book <book-id>] [--json]
 readany bookmarks list <book-id> [--json]
 readany skills list [--json]
+readany rag search <query> --book <book-id> [--mode bm25] [--limit 5] [--json]
 ```
 
 规划中：
@@ -66,7 +67,6 @@ readany skills list [--json]
 ```bash
 readany chapters list <book-id> [--json]
 readany chapter get <book-id> <chapter-id> [--json]
-readany rag search <query> [--book <book-id>] [--json]
 ```
 
 ### Draft 和导出命令
@@ -112,9 +112,10 @@ books.search
 books.get
 notes.search
 highlights.search
+rag.search
 ```
 
-`chapters.*`、`rag.search`、`epub.*` 接入真实实现前只能保留在设计文档里。
+`chapters.*`、`epub.*` 接入真实实现前只能保留在设计文档里。`rag.search` 当前只开放 BM25 over chunks；vector / hybrid 模式在 embedding 服务和测试补齐前不能注册。
 
 ## Tool 输出规则
 
@@ -189,6 +190,7 @@ books.search
 books.get
 notes.search
 highlights.search
+rag.search
 ```
 
 M2 再做：
@@ -196,7 +198,6 @@ M2 再做：
 ```text
 chapters.list
 chapters.get
-rag.search
 knowledge.search
 ```
 

@@ -11,6 +11,7 @@ import {
   listBooks,
   listHighlights,
   listNotes,
+  searchRag,
   searchBooks,
 } from "./data.js";
 
@@ -144,6 +145,26 @@ async function callReadAnyTool(
         query,
         bookId: getString(args, "bookId"),
         limit: getLimit(args, 50),
+        env,
+      }),
+    });
+  }
+
+  if (toolName === "rag.search") {
+    const query = getString(args, "query");
+    if (!query) return failure("missing_query", "rag.search requires query");
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "rag.search requires bookId");
+    const mode = getString(args, "mode") ?? "bm25";
+    if (mode !== "bm25") {
+      return failure("unsupported_rag_mode", "Only mode bm25 is currently supported");
+    }
+    return success({
+      results: await searchRag({
+        query,
+        bookId,
+        mode,
+        limit: getLimit(args, 5),
         env,
       }),
     });

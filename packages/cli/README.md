@@ -17,6 +17,7 @@ Current phase:
 - `readany book get`
 - `readany notes search`
 - `readany highlights search`
+- `readany rag search --book <book-id>`
 - `readany mcp serve --profile readonly`
 
 Current MCP tools:
@@ -27,6 +28,7 @@ books.search
 books.get
 notes.search
 highlights.search
+rag.search
 ```
 
 Development:

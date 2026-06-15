@@ -134,6 +134,40 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "rag.search",
+    description: "Search indexed ReadAny book chunks using BM25 keyword retrieval.",
+    scopes: ["rag.search"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          minLength: 1,
+          description: "Search query.",
+        },
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny book id to search within.",
+        },
+        mode: {
+          type: "string",
+          enum: ["bm25"],
+          description: "Search mode. Only bm25 is currently available through CLI/MCP.",
+        },
+        limit: {
+          type: "number",
+          minimum: 1,
+          maximum: 50,
+          description: "Maximum number of chunks to return.",
+        },
+      },
+      required: ["query", "bookId"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 export function listTools(): readonly ReadAnyTool[] {

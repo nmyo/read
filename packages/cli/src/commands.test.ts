@@ -59,6 +59,25 @@ async function seedLibrary(dataRoot: string): Promise<void> {
     );
   `);
   db.close();
+
+  const localDb = new Database(join(dataRoot, "readany_local.db"));
+  localDb.exec(`
+    INSERT INTO chunks (
+      id, book_id, chapter_index, chapter_title, content, token_count,
+      start_cfi, end_cfi, segment_cfis, embedding, updated_at
+    ) VALUES
+    (
+      'chunk-1', 'book-1', 1, 'Tools',
+      'Agents need safe tool boundaries and permissioned local context.',
+      9, 'epubcfi(/6/10)', 'epubcfi(/6/12)', '["epubcfi(/6/10)"]', NULL, 6000
+    ),
+    (
+      'chunk-2', 'book-1', 2, 'Drafts',
+      'Draft-first editing keeps EPUB sources safe while AI proposes changes.',
+      10, 'epubcfi(/6/14)', 'epubcfi(/6/16)', '["epubcfi(/6/14)"]', NULL, 6000
+    );
+  `);
+  localDb.close();
 }
 
 describe("commands", () => {
@@ -99,7 +118,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 5 },
+        tools: { count: 6 },
       });
     }
   });
@@ -162,6 +181,52 @@ describe("commands", () => {
         highlights: [{ id: "highlight-1", text: "Draft-first editing keeps users safe." }],
       });
     }
+  });
+
+  it("searches indexed chunks with BM25 rag search", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const result = await runCommand(
+      ["rag", "search", "permissioned context", "--book", "book-1", "--limit", "1"],
+      workspace.env,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toMatchObject({
+        results: [
+          {
+            matchType: "bm25",
+            chunk: {
+              id: "chunk-1",
+              bookId: "book-1",
+              chapterTitle: "Tools",
+              startCfi: "epubcfi(/6/10)",
+            },
+          },
+        ],
+      });
+    }
+  });
+
+  it("requires a book id for rag search", async () => {
+    const result = await runCommand(["rag", "search", "context"], (await createWorkspace()).env);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "missing_book_id" },
+    });
+  });
+
+  it("rejects unsupported rag modes", async () => {
+    const result = await runCommand(
+      ["rag", "search", "context", "--book", "book-1", "--mode", "hybrid"],
+      (await createWorkspace()).env,
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "unsupported_rag_mode" },
+    });
   });
 
   it("does not fail when audit logs are unavailable", async () => {

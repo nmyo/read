@@ -89,6 +89,7 @@ readany doctor --json
 - `chapters.get`
 - `notes.search`
 - `highlights.search`
+- `rag.search`
 
 可验收命令：
 
@@ -114,6 +115,7 @@ readany notes search <query>
 readany highlights search <query>
 readany bookmarks list <book-id>
 readany skills list
+readany rag search <query> --book <book-id>
 ```
 
 未完成但属于本阶段尾巴：
@@ -149,7 +151,7 @@ readany chapter get <book-id> <chapter-id>
 实现要点：
 
 - 先实现 stdio JSON-RPC 入口，支持 `initialize`、`tools/list`、`tools/call`。
-- MCP 只暴露已经真实接线的工具；章节、RAG、EPUB draft/export 在接通前不出现在 `tools/list`。
+- MCP 只暴露已经真实接线的工具；章节、vector/hybrid RAG、EPUB draft/export 在接通前不出现在 `tools/list`。
 - MCP 返回 ReadAny 标准 `CommandResult` JSON，便于外部 agent 可靠解析。
 
 当前 MCP 已实现工具：
@@ -160,6 +162,7 @@ books.search
 books.get
 notes.search
 highlights.search
+rag.search
 ```
 
 Phase 3 完整通过还需要补齐：
@@ -331,13 +334,13 @@ Phase 7 完成标准：
 - doctor/install/uninstall。
 - skill install/uninstall/status。
 - readonly MCP。
-- 书、笔记、高亮只读工具。
+- 书、笔记、高亮、BM25 chunks 只读工具。
 - 单元测试、构建、类型检查通过。
 
 不包含：
 
 - 章节正文。
-- RAG。
+- vector / hybrid RAG。
 - draft。
 - export。
 
@@ -347,7 +350,7 @@ Phase 7 完成标准：
 
 - 章节目录和正文读取。
 - 当前书 / 当前章 / 选区上下文资源。
-- RAG 搜索。
+- vector / hybrid RAG 搜索。
 - 引用定位。
 
 ### M3 - AI 编辑 EPUB
