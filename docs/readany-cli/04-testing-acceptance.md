@@ -149,6 +149,7 @@ pnpm --filter @readany/cli build
 - `readany tools list --json` 和 MCP `tools/list` 没有出现规划中但未实现的工具。
 - 新增命令必须有 text 和 JSON 输出的基础覆盖。
 - 新增 MCP tool 必须有 schema、权限拒绝、成功调用三类测试。
+- MCP stdio 入口必须通过构建后 CLI smoke：`dist/bin/readany.js mcp serve --profile readonly` 能响应 `initialize`、`tools/list`、`tools/call`。
 
 如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：
 

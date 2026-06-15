@@ -366,6 +366,7 @@ M1：
 - `pnpm --filter @readany/cli check` 输出通过。
 - `pnpm --filter @readany/cli test` 输出通过。
 - `pnpm --filter @readany/cli build` 输出通过。
+- build smoke 覆盖构建后 CLI 的 MCP stdio `initialize`、`tools/list`、`tools/call`。
 - `tools/list` 不包含未实现工具。
 - readonly 权限拒绝写工具的测试。
 - 临时 `READANY_HOME` 下产生 audit log。

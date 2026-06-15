@@ -365,6 +365,7 @@ M1 通过条件：
 - `readany skill status --json` 可解析。
 - `readany tools list --json` 只列真实工具。
 - readonly MCP 可 `initialize`、`tools/list`、`tools/call`。
+- 构建后 CLI 的 `mcp serve` stdio smoke 通过。
 - 可列书、搜书、读书籍元数据、搜笔记、搜高亮。
 - 已索引 chunks 可通过 `chapters.*` 和 `rag.search` 读取。
 - 审计日志不记录完整正文和敏感参数。

@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const cliRoot = resolve(import.meta.dirname, "..");
@@ -12,6 +12,44 @@ function runBuiltCli(args: string[], env: NodeJS.ProcessEnv = process.env) {
     cwd: cliRoot,
     env,
     encoding: "utf8",
+  });
+}
+
+function runBuiltMcp(requests: unknown[], env: NodeJS.ProcessEnv): Promise<unknown[]> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [binPath, "mcp", "serve", "--profile", "readonly"], {
+      cwd: cliRoot,
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `MCP smoke exited with ${code}: ${Buffer.concat(stderr).toString("utf8")}`,
+          ),
+        );
+        return;
+      }
+
+      try {
+        const lines = Buffer.concat(stdout).toString("utf8").trim().split("\n").filter(Boolean);
+        resolve(lines.map((line) => JSON.parse(line)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    for (const request of requests) {
+      child.stdin.write(`${JSON.stringify(request)}\n`);
+    }
+    child.stdin.end();
   });
 }
 
@@ -58,6 +96,69 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(JSON.parse(status.stdout)).toMatchObject({
       ok: true,
       data: { installed: false },
+    });
+  });
+
+  it("serves MCP over stdio from the built CLI", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-built-mcp-"));
+    const env = {
+      ...process.env,
+      READANY_HOME: join(root, "readany-home"),
+      AGENT_HOME: join(root, "agent"),
+    };
+    const responses = await runBuiltMcp(
+      [
+        { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+        { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+        {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: {
+            name: "books.list",
+            arguments: { limit: 1 },
+          },
+        },
+      ],
+      env,
+    );
+
+    expect(responses).toHaveLength(3);
+    expect(responses[0]).toMatchObject({
+      jsonrpc: "2.0",
+      id: 1,
+      result: { serverInfo: { name: "readany" } },
+    });
+    expect(responses[1]).toMatchObject({
+      jsonrpc: "2.0",
+      id: 2,
+      result: {
+        tools: [
+          { name: "books.list" },
+          { name: "books.search" },
+          { name: "books.get" },
+          { name: "chapters.list" },
+          { name: "chapters.get" },
+          { name: "notes.search" },
+          { name: "highlights.search" },
+          { name: "rag.search" },
+        ],
+      },
+    });
+    expect(responses[2]).toMatchObject({
+      jsonrpc: "2.0",
+      id: 3,
+      result: {
+        isError: false,
+      },
+    });
+
+    const toolResult = JSON.parse(
+      (responses[2] as { result: { content: Array<{ text: string }> } }).result.content[0].text,
+    );
+    expect(toolResult).toMatchObject({
+      ok: true,
+      data: { books: [] },
     });
   });
 });
