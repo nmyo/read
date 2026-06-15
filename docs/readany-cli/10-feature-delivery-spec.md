@@ -141,7 +141,7 @@ audit.list
 
 - `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB fallback。
 - `rag.search` 当前是 BM25 over chunks。
-- PDF fallback 解析、vector / hybrid RAG 属于后续阶段。
+- Vector / hybrid RAG 属于后续阶段。
 
 ### 2.4 MCP 能力
 
@@ -600,7 +600,7 @@ M5 完成：
 
 必须同时说明：
 
-- indexed chapters 和未索引 EPUB fallback 都已由 `chapters.*` 覆盖；PDF fallback 尚未支持。
+- indexed chapters 和未索引 EPUB/PDF fallback 都已由 `chapters.*` 覆盖。
 - BM25 RAG 不是 vector / hybrid。
 - draft patch 不等于 export。
 - inspect 不修改文件。

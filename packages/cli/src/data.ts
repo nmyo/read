@@ -29,6 +29,12 @@ import {
   readEpubChapterFromBookFile,
   readEpubChapterFromDraft,
 } from "@readany/core/epub/chapter";
+import {
+  listPdfPagesFromBookFile,
+  readPdfPageFromBookFile,
+  type PdfPageReadResult,
+  type PdfPageSummary,
+} from "@readany/core/pdf/chapter";
 import { patchEpubMetadataInDraft } from "@readany/core/epub/metadata";
 import { rebuildEpubTocInDraft } from "@readany/core/epub/toc";
 import { validateEpubDraft } from "@readany/core/epub/validate";
@@ -366,10 +372,11 @@ export type FallbackChapterSummary = {
   mediaType?: string;
 };
 
-export type ChapterSummary = IndexedChapterSummary | FallbackChapterSummary;
+export type ChapterSummary = IndexedChapterSummary | FallbackChapterSummary | PdfPageSummary;
 export type ChapterReadResult =
   | IndexedChapter
-  | import("@readany/core/epub/chapter").EpubChapterReadResult;
+  | import("@readany/core/epub/chapter").EpubChapterReadResult
+  | PdfPageReadResult;
 
 function chapterIdFromIndex(index: number): string {
   return String(index);
@@ -413,7 +420,7 @@ export async function listIndexedChapters(
 
   const indexed = Array.from(chapters.values()).sort((a, b) => a.index - b.index);
   if (indexed.length > 0) return indexed;
-  return listEpubFallbackChapters(bookId, env);
+  return listFallbackChapters(bookId, env);
 }
 
 export async function getIndexedChapter(options: ChapterGetOptions): Promise<ChapterReadResult | null> {
@@ -429,12 +436,12 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Cha
   await ensureCoreInitialized(env);
   const chapterIndex = getChapterIndexFromId(chapterId);
   if (chapterIndex === null) {
-    return getEpubFallbackChapter({ bookId, chapterId, contentLimit });
+    return getFallbackChapter({ bookId, chapterId, contentLimit });
   }
 
   const allChunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
   if (allChunks.length === 0) {
-    return getEpubFallbackChapter({ bookId, chapterId, contentLimit });
+    return getFallbackChapter({ bookId, chapterId, contentLimit });
   }
 
   const start = clampPositiveInteger(chunkStart, 1, allChunks.length);
@@ -479,6 +486,17 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Cha
   };
 }
 
+async function listFallbackChapters(
+  bookId: string,
+  env: NodeJS.ProcessEnv,
+): Promise<ChapterSummary[]> {
+  const book = await getBook(bookId);
+  if (!book) return [];
+  if (book.format === "epub") return listEpubFallbackChapters(bookId, env);
+  if (book.format === "pdf") return listPdfPagesFromBookFile(bookId, book.filePath);
+  return [];
+}
+
 async function listEpubFallbackChapters(
   bookId: string,
   env: NodeJS.ProcessEnv,
@@ -506,6 +524,22 @@ async function listEpubFallbackChapters(
       href: item.href ?? "",
       mediaType: item.mediaType,
     }));
+}
+
+async function getFallbackChapter(options: {
+  bookId: string;
+  chapterId: string;
+  contentLimit?: number;
+}): Promise<ChapterReadResult | null> {
+  const book = await getBook(options.bookId);
+  if (!book) return null;
+  if (book.format === "epub") return getEpubFallbackChapter(options);
+  if (book.format === "pdf") {
+    return readPdfPageFromBookFile(options.bookId, book.filePath, options.chapterId, {
+      contentLimit: options.contentLimit,
+    });
+  }
+  return null;
 }
 
 async function getEpubFallbackChapter(options: {

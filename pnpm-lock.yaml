@@ -540,6 +540,9 @@ importers:
       i18next:
         specifier: ^25.8.13
         version: 25.8.18(typescript@5.9.3)
+      pdfjs-dist:
+        specifier: ^5.5.207
+        version: 5.5.207
       react:
         specifier: 19.1.0
         version: 19.1.0

@@ -78,7 +78,7 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
   },
   {
     name: "chapters.list",
-    description: "List indexed chapters for a ReadAny book from stored chunks.",
+    description: "List chapters for a ReadAny book from indexed chunks, or fallback EPUB/PDF structure when no chunks exist.",
     scopes: ["content.read"],
     risk: "low",
     inputSchema: {
@@ -96,7 +96,7 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
   },
   {
     name: "chapters.get",
-    description: "Read an indexed chapter assembled from stored ReadAny chunks.",
+    description: "Read a chapter from indexed chunks, or fallback EPUB/PDF content when no chunks exist.",
     scopes: ["content.read"],
     risk: "low",
     inputSchema: {
@@ -115,13 +115,13 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
         chunkStart: {
           type: "number",
           minimum: 1,
-          description: "1-based chunk offset within the chapter.",
+          description: "1-based chunk offset within an indexed chapter. Ignored for fallback EPUB/PDF reads.",
         },
         chunkCount: {
           type: "number",
           minimum: 1,
           maximum: 200,
-          description: "Maximum number of indexed chunks to return.",
+          description: "Maximum number of indexed chunks to return. Ignored for fallback EPUB/PDF reads.",
         },
         contentLimit: {
           type: "number",

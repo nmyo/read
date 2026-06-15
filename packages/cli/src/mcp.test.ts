@@ -34,6 +34,46 @@ function buildInspectableEpub(): Uint8Array {
   ]);
 }
 
+function buildSimplePdf(pages: string[]): Uint8Array {
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+  const catalogId = addObject("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesId = addObject("");
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const pageIds: number[] = [];
+
+  for (const text of pages) {
+    const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
+    const contentId = addObject(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const pageId = addObject(
+      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    );
+    pageIds.push(pageId);
+  }
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds
+    .map((id) => `${id} 0 R`)
+    .join(" ")}] /Count ${pageIds.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(encoder.encode(pdf).length);
+    pdf += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = encoder.encode(pdf).length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return encoder.encode(pdf);
+}
+
 async function createEnv() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-mcp-"));
   const dataRoot = join(root, "library");
@@ -1226,6 +1266,80 @@ describe("mcp", () => {
           bookId: "fallback-book",
           id: "chapter-1",
           content: "Agent Access",
+        },
+      },
+    });
+  });
+
+  it("falls back to pdf pages when no chunks are indexed", async () => {
+    const env = await createEnv();
+    await resetCoreForTests();
+    await ensureCoreInitialized(env);
+    const db = new Database(join(env.READANY_HOME!, "readany.db"));
+    db.exec(`
+      INSERT INTO books (
+        id, file_path, format, title, author, publisher, language, isbn, description,
+        cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+        group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+        is_vectorized, vectorize_progress, tags, file_hash, sync_status
+      ) VALUES (
+        'pdf-fallback-book', 'books/pdf-fallback.pdf', 'pdf', 'Fallback PDF', 'Ada Reader', NULL, 'en',
+        NULL, 'Fallback pdf only', NULL, NULL, NULL, NULL, '["AI"]',
+        2, 2, NULL, 1000, 2000, 3000, NULL, 0.5, 'page:1', 0, 0,
+        '["pdf"]', 'hash-pdf-fallback', 'local'
+      );
+    `);
+    db.close();
+    await writeFile(
+      join(env.READANY_HOME!, "books", "pdf-fallback.pdf"),
+      buildSimplePdf(["PDF fallback agents", "Second page for fallback"]),
+    );
+
+    const listResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.list",
+          arguments: { bookId: "pdf-fallback-book" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(listResponse).toMatchObject({ isError: false });
+    const listText = (listResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(listText)).toMatchObject({
+      ok: true,
+      data: {
+        chapters: [
+          { source: "pdf", id: "page-1", title: "Page 1", page: 1 },
+          { source: "pdf", id: "page-2", title: "Page 2", page: 2 },
+        ],
+      },
+    });
+
+    const getResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "chapters.get",
+          arguments: { bookId: "pdf-fallback-book", chapterId: "page-1" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(getResponse).toMatchObject({ isError: false });
+    const getText = (getResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(getText)).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          source: "pdf",
+          bookId: "pdf-fallback-book",
+          id: "page-1",
+          content: "PDF fallback agents",
+          cfi: "page:1",
         },
       },
     });

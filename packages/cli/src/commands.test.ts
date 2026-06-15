@@ -33,6 +33,46 @@ function buildInspectableEpub(): Uint8Array {
   ]);
 }
 
+function buildSimplePdf(pages: string[]): Uint8Array {
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+  const catalogId = addObject("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesId = addObject("");
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const pageIds: number[] = [];
+
+  for (const text of pages) {
+    const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
+    const contentId = addObject(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const pageId = addObject(
+      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    );
+    pageIds.push(pageId);
+  }
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds
+    .map((id) => `${id} 0 R`)
+    .join(" ")}] /Count ${pageIds.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(encoder.encode(pdf).length);
+    pdf += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = encoder.encode(pdf).length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return encoder.encode(pdf);
+}
+
 async function createWorkspace() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-workspace-"));
   const dataRoot = join(root, "library");
@@ -967,6 +1007,58 @@ describe("commands", () => {
           bookId: "epub-book",
           id: "chapter-1",
           content: "Tools",
+        },
+      });
+    }
+  });
+
+  it("falls back to pdf pages when no chunks are indexed", async () => {
+    const workspace = await createWorkspace();
+    await resetCoreForTests();
+    await ensureCoreInitialized(workspace.env);
+
+    const db = new Database(join(workspace.dataRoot, "readany.db"));
+    db.exec(`
+      INSERT INTO books (
+        id, file_path, format, title, author, publisher, language, isbn, description,
+        cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+        group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+        is_vectorized, vectorize_progress, tags, file_hash, sync_status
+      ) VALUES (
+        'pdf-book', 'books/pdf-book.pdf', 'pdf', 'Fallback PDF', 'Ada Reader', NULL, 'en',
+        NULL, 'A fallback pdf only', NULL, NULL, NULL, NULL, '["AI"]',
+        2, 2, NULL, 1000, 2000, 3000, NULL, 0.5, 'page:1', 0, 0,
+        '["pdf"]', 'hash-pdf', 'local'
+      );
+    `);
+    db.close();
+    await writeFile(
+      join(workspace.dataRoot, "books", "pdf-book.pdf"),
+      buildSimplePdf(["PDF agents need safe access", "Second page keeps references stable"]),
+    );
+
+    const chapters = await runCommand(["chapters", "list", "pdf-book"], workspace.env);
+    expect(chapters.ok).toBe(true);
+    if (chapters.ok) {
+      expect(chapters.data).toMatchObject({
+        chapters: [
+          { source: "pdf", id: "page-1", title: "Page 1", page: 1 },
+          { source: "pdf", id: "page-2", title: "Page 2", page: 2 },
+        ],
+      });
+    }
+
+    const chapter = await runCommand(["chapter", "get", "pdf-book", "page-1"], workspace.env);
+    expect(chapter.ok).toBe(true);
+    if (chapter.ok) {
+      expect(chapter.data).toMatchObject({
+        chapter: {
+          source: "pdf",
+          bookId: "pdf-book",
+          id: "page-1",
+          page: 1,
+          cfi: "page:1",
+          content: "PDF agents need safe access",
         },
       });
     }
