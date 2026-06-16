@@ -150,7 +150,7 @@ draft 工作区至少要提供：
 - 能检测 CLI。已落地：通过受限 Tauri command 调用 allowlist 中的 ReadAny CLI 动作。
 - 能安装 / 卸载 skill。已落地：设置页调用 `readany skill install/uninstall/status --json`。
 - 能展示 MCP 启动命令。已落地：默认 readonly，editor / publisher 需要用户显式确认后才可复制配置。
-- 能复制 MCP 配置。已落地。
+- 能复制 MCP 配置。已落地：设置页通过受限 `mcp_config` action 调用 `readany mcp config --profile <profile> --json`，前端不拼任意 CLI args。
 - 能跑 `doctor --json` 并展示结果。已落地。
 
 第一阶段不需要：
@@ -203,7 +203,7 @@ draft 工作区至少要提供：
 - 用户能看到 doctor 检查项。
 - 用户知道 readonly 不允许写入和导出。
 
-当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果，也可执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export。完整验收还需要在实际打包产物中确认 Node / native module 运行时是否随包可用，并补齐真实样本端到端记录。
+当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮和 MCP 配置复制都已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果，也可执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export。完整验收还需要在实际打包产物中确认 Node / native module 运行时是否随包可用，并补齐真实样本端到端记录。
 
 客户端 M4 做到：
 

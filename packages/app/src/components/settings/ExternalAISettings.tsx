@@ -29,6 +29,7 @@ type CliAction =
   | "install"
   | "uninstall"
   | "doctor"
+  | "mcp_config"
   | "tools_list"
   | "audit_list"
   | "skill_status"
@@ -47,6 +48,7 @@ type CliRunResult = {
 };
 
 type CliRunOptions = {
+  mcpProfile?: McpProfile;
   auditSource?: "cli" | "mcp";
   auditFailedOnly?: boolean;
   auditActionPrefix?: string;
@@ -253,7 +255,12 @@ export function ExternalAISettings() {
 
   async function copyMcpConfig() {
     if (!canCopyMcpConfig) return;
-    await getPlatformService().copyToClipboard(mcpConfig);
+    const result = await runCli("mcp_config", { mcpProfile });
+    const parsed = parseCliJson<{ mcpServers: { readany: { command: string; args: string[] } } }>(
+      result,
+    );
+    const config = parsed?.ok ? JSON.stringify(parsed.data, null, 2) : mcpConfig;
+    await getPlatformService().copyToClipboard(config);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   }
