@@ -122,26 +122,90 @@ function createManualAcceptanceRequirements() {
     {
       id: "sample-source",
       label: "Record the real sample source, license/privacy status, and whether it is publishable.",
+      evidence: [
+        "sample title/source owner or fixture origin",
+        "license/privacy classification",
+        "whether the evidence can be committed or must stay local",
+      ],
+      commands: [],
     },
     {
       id: "external-agent-clients",
       label: "Verify at least two real external agent clients, with at least one using MCP.",
+      evidence: [
+        "client names and versions",
+        "MCP config snippets without secrets",
+        "tools/list output",
+        "readonly write rejection",
+        "editor draft and publisher export summaries",
+        "audit.list source=mcp summary",
+      ],
+      commands: [
+        "readany mcp config --client codex --profile readonly --json",
+        "readany mcp config --client claude --profile readonly --json",
+        "readany audit list --source mcp --json",
+      ],
     },
     {
       id: "desktop-settings",
       label: "Verify the desktop External AI settings page can install/update/remove CLI and Skill and copy MCP config.",
+      evidence: [
+        "settings page screenshots or operation log",
+        "doctor result rendered in the app",
+        "Skill install/update/uninstall status",
+        "MCP config copy for readonly/editor/publisher profiles",
+      ],
+      commands: [
+        "readany doctor --json",
+        "readany skill status --json",
+        "readany mcp config --client generic --profile readonly --json",
+      ],
     },
     {
       id: "packaged-app-matrix",
       label: "Verify packaged app install, doctor, Skill, MCP, and draft export on macOS, Windows, and Linux.",
+      evidence: [
+        "package source and version per platform",
+        "install/uninstall result",
+        "doctor output per platform",
+        "Skill status per platform",
+        "MCP initialize/tools/list per platform",
+        "draft export result per platform",
+      ],
+      commands: [
+        "readany doctor --json",
+        "readany skill install --json",
+        "readany skill status --json",
+        "readany mcp serve --profile readonly",
+      ],
     },
     {
       id: "reader-jumpback",
       label: "Verify RAG and chapter citations can jump back in the desktop reader.",
+      evidence: [
+        "RAG result citation fields",
+        "chapter citation fields",
+        "reader jumpback screenshot or screen recording",
+      ],
+      commands: [
+        "readany rag search \"<query>\" --book <book-id> --json",
+        "readany chapter get <book-id> <chapter-id> --json",
+      ],
     },
     {
       id: "runtime-bundle",
       label: "Verify native binary or full runtime bundle behavior for users without a separate Node setup.",
+      evidence: [
+        "whether Node is required or bundled",
+        "doctor runtime.node/runtime.executable",
+        "nativeSqliteAvailable and nativeSqlitePath",
+        "result on a clean user machine without repo node_modules",
+      ],
+      commands: [
+        "readany --version",
+        "readany doctor --json",
+        "readany books list --json",
+      ],
     },
   ];
 }

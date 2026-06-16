@@ -444,6 +444,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
       manualAcceptanceRequired: Array<{
         id: string;
         label: string;
+        evidence: string[];
+        commands: string[];
       }>;
     };
     expect(evidence.environment).toMatchObject({
@@ -503,6 +505,23 @@ Module._load = function patchedLoad(request, parent, isMain) {
         expect.objectContaining({ id: "external-agent-clients" }),
         expect.objectContaining({ id: "packaged-app-matrix" }),
         expect.objectContaining({ id: "runtime-bundle" }),
+      ]),
+    );
+    expect(evidence.manualAcceptanceRequired).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "external-agent-clients",
+          evidence: expect.arrayContaining(["tools/list output"]),
+          commands: expect.arrayContaining([
+            "readany mcp config --client codex --profile readonly --json",
+            "readany audit list --source mcp --json",
+          ]),
+        }),
+        expect.objectContaining({
+          id: "runtime-bundle",
+          evidence: expect.arrayContaining(["nativeSqliteAvailable and nativeSqlitePath"]),
+          commands: expect.arrayContaining(["readany doctor --json"]),
+        }),
       ]),
     );
   });
