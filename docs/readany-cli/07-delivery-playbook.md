@@ -98,7 +98,7 @@ readonly profile 无法调用任何写入工具。
 外部 AI 可以基于真实章节内容和 RAG 结果回答问题，并能给出可回跳的引用位置。
 ```
 
-其中 indexed chunks 章节视图、未索引 EPUB/PDF fallback、chunk range 读取、reader context snapshot 写入/读取、Reader AI 上下文摘要入口和 `rag.search` 的 BM25 / hybrid / vector 能力已经提前落地；M2 剩余重点是引用回跳完整验收。
+其中 indexed chunks 章节视图、未索引 EPUB/PDF fallback、chunk range 读取、reader context snapshot 写入/读取、Reader AI 上下文摘要入口和 `rag.search` 的 BM25 / hybrid / vector 能力已经提前落地；桌面端 Chat 引用点击也已接入 Reader 回跳，支持 EPUB CFI、PDF `page:<n>` 和章节 fallback。M2 剩余重点是用真实 EPUB/PDF/RAG 样本补齐引用回跳端到端验收证据。
 
 ### M3 - AI 编辑和 EPUB 精排
 

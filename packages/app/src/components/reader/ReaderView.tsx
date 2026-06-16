@@ -64,6 +64,7 @@ const PROGRAMMATIC_NAV_GUARD_MS = 1200;
 const FIXED_LAYOUT_ZOOM_MIN = 0.5;
 const FIXED_LAYOUT_ZOOM_MAX = 3;
 const FIXED_LAYOUT_ZOOM_STEP = 0.1;
+const INITIAL_LOCATION_CHAPTER_PREFIX = "chapter:";
 const BOOK_IMPORT_FILTERS = [
   {
     name: "Books",
@@ -648,6 +649,35 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     return () => setGoToCfiFn(null);
   }, [navigateToCfi, setGoToCfiFn]);
 
+  const navigateToReaderLocation = useCallback(
+    (location: string) => {
+      const target = location.trim();
+      if (!target) return;
+
+      if (target.startsWith(INITIAL_LOCATION_CHAPTER_PREFIX)) {
+        const chapterIndex = Number.parseInt(
+          target.slice(INITIAL_LOCATION_CHAPTER_PREFIX.length),
+          10,
+        );
+        if (!Number.isNaN(chapterIndex)) {
+          foliateRef.current?.goToIndex(chapterIndex);
+        }
+        return;
+      }
+
+      if (target.startsWith("page:")) {
+        const pageNum = Number.parseInt(target.split(":")[1], 10);
+        if (!Number.isNaN(pageNum)) {
+          foliateRef.current?.goToIndex(Math.max(0, pageNum - 1));
+        }
+        return;
+      }
+
+      navigateToCfi(target);
+    },
+    [navigateToCfi],
+  );
+
   useEffect(() => {
     return eventBus.on("tts:jump-to-current", ({ bookId: targetBookId, cfi, respond }) => {
       if (targetBookId !== bookId || !cfi) return;
@@ -678,7 +708,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
 
     const timer = setTimeout(() => {
       if (foliateRef.current) {
-        navigateToCfi(targetCfi);
+        navigateToReaderLocation(targetCfi);
         // Clear the initialCfi in the store after a slight delay to avoid the "stickiness"
         // caused by immediate re-render during navigation.
         setTimeout(() => {
@@ -688,7 +718,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [foliateReady, appTab, navigateToCfi]);
+  }, [foliateReady, appTab, navigateToReaderLocation]);
 
   // Sync highlights to FoliateViewer when they change or when foliate becomes ready
   // Use a timeout to ensure the foliate view is fully initialized
@@ -2754,15 +2784,8 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
       }
 
       if (citation.cfi.startsWith("page:")) {
-        const pageNum = Number.parseInt(citation.cfi.split(":")[1], 10);
-        if (!isNaN(pageNum)) {
-          try {
-            foliateRef.current?.goToIndex(pageNum - 1);
-          } catch (error) {
-            console.error("Failed to navigate to page:", error, citation);
-          }
-          return;
-        }
+        navigateToReaderLocation(citation.cfi);
+        return;
       }
 
       console.log("[handleNavigateToCitation] Citation clicked:", citation);
@@ -2806,7 +2829,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
         );
       }
     },
-    [navigateToCfi],
+    [navigateToCfi, navigateToReaderLocation],
   );
 
   if (!readerTab) {

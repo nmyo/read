@@ -63,7 +63,7 @@ export const useAppStore = create<AppState>((set) => ({
       const existingIndex = state.tabs.findIndex((t) => t.id === tab.id);
       if (existingIndex >= 0) {
         const existingTab = state.tabs[existingIndex];
-        if (tab.initialCfi && existingTab) {
+        if (existingTab && "initialCfi" in tab) {
           const updatedTabs = [...state.tabs];
           updatedTabs[existingIndex] = {
             ...existingTab,

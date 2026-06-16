@@ -42,6 +42,7 @@
 - 已支持 reader context snapshot：`readany context get` 和 MCP `context.get` 可只读返回桌面端写入的当前书、当前章、位置、选区、可见正文和最近高亮快照，并带内容长度限制。
 - 已支持 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id> --mode bm25|hybrid|vector` 和 MCP `rag.search`。BM25 总是可用；hybrid 在没有 embedding 配置时会安全回退到 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
 - 已支持 knowledge search：`readany knowledge search <query>` 和 MCP `knowledge.search` 可聚合搜索书籍 metadata、notes 和 highlights，返回有限 snippet 和 book/note/highlight/cfi 引用。
+- 桌面端 Chat 引用点击已可打开对应书籍并回跳到 EPUB CFI、PDF `page:<n>` 或章节 fallback；后续还需要用真实样本补齐端到端验收记录。
 - 已支持 EPUB inspect：`readany epub inspect <book-id> --profile editor` 和 MCP `epub.inspect` 可读取 EPUB package、metadata、manifest、spine、toc 结构。
 - 已支持 EPUB draft create：`readany epub draft create <book-id> --profile editor` 和 MCP `epub.draft.create` 会复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改原文件。
 - 已支持 EPUB draft chapter read：`readany epub chapter read <draft-id> <chapter-id> --profile editor` 和 MCP `epub.chapter.read` 可从 draft 读取 XHTML 章节文本，带内容长度限制。
