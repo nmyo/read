@@ -1,5 +1,25 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { listTools } from "./tool-registry.js";
+
+async function readRepoFile(relativePath: string): Promise<string> {
+  return readFile(new URL(`../../../${relativePath}`, import.meta.url), "utf8");
+}
+
+function extractBacktickedToolListAfter(content: string, marker: string): string[] {
+  const markerIndex = content.indexOf(marker);
+  expect(markerIndex).toBeGreaterThanOrEqual(0);
+  const line = content.slice(markerIndex).split(/\r?\n/, 1)[0] ?? "";
+  return [...line.matchAll(/`([a-z]+\.[a-z.]+)`/g)].map((match) => match[1]);
+}
+
+function extractFencedToolListAfter(content: string, marker: string): string[] {
+  const markerIndex = content.indexOf(marker);
+  expect(markerIndex).toBeGreaterThanOrEqual(0);
+  const match = content.slice(markerIndex).match(/```text\r?\n([\s\S]*?)\r?\n```/);
+  expect(match).toBeTruthy();
+  return match![1].split(/\r?\n/).filter(Boolean);
+}
 
 describe("tool registry", () => {
   it("registers the first readonly tools", () => {
@@ -150,5 +170,24 @@ describe("tool registry", () => {
 
       expect(boundedProperty, toolName).toBeTruthy();
     }
+  });
+
+  it("keeps documented MCP tool lists in sync with the registry", async () => {
+    const registeredTools = listTools().map((tool) => tool.name);
+    const [readme, playbook, commandSpec] = await Promise.all([
+      readRepoFile("docs/readany-cli/README.md"),
+      readRepoFile("docs/readany-cli/07-delivery-playbook.md"),
+      readRepoFile("docs/readany-cli/05-command-and-tool-spec.md"),
+    ]);
+
+    expect(
+      extractBacktickedToolListAfter(readme, "MCP 当前只暴露真实实现的工具"),
+    ).toEqual(registeredTools);
+    expect(extractBacktickedToolListAfter(playbook, "MCP 当前只暴露")).toEqual(
+      registeredTools,
+    );
+    expect(extractFencedToolListAfter(commandSpec, "当前 `tools/list` 只允许返回")).toEqual(
+      registeredTools,
+    );
   });
 });
