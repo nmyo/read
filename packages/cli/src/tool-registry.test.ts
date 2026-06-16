@@ -125,4 +125,30 @@ describe("tool registry", () => {
       contentLimit: expect.any(Object),
     });
   });
+
+  it("declares bounded output controls for content-returning tools", () => {
+    const tools = new Map(listTools().map((tool) => [tool.name, tool]));
+    const boundedTools = [
+      "chapters.get",
+      "context.get",
+      "knowledge.search",
+      "rag.search",
+      "epub.chapter.read",
+    ];
+
+    for (const toolName of boundedTools) {
+      const properties = tools.get(toolName)?.inputSchema.properties ?? {};
+      const boundedProperty = Object.entries(properties).find(([key, schema]) => {
+        if (!["limit", "contentLimit", "chunkCount", "scanLimit"].includes(key)) return false;
+        return (
+          typeof schema === "object" &&
+          schema !== null &&
+          "maximum" in schema &&
+          typeof (schema as { maximum?: unknown }).maximum === "number"
+        );
+      });
+
+      expect(boundedProperty, toolName).toBeTruthy();
+    }
+  });
 });
