@@ -31,6 +31,7 @@ pub struct ReadAnyCliRunOptions {
     audit_action_prefix: Option<String>,
     audit_date: Option<String>,
     audit_limit: Option<u16>,
+    book_id: Option<String>,
 }
 
 fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
@@ -44,6 +45,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "skill_status" => Ok(strings(&["skill", "status", "--json"])),
         "skill_install" => Ok(strings(&["skill", "install", "--json"])),
         "skill_uninstall" => Ok(strings(&["skill", "uninstall", "--json"])),
+        "epub_draft_create" => epub_draft_create_args(options),
         _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
 }
@@ -84,6 +86,33 @@ fn audit_list_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String
     }
 
     Ok(args)
+}
+
+fn epub_draft_create_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let book_id = normalized_entity_id(options.book_id.as_deref(), "book id")?;
+    Ok(vec![
+        "epub".to_string(),
+        "draft".to_string(),
+        "create".to_string(),
+        book_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn normalized_entity_id(value: Option<&str>, label: &str) -> Result<String, String> {
+    let value = value.ok_or_else(|| format!("Missing {}.", label))?.trim();
+    if value.is_empty() {
+        return Err(format!("Missing {}.", label));
+    }
+    if value.len() > 160 {
+        return Err(format!("{} is too long.", label));
+    }
+    if value.chars().any(char::is_whitespace) {
+        return Err(format!("{} must not contain whitespace.", label));
+    }
+    Ok(value.to_string())
 }
 
 fn normalized_audit_action_prefix(value: Option<&str>) -> Option<String> {
@@ -257,10 +286,42 @@ mod tests {
                 "--json".to_string()
             ])
         );
+        assert_eq!(
+            args_for_action(
+                "epub_draft_create",
+                &ReadAnyCliRunOptions {
+                    book_id: Some("book-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "draft".to_string(),
+                "create".to_string(),
+                "book-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
         assert!(args_for_action("shell", &ReadAnyCliRunOptions::default()).is_err());
         assert!(
             args_for_action("doctor --profile admin", &ReadAnyCliRunOptions::default()).is_err()
         );
+    }
+
+    #[test]
+    fn validates_epub_draft_create_options() {
+        assert!(args_for_action("epub_draft_create", &ReadAnyCliRunOptions::default()).is_err());
+
+        assert!(args_for_action(
+            "epub_draft_create",
+            &ReadAnyCliRunOptions {
+                book_id: Some("book 1".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
     }
 
     #[test]
@@ -271,6 +332,7 @@ mod tests {
             audit_action_prefix: Some("tools/call".to_string()),
             audit_date: Some("2026-06-16".to_string()),
             audit_limit: Some(500),
+            ..ReadAnyCliRunOptions::default()
         };
 
         assert_eq!(
