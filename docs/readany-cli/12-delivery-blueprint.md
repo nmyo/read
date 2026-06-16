@@ -644,6 +644,13 @@ pnpm --filter app tauri info
 
 外部 agent 验收：
 
+```bash
+pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
+```
+
+这条自动 smoke 使用 built CLI 的 stdio MCP 模拟外部 agent，覆盖 readonly 发现/搜索、readonly 写入拒绝、editor draft 批量章节修改、publisher validate/export、audit 摘要和原 EPUB hash 不变。它只能作为可复现前置证据，不能替代 Codex / Claude Desktop / Cursor 的真实客户端手工验收。
+
 ```text
 复制 MCP 配置
   -> agent 启动 readany mcp serve --profile readonly

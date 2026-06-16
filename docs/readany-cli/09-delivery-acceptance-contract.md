@@ -307,6 +307,15 @@ $AGENT_HOME/skills/readany/SKILL.md
 - 一个外部 agent，优先 Codex、Claude Desktop 或 Cursor。
 - 桌面客户端设置页。
 
+可自动复现的外部 agent smoke：
+
+```bash
+pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
+```
+
+该 smoke 使用 built CLI 的 stdio MCP 跑 readonly 发现/搜索、readonly 写入拒绝、editor draft 批量章节修改、publisher validate/export、audit 摘要和原 EPUB hash 不变检查。它是 M5 外部 agent 验收的自动化前置证据；真实 Codex / Claude Desktop / Cursor 手工验收仍需另外记录。
+
 ### 安全测试
 
 必须验证：

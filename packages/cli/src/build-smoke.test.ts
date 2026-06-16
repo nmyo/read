@@ -251,4 +251,32 @@ Module._load = function patchedLoad(request, parent, isMain) {
       error: { code: "permission_denied" },
     });
   });
+
+  it("runs the external agent MCP smoke workflow", () => {
+    const result = spawnSync(process.execPath, [resolve(cliRoot, "scripts/agent-smoke.mjs")], {
+      cwd: cliRoot,
+      encoding: "utf8",
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout) as {
+      ok: boolean;
+      checks: string[];
+      exportPath: string;
+      sourceHash: string;
+    };
+    expect(summary).toMatchObject({
+      ok: true,
+      checks: expect.arrayContaining([
+        "readonly MCP initialize/tools/list/books.search/rag.search",
+        "readonly write denial",
+        "editor draft create and batch chapter patch",
+        "publisher validate and export",
+        "MCP audit export entry",
+        "source EPUB hash unchanged",
+      ]),
+      exportPath: expect.stringMatching(/agent-smoke-export\.epub$/),
+      sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+  });
 });

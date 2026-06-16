@@ -674,3 +674,12 @@ docs/readany-cli/acceptance/TEMPLATE.md
 - 外部 agent 验证结果。
 - 已知问题。
 - 是否允许进入下一阶段。
+
+外部 agent smoke 可先用下列命令形成自动化证据：
+
+```bash
+pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
+```
+
+该 smoke 通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、editor draft 批量章节修改、publisher validate/export、audit 和源 EPUB hash 不变检查；真实 Codex / Claude Desktop / Cursor 客户端仍需单独手工记录。

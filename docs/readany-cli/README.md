@@ -59,6 +59,7 @@
 - 已支持 knowledge export：`readany knowledge export --output <path> --profile publisher` 和 MCP `knowledge.export` 可导出全库书籍 metadata、notes、highlights 到 Markdown、JSON 或 Obsidian 文件，默认不覆盖已有文件，响应只返回输出元数据。
 - 已支持审计日志读取：`readany audit list --json` 和 MCP `audit.list` 可查看最近 CLI/MCP 调用记录，不返回工具参数正文。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
+- 已支持可复现外部 agent smoke：`pnpm --filter @readany/cli build && pnpm --filter @readany/cli smoke:agent` 会通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、editor draft 批量章节修改、publisher validate/export、audit 和原 EPUB hash 不变检查。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.chapters.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
 - 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；工作区也可通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export；设置页只负责接入和权限管理。
@@ -69,6 +70,7 @@
 - 随桌面安装包携带并注册 CLI binary。
 - native binary / runtime bundle 安装体验。
 - 真实 EPUB/PDF/RAG 样本的端到端验收记录。
+- Codex / Claude Desktop / Cursor 等真实外部 agent 手工验收。
 - macOS / Windows / Linux 打包后安装、Skill、MCP、draft export 的完整矩阵验收。
 
 ## 设计原则

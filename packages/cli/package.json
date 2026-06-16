@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "smoke:agent": "node scripts/agent-smoke.mjs",
     "dev": "tsx src/bin/readany.ts",
     "test": "vitest run",
     "test:watch": "vitest",
