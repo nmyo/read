@@ -226,6 +226,51 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "knowledge.export",
+    description: "Export the ReadAny library knowledge graph, including book metadata, notes, and highlights, to a file.",
+    scopes: ["epub.export"],
+    risk: "high",
+    inputSchema: {
+      type: "object",
+      properties: {
+        outputPath: {
+          type: "string",
+          minLength: 1,
+          description: "Output file path to write. Existing files are not overwritten unless overwrite is true.",
+        },
+        format: {
+          type: "string",
+          enum: ["markdown", "json", "obsidian"],
+          description: "Export format. Defaults to markdown.",
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Allow replacing an existing output file.",
+        },
+        limit: {
+          type: "number",
+          minimum: 1,
+          maximum: 10000,
+          description: "Maximum notes and highlights to include from each collection.",
+        },
+        includeBooks: {
+          type: "boolean",
+          description: "Include book metadata. Defaults to true.",
+        },
+        includeNotes: {
+          type: "boolean",
+          description: "Include notes. Defaults to true.",
+        },
+        includeHighlights: {
+          type: "boolean",
+          description: "Include highlights. Defaults to true.",
+        },
+      },
+      required: ["outputPath"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "highlights.search",
     description: "Search highlights in the ReadAny library.",
     scopes: ["note.read"],

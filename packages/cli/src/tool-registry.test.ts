@@ -13,6 +13,7 @@ describe("tool registry", () => {
       "context.get",
       "notes.search",
       "notes.export",
+      "knowledge.export",
       "highlights.search",
       "rag.search",
       "audit.list",
@@ -35,7 +36,12 @@ describe("tool registry", () => {
     const tools = listTools();
     expect(
       tools
-        .filter((tool) => !tool.name.startsWith("epub.") && tool.name !== "notes.export")
+        .filter(
+          (tool) =>
+            !tool.name.startsWith("epub.") &&
+            tool.name !== "notes.export" &&
+            tool.name !== "knowledge.export",
+        )
         .every((tool) => tool.risk === "low"),
     ).toBe(true);
     expect(tools.find((tool) => tool.name === "epub.inspect")?.risk).toBe("medium");
@@ -49,6 +55,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.diff")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.undo")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "notes.export")?.risk).toBe("high");
+    expect(tools.find((tool) => tool.name === "knowledge.export")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.validate")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.export")?.risk).toBe("high");
   });

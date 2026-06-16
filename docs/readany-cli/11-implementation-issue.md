@@ -227,7 +227,7 @@ test "$ORIGINAL_HASH" = "$(shasum -a 256 sample.epub | awk '{print $1}')"
 - `epub.validate` 已实现为结构和资源引用校验，不自动修复。
 - `epub.export` 已实现为 validate 后导出新 EPUB，默认不覆盖已有文件、不覆盖原书。
 - `notes.export` 已实现为单本书 notes/highlights 文件导出，默认不覆盖已有文件。
-- knowledge export 后续交付。
+- `knowledge.export` 已实现为全库知识文件导出，默认不覆盖已有文件，CLI/MCP 响应只返回输出元数据。
 
 验收：
 

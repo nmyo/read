@@ -42,6 +42,10 @@ import { rebuildEpubTocInDraft } from "@readany/core/epub/toc";
 import { validateEpubDraft } from "@readany/core/epub/validate";
 import { exportBookNotes } from "@readany/core/export/notes-export";
 import type { ExportFormat } from "@readany/core/export/annotation-exporter";
+import {
+  exportKnowledgeLibrary,
+  type KnowledgeExportFormat,
+} from "@readany/core/export/knowledge-export";
 import { createNodePlatformService } from "./platform/node-platform.js";
 import { configureRagSearchForCli } from "./rag-config.js";
 
@@ -421,6 +425,38 @@ export async function exportBookNotesWorkspace(options: {
     includeNotes,
     includeHighlights,
     groupByChapter,
+  });
+}
+
+export async function exportKnowledgeWorkspace(options: {
+  outputPath: string;
+  format?: KnowledgeExportFormat;
+  overwrite?: boolean;
+  includeBooks?: boolean;
+  includeNotes?: boolean;
+  includeHighlights?: boolean;
+  limit?: number;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/export/knowledge-export").KnowledgeExportResult> {
+  const {
+    outputPath,
+    format,
+    overwrite,
+    includeBooks,
+    includeNotes,
+    includeHighlights,
+    limit,
+    env = process.env,
+  } = options;
+  await ensureCoreInitialized(env);
+  return exportKnowledgeLibrary({
+    outputPath,
+    format,
+    overwrite,
+    includeBooks,
+    includeNotes,
+    includeHighlights,
+    limit,
   });
 }
 

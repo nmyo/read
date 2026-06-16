@@ -242,7 +242,7 @@ readany notes export <book-id> --output <path> --profile publisher --format mark
 readany knowledge export --format obsidian --json
 ```
 
-当前已实现 `epub.validate`、`epub.export` 和 `notes.export`；knowledge export 留在后续阶段。
+当前已实现 `epub.validate`、`epub.export`、`notes.export` 和 `knowledge.export`；knowledge export 只做文件级全库知识导出，默认不覆盖已有文件，不进入 MCP 未实现清单。
 
 完成标准：
 

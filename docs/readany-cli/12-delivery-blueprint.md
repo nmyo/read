@@ -633,7 +633,7 @@ M5 停止线：
 - `epub.diff` 当前是 source/draft EPUB entry 的 hash 和 size 差异，不是完整内容级 diff。
 - `epub.toc.rebuild` 当前只重建 EPUB3 nav，不保证 NCX。
 - `notes.export` 只导出单本书 notes/highlights，不是全知识库导出。
-- knowledge export 尚未完成。
+- `knowledge.export` 已完成文件级全库导出；默认不覆盖已有文件，MCP/CLI 响应只返回输出路径、hash、大小和数量元数据，不返回完整导出正文。
 - `epub.undo` 当前只撤销已记录且资源未被后续改动覆盖的 draft patch；不做任意历史分支合并。
 - 用户 draft 工作区完整 UI 仍需后续验收。
 

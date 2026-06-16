@@ -113,6 +113,10 @@ function isNotesExportFormat(value: string): value is "markdown" | "json" | "obs
   return value === "markdown" || value === "json" || value === "obsidian" || value === "notion";
 }
 
+function isKnowledgeExportFormat(value: string): value is "markdown" | "json" | "obsidian" {
+  return value === "markdown" || value === "json" || value === "obsidian";
+}
+
 async function getDataApi() {
   return import("./data.js");
 }
@@ -149,6 +153,7 @@ Usage:
   readany notes search <query> [--json] [--book <book-id>]
   readany notes export <book-id> --output <path> [--json] [--profile publisher] [--format markdown] [--overwrite]
   readany highlights search <query> [--json] [--book <book-id>]
+  readany knowledge export --output <path> [--json] [--profile publisher] [--format markdown|json|obsidian] [--limit 1000] [--overwrite]
   readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
 `;
@@ -387,6 +392,41 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         });
       }
       return failure("unknown_highlights_command", `Unknown highlights command: ${subcommand}`);
+    }
+
+    if (command.name === "knowledge") {
+      const data = await getDataApi();
+      const subcommand = command.args[0] ?? "export";
+      if (subcommand === "export") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.export")) {
+          return failure("permission_denied", "knowledge export requires publisher profile or higher");
+        }
+        const outputPath = getStringOption(command, "output");
+        if (!outputPath) {
+          return failure("missing_output_path", "knowledge export requires --output <path>");
+        }
+        const format = getStringOption(command, "format") ?? "markdown";
+        if (!isKnowledgeExportFormat(format)) {
+          return failure(
+            "unsupported_knowledge_export_format",
+            "knowledge export format must be markdown, json, or obsidian",
+          );
+        }
+        return success({
+          export: await data.exportKnowledgeWorkspace({
+            outputPath,
+            format,
+            overwrite: command.options.overwrite === true,
+            includeBooks: command.options["no-books"] === true ? false : undefined,
+            includeNotes: command.options["no-notes"] === true ? false : undefined,
+            includeHighlights: command.options["no-highlights"] === true ? false : undefined,
+            limit: getLimit(command, 1000),
+            env,
+          }),
+        });
+      }
+      return failure("unknown_knowledge_command", `Unknown knowledge command: ${subcommand}`);
     }
 
     if (command.name === "rag") {

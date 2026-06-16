@@ -142,6 +142,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "context.get" },
           { name: "notes.search" },
           { name: "notes.export" },
+          { name: "knowledge.export" },
           { name: "highlights.search" },
           { name: "rag.search" },
           { name: "audit.list" },

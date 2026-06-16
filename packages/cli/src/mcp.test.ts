@@ -167,6 +167,7 @@ describe("mcp", () => {
         { name: "context.get" },
         { name: "notes.search" },
         { name: "notes.export" },
+        { name: "knowledge.export" },
         { name: "highlights.search" },
         { name: "rag.search" },
         { name: "audit.list" },
@@ -340,6 +341,64 @@ describe("mcp", () => {
 
     const exported = await readFile(outputPath, "utf8");
     expect(exported).toContain("# MCP for Readers");
+    expect(exported).toContain("MCP export should stay file-based.");
+    expect(exported).toContain("External agents should receive export metadata");
+  });
+
+  it("gates knowledge.export by publisher profile and writes an export file", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const outputPath = join(env.READANY_HOME!, "exports", "knowledge.md");
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "knowledge.export",
+          arguments: { outputPath },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const publisherResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "knowledge.export",
+          arguments: { outputPath, format: "markdown" },
+        },
+      },
+      "publisher",
+      env,
+    );
+    expect(publisherResponse).toMatchObject({ isError: false });
+    const publisherText = (publisherResponse as { content: Array<{ text: string }> }).content[0]
+      .text;
+    expect(JSON.parse(publisherText)).toMatchObject({
+      ok: true,
+      data: {
+        export: {
+          outputPath,
+          format: "markdown",
+          bookCount: 1,
+          noteCount: 1,
+          highlightCount: 1,
+        },
+      },
+    });
+    expect(publisherText).not.toContain("MCP export should stay file-based.");
+
+    const exported = await readFile(outputPath, "utf8");
+    expect(exported).toContain("# ReadAny Knowledge Export");
+    expect(exported).toContain("## MCP for Readers");
     expect(exported).toContain("MCP export should stay file-based.");
     expect(exported).toContain("External agents should receive export metadata");
   });

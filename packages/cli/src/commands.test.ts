@@ -275,7 +275,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 23 },
+        tools: { count: 24 },
       });
     }
   });
@@ -1322,6 +1322,64 @@ describe("commands", () => {
 
     const overwriteBlocked = await runCommand(
       ["notes", "export", "book-1", "--output", outputPath, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(overwriteBlocked).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+  });
+
+  it("exports library knowledge with publisher profile", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const outputPath = join(workspace.root, "exports", "knowledge.md");
+
+    const readonly = await runCommand(
+      ["knowledge", "export", "--output", outputPath],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      [
+        "knowledge",
+        "export",
+        "--output",
+        outputPath,
+        "--profile",
+        "publisher",
+        "--format",
+        "markdown",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      export: {
+        outputPath,
+        outputHash: expect.any(String),
+        outputSize: expect.any(Number),
+        format: "markdown",
+        bookCount: 1,
+        noteCount: 1,
+        highlightCount: 1,
+      },
+    });
+    expect(JSON.stringify(result.data)).not.toContain("Agents need safe tool boundaries.");
+
+    const exported = await readFile(outputPath, "utf8");
+    expect(exported).toContain("# ReadAny Knowledge Export");
+    expect(exported).toContain("## Agent Systems");
+    expect(exported).toContain("Draft-first editing keeps users safe.");
+    expect(exported).toContain("Agents need safe tool boundaries.");
+
+    const overwriteBlocked = await runCommand(
+      ["knowledge", "export", "--output", outputPath, "--profile", "publisher"],
       workspace.env,
     );
     expect(overwriteBlocked).toMatchObject({

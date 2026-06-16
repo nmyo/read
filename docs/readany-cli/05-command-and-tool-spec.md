@@ -89,14 +89,9 @@ readany epub metadata patch <draft-id> --patch <file> [--profile editor] [--json
 readany epub toc rebuild <draft-id> [--profile editor] [--json]
 readany epub history <draft-id> [--profile editor] [--json]
 readany epub diff <draft-id> [--profile editor] [--json]
+readany epub undo <draft-id> <operation-id> [--profile editor] [--json]
 readany epub validate <draft-id> [--profile publisher] [--json]
 readany epub export <draft-id> --output <path> [--profile publisher] [--overwrite] [--json]
-```
-
-后续阶段支持：
-
-```bash
-readany epub undo <draft-id> <operation-id> [--json]
 ```
 
 补充约定：
@@ -106,6 +101,7 @@ readany epub undo <draft-id> <operation-id> [--json]
 - `epub.toc.rebuild` 只修改 draft 中的 EPUB3 nav 目录，基于 spine XHTML 章节生成一级目录。
 - `epub.history` 只读取 draft 的 operation history，不修改文件。
 - `epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size，不返回完整正文。
+- `epub.undo` 只撤销已记录且资源未被后续改动覆盖的 patch。
 - `epub.validate` 只做结构和引用校验，不自动修改内容。
 - `epub.export` 默认生成新文件，不覆盖源 EPUB。
 - 用户编辑入口和 AI 编辑入口使用同一套 draft/history/diff。
@@ -149,6 +145,7 @@ chapters.list
 chapters.get
 notes.search
 notes.export
+knowledge.export
 highlights.search
 rag.search
 audit.list
@@ -257,6 +254,7 @@ epub.metadata.patch
 epub.toc.rebuild
 epub.history
 epub.diff
+epub.undo
 epub.validate
 epub.export
 ```
@@ -267,7 +265,7 @@ M2 再做：
 knowledge.search
 ```
 
-M3 / M4 再做：
+当前已实现：
 
 ```text
 knowledge.export

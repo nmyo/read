@@ -17,6 +17,7 @@ import {
   discardEpubDraftWorkspace,
   exportEpubDraftWorkspace,
   exportBookNotesWorkspace,
+  exportKnowledgeWorkspace,
   getBookById,
   getEpubDraftHistory,
   getReaderContextSnapshot,
@@ -109,6 +110,10 @@ function getString(args: Record<string, unknown>, key: string): string | undefin
 
 function isNotesExportFormat(value: string): value is "markdown" | "json" | "obsidian" | "notion" {
   return value === "markdown" || value === "json" || value === "obsidian" || value === "notion";
+}
+
+function isKnowledgeExportFormat(value: string): value is "markdown" | "json" | "obsidian" {
+  return value === "markdown" || value === "json" || value === "obsidian";
 }
 
 function getLimit(args: Record<string, unknown>, fallback: number): number {
@@ -322,6 +327,30 @@ async function callReadAnyTool(
       outputPath,
       format,
       overwrite: args.overwrite === true,
+      env,
+    });
+    return success({ export: exported });
+  }
+
+  if (toolName === "knowledge.export") {
+    const outputPath = getString(args, "outputPath");
+    if (!outputPath) return failure("missing_output_path", "knowledge.export requires outputPath");
+    const format = getString(args, "format") ?? "markdown";
+    if (!isKnowledgeExportFormat(format)) {
+      return failure(
+        "unsupported_knowledge_export_format",
+        "knowledge.export format must be markdown, json, or obsidian",
+      );
+    }
+    const exported = await exportKnowledgeWorkspace({
+      outputPath,
+      format,
+      overwrite: args.overwrite === true,
+      includeBooks: typeof args.includeBooks === "boolean" ? args.includeBooks : undefined,
+      includeNotes: typeof args.includeNotes === "boolean" ? args.includeNotes : undefined,
+      includeHighlights:
+        typeof args.includeHighlights === "boolean" ? args.includeHighlights : undefined,
+      limit: getNumber(args, "limit", 1000),
       env,
     });
     return success({ export: exported });
