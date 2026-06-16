@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, rmdir, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { listTools } from "./tool-registry.js";
 import { CLI_VERSION } from "./version.js";
 
 export type SkillStatus = {
@@ -21,6 +22,15 @@ export type SkillUninstallResult = {
 
 const MANAGED_MARKER = "<!-- readany-cli-managed -->";
 
+function renderMcpToolList(): string {
+  return listTools()
+    .map(
+      (tool) =>
+        `- \`${tool.name}\` (${tool.risk}; scopes: ${tool.scopes.join(", ")}): ${tool.description}`,
+    )
+    .join("\n");
+}
+
 export function createSkillContent(version = CLI_VERSION): string {
   return `${MANAGED_MARKER}
 ---
@@ -37,8 +47,8 @@ Use this skill when the user asks an external AI agent to search, read, organize
 - Read book metadata, chapters, highlights, notes, bookmarks, and skills.
 - Search ReadAny with metadata, keyword, semantic retrieval, and knowledge tools.
 - Read the current reader context snapshot when the desktop client provides one.
-- Use draft-first EPUB editing workflows when an editing profile is enabled.
-- Patch EPUB chapters, metadata, toc, history, diff, undo, validate, and export through ReadAny drafts.
+- Inspect EPUB structure and use draft-first EPUB editing workflows when an editing profile is enabled.
+- Read, patch, batch-patch, rebuild toc, inspect history, diff, undo, validate, discard, and export through ReadAny drafts.
 - Export new artifacts only when the active profile allows export.
 - Ask the user before high-risk actions.
 
@@ -47,23 +57,47 @@ Use this skill when the user asks an external AI agent to search, read, organize
 - Start with readonly access unless the user explicitly asks for editing or publishing.
 - Never request arbitrary shell, arbitrary SQL, or unrestricted filesystem access.
 - Do not overwrite original books; use ReadAny drafts and exports.
-- For destructive or high-risk actions, ask the user to confirm in ReadAny.
+- Treat publisher/export actions and draft discard as high-risk; ask the user to confirm in ReadAny.
+- Prefer MCP tools in clients that support MCP. Use CLI commands as a transparent fallback.
+
+## MCP Tools
+
+${renderMcpToolList()}
 
 ## Commands
 
 \`\`\`bash
 readany doctor --json
 readany mcp serve --profile readonly
+readany mcp config --profile readonly --json
+readany tools list --json
 readany books list --json
+readany books search <query> --json
+readany book get <book-id> --json
+readany chapters list <book-id> --json
+readany chapter get <book-id> <chapter-id> --json --limit 12000
+readany context get --json --limit 12000
 readany bookmarks list <book-id> --json
 readany skills list --json
+readany notes search <query> --json --book <book-id>
+readany highlights search <query> --json --book <book-id>
+readany knowledge search <query> --json --book <book-id>
+readany rag search <query> --book <book-id> --json
+readany epub inspect <book-id> --profile editor --json
 readany epub draft create <book-id> --profile editor --json
+readany epub chapter read <draft-id> <chapter-id> --format xhtml --profile editor --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor --json
+readany epub chapters patch <draft-id> --patch <file> --profile editor --json
 readany epub metadata patch <draft-id> --patch <file> --profile editor --json
 readany epub toc rebuild <draft-id> --profile editor --json
+readany epub history <draft-id> --profile editor --json
+readany epub diff <draft-id> --profile editor --json
 readany epub undo <draft-id> <operation-id> --profile editor --json
+readany epub draft discard <draft-id> --profile editor --reason "finished" --json
 readany epub validate <draft-id> --profile publisher --json
 readany epub export <draft-id> --output <path> --profile publisher --json
+readany notes export <book-id> --output <path> --profile publisher --json
+readany knowledge export --output <path> --profile publisher --json
 readany skill status --json
 \`\`\`
 
