@@ -131,6 +131,44 @@ function buildInspectableEpub() {
   ]);
 }
 
+function buildSimplePdf(pages) {
+  const objects = [];
+  const addObject = (body) => {
+    objects.push(body);
+    return objects.length;
+  };
+  const catalogId = addObject("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesId = addObject("");
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const pageIds = [];
+
+  for (const text of pages) {
+    const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
+    const contentId = addObject(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const pageId = addObject(
+      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    );
+    pageIds.push(pageId);
+  }
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(encoder.encode(pdf).length);
+    pdf += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = encoder.encode(pdf).length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return encoder.encode(pdf);
+}
+
 function runBuiltCli(args, env) {
   const result = spawnSync(process.execPath, [binPath, ...args], {
     cwd: cliRoot,
@@ -186,6 +224,10 @@ async function seedLibrary(dataRoot) {
   await mkdir(join(dataRoot, "books"), { recursive: true });
   const epubPath = join(dataRoot, "books", "agent-smoke.epub");
   await writeFile(epubPath, buildInspectableEpub());
+  await writeFile(
+    join(dataRoot, "books", "agent-smoke.pdf"),
+    buildSimplePdf(["PDF smoke agents need page fallback", "Second PDF smoke page keeps references stable"]),
+  );
 
   const db = new Database(join(dataRoot, "readany.db"));
   db.exec(`
@@ -199,6 +241,12 @@ async function seedLibrary(dataRoot) {
       NULL, 'en', NULL, 'External agent smoke fixture', NULL, NULL, NULL, NULL, '["AI"]',
       100, 2, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 1, 1,
       '["agent","smoke"]', 'hash-agent-smoke', 'local'
+    ),
+    (
+      'agent-smoke-pdf', 'books/agent-smoke.pdf', 'pdf', 'Agent Smoke PDF', 'ReadAny CLI',
+      NULL, 'en', NULL, 'External agent PDF fallback fixture', NULL, NULL, NULL, NULL, '["AI","PDF"]',
+      2, 2, NULL, 1100, 2100, 3100, NULL, 0.25, 'page:1', 0, 0,
+      '["agent","smoke","pdf"]', 'hash-agent-smoke-pdf', 'local'
     );
 
     INSERT INTO notes (
@@ -324,6 +372,39 @@ async function main() {
   assert(rag.ok && rag.data.results.length > 0, "rag.search failed");
   const deniedDraft = parseToolContent(readonlyResponses[4]);
   assert(!deniedDraft.ok && deniedDraft.error.code === "permission_denied", "readonly write was not denied");
+
+  const pdfResponses = await callMcp(
+    "readonly",
+    [
+      {
+        jsonrpc: "2.0",
+        id: 6,
+        method: "tools/call",
+        params: { name: "chapters.list", arguments: { bookId: "agent-smoke-pdf" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: { name: "chapters.get", arguments: { bookId: "agent-smoke-pdf", chapterId: "page-1" } },
+      },
+    ],
+    env,
+  );
+  const pdfChapters = parseToolContent(pdfResponses[0]);
+  assert(
+    pdfChapters.ok &&
+      pdfChapters.data.chapters.some((chapter) => chapter.source === "pdf" && chapter.id === "page-1" && chapter.page === 1),
+    `PDF fallback chapters.list failed: ${JSON.stringify(pdfChapters)}`,
+  );
+  const pdfPage = parseToolContent(pdfResponses[1]);
+  assert(
+    pdfPage.ok &&
+      pdfPage.data.chapter.source === "pdf" &&
+      pdfPage.data.chapter.cfi === "page:1" &&
+      pdfPage.data.chapter.content.includes("PDF smoke agents need page fallback"),
+    `PDF fallback chapters.get failed: ${JSON.stringify(pdfPage)}`,
+  );
 
   const editorResponses = await callMcp(
     "editor",
@@ -512,6 +593,7 @@ async function main() {
     exportHash: exportedHash,
     checks: [
       "readonly MCP initialize/tools/list/books.search/rag.search",
+      "readonly PDF fallback chapters.list/chapters.get",
       "readonly write denial",
       "editor draft create, batch chapter patch, and toc rebuild",
       "publisher validate and export",

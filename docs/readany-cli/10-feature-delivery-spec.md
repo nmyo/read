@@ -684,4 +684,4 @@ pnpm --filter @readany/cli build
 pnpm --filter @readany/cli smoke:agent
 ```
 
-该 smoke 通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit、源 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查；真实 Codex / Claude Desktop / Cursor 客户端仍需单独手工记录。
+该 smoke 通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、PDF fallback 章节读取、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit、源 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查；真实 Codex / Claude Desktop / Cursor 客户端仍需单独手工记录。

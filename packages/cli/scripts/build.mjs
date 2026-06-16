@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { chmod, mkdir, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,3 +29,7 @@ await build({
 
 await mkdir(resolve(rootDir, "dist/bin"), { recursive: true });
 await chmod(outFile, 0o755);
+
+const pdfWorkerPath = fileURLToPath(import.meta.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs"));
+await mkdir(resolve(outDir, "chunks"), { recursive: true });
+await copyFile(pdfWorkerPath, resolve(outDir, "chunks/pdf.worker.mjs"));
