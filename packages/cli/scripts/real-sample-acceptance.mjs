@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { inflateRawSync } from "node:zlib";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
@@ -20,6 +21,7 @@ function parseArgs(argv) {
     exportDir: undefined,
     evidencePath: undefined,
     draftExport: false,
+    keepDraft: false,
     readanyHome: process.env.READANY_HOME,
   };
 
@@ -54,6 +56,8 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--draft-export") {
       options.draftExport = true;
+    } else if (arg === "--keep-draft") {
+      options.keepDraft = true;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -81,11 +85,119 @@ Readonly by default:
 Explicit write/export mode:
   --draft-export               Create, validate, export, and re-inspect an EPUB draft.
   --export-dir <path>          Required with --draft-export; export target directory.
+  --keep-draft                 Keep the draft workspace after export for manual inspection.
 `;
 }
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function decodeXmlText(value) {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function getPackageDir(path) {
+  const index = path.lastIndexOf("/");
+  return index >= 0 ? path.slice(0, index + 1) : "";
+}
+
+function resolvePackagePath(packageDir, href) {
+  if (!packageDir) return href;
+  return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
+}
+
+function findEndOfCentralDirectory(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const minOffset = Math.max(0, bytes.byteLength - 65557);
+  for (let offset = bytes.byteLength - 22; offset >= minOffset; offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      return {
+        entryCount: view.getUint16(offset + 10, true),
+        centralDirectoryOffset: view.getUint32(offset + 16, true),
+      };
+    }
+  }
+  throw new Error("ZIP end of central directory was not found.");
+}
+
+function readZipEntries(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder();
+  const eocd = findEndOfCentralDirectory(bytes);
+  const entries = new Map();
+  let offset = eocd.centralDirectoryOffset;
+
+  for (let index = 0; index < eocd.entryCount; index += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) {
+      throw new Error("Invalid ZIP central directory entry.");
+    }
+    const method = view.getUint16(offset + 10, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const fileNameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const localHeaderOffset = view.getUint32(offset + 42, true);
+    const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + fileNameLength));
+
+    if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
+      throw new Error(`Invalid ZIP local header for ${name}.`);
+    }
+    const localNameLength = view.getUint16(localHeaderOffset + 26, true);
+    const localExtraLength = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+    const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+    let data;
+    if (method === 0) {
+      data = compressed;
+    } else if (method === 8) {
+      data = inflateRawSync(compressed);
+    } else {
+      throw new Error(`Unsupported ZIP compression method ${method} for ${name}.`);
+    }
+    entries.set(name, data);
+
+    offset += 46 + fileNameLength + extraLength + commentLength;
+  }
+
+  return entries;
+}
+
+function readZipText(entries, path) {
+  const data =
+    entries.get(path) ??
+    Array.from(entries.entries()).find(([entryPath]) => entryPath.toLowerCase() === path.toLowerCase())?.[1];
+  return data ? new TextDecoder().decode(data) : undefined;
+}
+
+function inspectExportedEpub(bytes) {
+  const entries = readZipEntries(bytes);
+  const containerXml = readZipText(entries, "META-INF/container.xml");
+  if (!containerXml) throw new Error("Exported EPUB container.xml was not found.");
+  const packagePath = containerXml.match(/<rootfile\b[^>]*\bfull-path=["']([^"']+)["']/i)?.[1];
+  if (!packagePath) throw new Error("Exported EPUB container.xml does not declare a package document.");
+
+  const opfXml = readZipText(entries, packagePath);
+  if (!opfXml) throw new Error(`Exported EPUB package document was not found: ${packagePath}`);
+  const packageDir = getPackageDir(packagePath);
+  const title = opfXml.match(/<[^:>]*:?title\b[^>]*>([^<]*)<\/[^>]+>/i)?.[1]?.trim();
+  const navHref = opfXml
+    .match(/<item\b[^>]*\bproperties=["'][^"']*\bnav\b[^"']*["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i)?.[1] ??
+    opfXml.match(/<item\b[^>]*\bhref=["']([^"']+)["'][^>]*\bproperties=["'][^"']*\bnav\b[^"']*["'][^>]*>/i)?.[1];
+  const navXml = navHref ? readZipText(entries, resolvePackagePath(packageDir, navHref)) : undefined;
+
+  return {
+    packagePath,
+    title: title ? decodeXmlText(title) : undefined,
+    manifestCount: opfXml.match(/<item\b/gi)?.length ?? 0,
+    spineCount: opfXml.match(/<itemref\b/gi)?.length ?? 0,
+    tocCount: navXml?.match(/<a\b/gi)?.length ?? 0,
+  };
 }
 
 function runCli(args, env) {
@@ -264,22 +376,62 @@ async function main() {
       const draftId = draftData.draft?.draftId;
       assert(draftId, "epub.draft.create did not return draftId");
       record("epub.draft.create real sample", draftCreate, { bookId: epubBookId, draftId });
+      let draftWorkflowFailed = false;
+      try {
+        const validate = runCli(["epub", "validate", draftId, "--profile", "publisher"], env);
+        const validateData = requireOk(validate);
+        assert(validateData.validation?.valid === true, "epub.validate did not pass for real sample draft");
+        record("epub.validate real sample draft", validate, { draftId });
 
-      const validate = runCli(["epub", "validate", draftId, "--profile", "publisher"], env);
-      const validateData = requireOk(validate);
-      assert(validateData.validation?.valid === true, "epub.validate did not pass for real sample draft");
-      record("epub.validate real sample draft", validate, { draftId });
+        const exportPath = join(options.exportDir, `readany-real-sample-${Date.now()}.epub`);
+        const exported = runCli(["epub", "export", draftId, "--output", exportPath, "--profile", "publisher"], env);
+        requireOk(exported);
+        const exportedBytes = await readFile(exportPath);
+        record("epub.export real sample draft", exported, {
+          draftId,
+          outputPath: exportPath,
+          outputHash: sha256(exportedBytes),
+          outputBytes: exportedBytes.byteLength,
+        });
 
-      const exportPath = join(options.exportDir, `readany-real-sample-${Date.now()}.epub`);
-      const exported = runCli(["epub", "export", draftId, "--output", exportPath, "--profile", "publisher"], env);
-      requireOk(exported);
-      const exportedBytes = await readFile(exportPath);
-      record("epub.export real sample draft", exported, {
-        draftId,
-        outputPath: exportPath,
-        outputHash: sha256(exportedBytes),
-        outputBytes: exportedBytes.byteLength,
-      });
+        const exportedInspect = inspectExportedEpub(exportedBytes);
+        assert(
+          exportedInspect.spineCount > 0,
+          "exported real sample EPUB inspect returned no spine items",
+        );
+        record("epub.export inspect real sample output", exported, {
+          draftId,
+          outputPath: exportPath,
+          packagePath: exportedInspect.packagePath,
+          title: exportedInspect.title,
+          manifestCount: exportedInspect.manifestCount,
+          spineCount: exportedInspect.spineCount,
+          tocCount: exportedInspect.tocCount,
+        });
+      } catch (error) {
+        draftWorkflowFailed = true;
+        throw error;
+      } finally {
+        if (!options.keepDraft) {
+          const discard = runCli(
+            [
+              "epub",
+              "draft",
+              "discard",
+              draftId,
+              "--profile",
+              "editor",
+              "--reason",
+              "real sample acceptance cleanup",
+            ],
+            env,
+          );
+          record("epub.draft.discard real sample cleanup", discard, { draftId });
+          if (!discard.ok && !draftWorkflowFailed) {
+            requireOk(discard);
+          }
+        }
+      }
     }
   }
 
@@ -319,6 +471,7 @@ async function main() {
     epubBookId: options.epubBookId,
     pdfBookId: options.pdfBookId,
     draftExport: options.draftExport,
+    keepDraft: options.keepDraft,
     checks,
     commands,
     note: "This helper records real-sample evidence. It does not replace manual external-agent or packaged-app matrix acceptance.",

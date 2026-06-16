@@ -357,6 +357,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "rag.search primary sample",
         "epub.inspect real sample",
         "epub.export real sample draft",
+        "epub.export inspect real sample output",
+        "epub.draft.discard real sample cleanup",
         "pdf chapter.get real sample",
         "audit.list bounded metadata",
       ]),
