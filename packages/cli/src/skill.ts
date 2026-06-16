@@ -34,10 +34,13 @@ Use this skill when the user asks an external AI agent to search, read, organize
 
 ## Capabilities
 
-- Read book metadata, chapters, highlights, notes, and knowledge documents.
-- Search ReadAny with metadata, keyword, and semantic retrieval tools.
+- Read book metadata, chapters, highlights, notes, bookmarks, and skills.
+- Search ReadAny with metadata, keyword, semantic retrieval, and knowledge tools.
+- Read the current reader context snapshot when the desktop client provides one.
 - Use draft-first EPUB editing workflows when an editing profile is enabled.
+- Patch EPUB chapters, metadata, toc, history, diff, undo, validate, and export through ReadAny drafts.
 - Export new artifacts only when the active profile allows export.
+- Ask the user before high-risk actions.
 
 ## Safety Rules
 
@@ -51,6 +54,16 @@ Use this skill when the user asks an external AI agent to search, read, organize
 \`\`\`bash
 readany doctor --json
 readany mcp serve --profile readonly
+readany books list --json
+readany bookmarks list <book-id> --json
+readany skills list --json
+readany epub draft create <book-id> --profile editor --json
+readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor --json
+readany epub metadata patch <draft-id> --patch <file> --profile editor --json
+readany epub toc rebuild <draft-id> --profile editor --json
+readany epub undo <draft-id> <operation-id> --profile editor --json
+readany epub validate <draft-id> --profile publisher --json
+readany epub export <draft-id> --output <path> --profile publisher --json
 readany skill status --json
 \`\`\`
 

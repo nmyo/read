@@ -20,6 +20,10 @@ describe("skill management", () => {
     const content = await readFile(skillFile, "utf8");
     expect(content).toContain("readany-cli-managed");
     expect(content).toContain("readany mcp serve --profile readonly");
+    expect(content).toContain("readany bookmarks list <book-id> --json");
+    expect(content).toContain("readany skills list --json");
+    expect(content).toContain("readany epub chapter patch <draft-id> <chapter-id>");
+    expect(content).toContain("readany epub export <draft-id> --output <path>");
 
     expect(await getSkillStatus(skillFile)).toMatchObject({
       installed: true,
