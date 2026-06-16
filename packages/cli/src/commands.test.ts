@@ -1087,6 +1087,34 @@ describe("commands", () => {
       ok: false,
       error: { code: "command_failed" },
     });
+
+    const audit = await runCommand(
+      ["audit", "list", "--limit", "10", "--action-prefix", "epub export"],
+      workspace.env,
+    );
+    expect(audit.ok).toBe(true);
+    if (!audit.ok) return;
+    expect(audit.data).toMatchObject({
+      audit: {
+        entries: expect.arrayContaining([
+          expect.objectContaining({
+            source: "cli",
+            action: "epub export",
+            profile: "publisher",
+            ok: true,
+          }),
+          expect.objectContaining({
+            source: "cli",
+            action: "epub export",
+            profile: "publisher",
+            ok: false,
+            code: "command_failed",
+          }),
+        ]),
+      },
+    });
+    expect(JSON.stringify(audit.data)).not.toContain(outputPath);
+    expect(JSON.stringify(audit.data)).not.toContain(draftId);
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {
