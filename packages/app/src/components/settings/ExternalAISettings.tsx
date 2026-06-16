@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clipboard,
   FileCheck2,
+  History,
   RefreshCw,
   ShieldCheck,
   Terminal,
@@ -19,6 +20,7 @@ type CliAction =
   | "uninstall"
   | "doctor"
   | "tools_list"
+  | "audit_list"
   | "skill_status"
   | "skill_install"
   | "skill_uninstall";
@@ -49,6 +51,20 @@ type SkillStatus = {
   installed: boolean;
   path: string;
   version?: string;
+};
+
+type AuditEntry = {
+  timestamp: string;
+  source: "cli" | "mcp";
+  action: string;
+  profile?: string;
+  ok: boolean;
+  code?: string;
+};
+
+type AuditList = {
+  entries: AuditEntry[];
+  limit: number;
 };
 
 const MCP_CONFIG = JSON.stringify(
@@ -101,6 +117,7 @@ export function ExternalAISettings() {
   const [doctorResult, setDoctorResult] = useState<CliRunResult>();
   const [skillResult, setSkillResult] = useState<CliRunResult>();
   const [toolsResult, setToolsResult] = useState<CliRunResult>();
+  const [auditResult, setAuditResult] = useState<CliRunResult>();
   const [lastActionResult, setLastActionResult] = useState<CliRunResult>();
   const [copied, setCopied] = useState(false);
 
@@ -110,6 +127,7 @@ export function ExternalAISettings() {
     () => parseCliJson<{ tools: Array<{ name: string; risk: string }> }>(toolsResult),
     [toolsResult],
   );
+  const audit = useMemo(() => parseCliJson<{ audit: AuditList }>(auditResult), [auditResult]);
 
   const cliAvailable = Boolean(versionResult?.ok);
   const cliVersion = versionResult?.ok ? versionResult.stdout.trim() : "";
@@ -124,6 +142,7 @@ export function ExternalAISettings() {
       if (action === "version") setVersionResult(result);
       if (action === "doctor") setDoctorResult(result);
       if (action === "tools_list") setToolsResult(result);
+      if (action === "audit_list") setAuditResult(result);
       if (action.startsWith("skill_")) setSkillResult(result);
       return result;
     } catch (error) {
@@ -140,6 +159,7 @@ export function ExternalAISettings() {
       if (action === "version") setVersionResult(failed);
       if (action === "doctor") setDoctorResult(failed);
       if (action === "tools_list") setToolsResult(failed);
+      if (action === "audit_list") setAuditResult(failed);
       if (action.startsWith("skill_")) setSkillResult(failed);
       return failed;
     } finally {
@@ -152,6 +172,7 @@ export function ExternalAISettings() {
     await runCli("doctor");
     await runCli("skill_status");
     await runCli("tools_list");
+    await runCli("audit_list");
   }
 
   async function handleSkillInstall() {
@@ -331,6 +352,63 @@ export function ExternalAISettings() {
           <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
             {readonlyToolNames.length > 0 ? readonlyToolNames.join(", ") : "运行诊断后显示。"}
           </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg bg-muted/60 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-foreground">最近审计</h2>
+              {statusLabel(audit?.ok === true, "可读取", "等待日志")}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证。
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void runCli("audit_list")}
+            disabled={busy}
+          >
+            <RefreshCw
+              className={`mr-1.5 h-3.5 w-3.5 ${loadingAction === "audit_list" ? "animate-spin" : ""}`}
+            />
+            刷新
+          </Button>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {audit?.ok && audit.data.audit.entries.length > 0
+            ? audit.data.audit.entries.map((entry) => (
+                <div
+                  key={`${entry.timestamp}-${entry.source}-${entry.action}`}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-md bg-background px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-xs text-foreground">{entry.action}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {entry.timestamp} · {entry.source}
+                      {entry.profile ? ` · ${entry.profile}` : ""}
+                      {entry.code ? ` · ${entry.code}` : ""}
+                    </p>
+                  </div>
+                  {statusLabel(entry.ok, "成功", "失败")}
+                </div>
+              ))
+            : null}
+          {audit?.ok && audit.data.audit.entries.length === 0 ? (
+            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+              暂无审计记录。
+            </p>
+          ) : null}
+          {!audit?.ok ? (
+            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+              {outputSummary(auditResult, audit)}
+            </p>
+          ) : null}
         </div>
       </section>
     </div>

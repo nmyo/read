@@ -30,6 +30,7 @@ fn args_for_action(action: &str) -> Option<Vec<&'static str>> {
         "uninstall" => Some(vec!["uninstall", "--user", "--json"]),
         "doctor" => Some(vec!["doctor", "--json"]),
         "tools_list" => Some(vec!["tools", "list", "--json"]),
+        "audit_list" => Some(vec!["audit", "list", "--json", "--limit", "8"]),
         "skill_status" => Some(vec!["skill", "status", "--json"]),
         "skill_install" => Some(vec!["skill", "install", "--json"]),
         "skill_uninstall" => Some(vec!["skill", "uninstall", "--json"]),
@@ -165,6 +166,10 @@ mod tests {
     fn exposes_only_allowlisted_cli_actions() {
         assert_eq!(args_for_action("version"), Some(vec!["--version"]));
         assert_eq!(args_for_action("doctor"), Some(vec!["doctor", "--json"]));
+        assert_eq!(
+            args_for_action("audit_list"),
+            Some(vec!["audit", "list", "--json", "--limit", "8"])
+        );
         assert_eq!(
             args_for_action("skill_install"),
             Some(vec!["skill", "install", "--json"])
