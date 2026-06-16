@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -240,6 +240,31 @@ async function seedLibrary(dataRoot) {
   return epubPath;
 }
 
+async function seedExportedBook(dataRoot, exportPath, exportedHash) {
+  await mkdir(join(dataRoot, "books"), { recursive: true });
+  const libraryPath = join(dataRoot, "books", "agent-smoke-exported.epub");
+  await copyFile(exportPath, libraryPath);
+
+  const db = new Database(join(dataRoot, "readany.db"));
+  db.prepare(`
+    INSERT INTO books (
+      id, file_path, format, title, author, publisher, language, isbn, description,
+      cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+      group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+      is_vectorized, vectorize_progress, tags, file_hash, sync_status
+    ) VALUES (
+      'agent-smoke-exported-book', 'books/agent-smoke-exported.epub', 'epub',
+      'Agent Smoke Exported Book', 'ReadAny CLI', NULL, 'en', NULL,
+      'Reimported external agent smoke export', NULL, NULL, NULL, NULL, '["AI","export"]',
+      100, 2, NULL, 7000, 7000, 7000, NULL, 0, NULL, 0, 0,
+      '["agent","smoke","exported"]', ?, 'local'
+    )
+  `).run(exportedHash);
+  db.close();
+
+  return libraryPath;
+}
+
 function hashBuffer(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
@@ -346,6 +371,12 @@ async function main() {
         jsonrpc: "2.0",
         id: 12,
         method: "tools/call",
+        params: { name: "epub.toc.rebuild", arguments: { draftId } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 13,
+        method: "tools/call",
         params: { name: "epub.validate", arguments: { draftId } },
       },
     ],
@@ -353,7 +384,9 @@ async function main() {
   );
   const batch = parseToolContent(editorPatchResponses[0]);
   assert(batch.ok && batch.data.batch.changedCount === 2, "batch chapter patch failed");
-  const deniedValidate = parseToolContent(editorPatchResponses[1]);
+  const toc = parseToolContent(editorPatchResponses[1]);
+  assert(toc.ok, "toc rebuild failed");
+  const deniedValidate = parseToolContent(editorPatchResponses[2]);
   assert(!deniedValidate.ok && deniedValidate.error.code === "permission_denied", "editor validate was not denied");
 
   const exportPath = join(root, "exports", "agent-smoke-export.epub");
@@ -395,6 +428,79 @@ async function main() {
   assert(sourceHashBefore === hashBuffer(sourceAfter), "source EPUB changed during smoke");
   const exportBytes = await readFile(exportPath);
   assert(exportBytes.length > 0, "exported EPUB is empty");
+  const exportedHash = hashBuffer(exportBytes);
+  await seedExportedBook(dataRoot, exportPath, exportedHash);
+
+  const reimportResponses = await callMcp(
+    "editor",
+    [
+      {
+        jsonrpc: "2.0",
+        id: 30,
+        method: "tools/call",
+        params: { name: "epub.inspect", arguments: { bookId: "agent-smoke-exported-book" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 31,
+        method: "tools/call",
+        params: { name: "chapters.list", arguments: { bookId: "agent-smoke-exported-book" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 32,
+        method: "tools/call",
+        params: {
+          name: "chapters.get",
+          arguments: {
+            bookId: "agent-smoke-exported-book",
+            chapterId: "chapter-1",
+            contentLimit: 2000,
+          },
+        },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 33,
+        method: "tools/call",
+        params: {
+          name: "chapters.get",
+          arguments: {
+            bookId: "agent-smoke-exported-book",
+            chapterId: "chapter-2",
+            contentLimit: 2000,
+          },
+        },
+      },
+    ],
+    env,
+  );
+  const reimportInspect = parseToolContent(reimportResponses[0]);
+  assert(
+    reimportInspect.ok && reimportInspect.data.epub.spine.items.length === 2,
+    "exported EPUB inspect did not find the expected spine",
+  );
+  const reimportChapters = parseToolContent(reimportResponses[1]);
+  assert(
+    reimportChapters.ok &&
+      reimportChapters.data.chapters.some((chapter) => chapter.id === "chapter-1") &&
+      reimportChapters.data.chapters.some((chapter) => chapter.id === "chapter-2"),
+    "exported EPUB chapters.list did not find patched chapters",
+  );
+  const reimportChapterOne = parseToolContent(reimportResponses[2]);
+  assert(
+    reimportChapterOne.ok &&
+      reimportChapterOne.data.chapter.content.includes("Agent Revised Access") &&
+      reimportChapterOne.data.chapter.content.includes("updated the first chapter"),
+    "exported EPUB chapter-1 did not contain patched content",
+  );
+  const reimportChapterTwo = parseToolContent(reimportResponses[3]);
+  assert(
+    reimportChapterTwo.ok &&
+      reimportChapterTwo.data.chapter.content.includes("Agent Revised Safety") &&
+      reimportChapterTwo.data.chapter.content.includes("updated the second chapter"),
+    "exported EPUB chapter-2 did not contain patched content",
+  );
 
   const summary = {
     ok: true,
@@ -403,13 +509,15 @@ async function main() {
     draftId,
     exportPath,
     sourceHash: sourceHashBefore,
+    exportHash: exportedHash,
     checks: [
       "readonly MCP initialize/tools/list/books.search/rag.search",
       "readonly write denial",
-      "editor draft create and batch chapter patch",
+      "editor draft create, batch chapter patch, and toc rebuild",
       "publisher validate and export",
       "MCP audit export entry",
       "source EPUB hash unchanged",
+      "exported EPUB reimport inspect and chapter reads",
     ],
   };
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

@@ -278,19 +278,22 @@ Module._load = function patchedLoad(request, parent, isMain) {
       checks: string[];
       exportPath: string;
       sourceHash: string;
+      exportHash: string;
     };
     expect(summary).toMatchObject({
       ok: true,
       checks: expect.arrayContaining([
         "readonly MCP initialize/tools/list/books.search/rag.search",
         "readonly write denial",
-        "editor draft create and batch chapter patch",
+        "editor draft create, batch chapter patch, and toc rebuild",
         "publisher validate and export",
         "MCP audit export entry",
         "source EPUB hash unchanged",
+        "exported EPUB reimport inspect and chapter reads",
       ]),
       exportPath: expect.stringMatching(/agent-smoke-export\.epub$/),
       sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      exportHash: expect.stringMatching(/^[a-f0-9]{64}$/),
     });
   });
 });
