@@ -41,8 +41,13 @@ export function parseCommand(argv: string[]): ParsedCommand {
     }
 
     if (arg === "--profile") {
-      profile = args[index + 1];
-      index += 1;
+      const next = args[index + 1];
+      if (next && !next.startsWith("--")) {
+        profile = next;
+        index += 1;
+      } else {
+        profile = "";
+      }
       continue;
     }
 
@@ -124,6 +129,13 @@ function getNumberOption(
 function getStringOption(command: ParsedCommand, name: string): string | undefined {
   const value = command.options[name];
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getRequiredStringOption(command: ParsedCommand, name: string): string | undefined {
+  const value = command.options[name];
+  if (value === undefined) return undefined;
+  if (typeof value === "string" && value.trim()) return value;
+  throw new InvalidCommandOptionError(`--${name} requires a value`);
 }
 
 function getBooleanOption(command: ParsedCommand, name: string, fallback: boolean): boolean {
@@ -356,7 +368,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (command.name === "mcp") {
       const subcommand = command.args[0];
       if (subcommand === "config") {
-        return success(createMcpConfig(command.profile, getStringOption(command, "client")));
+        if (command.profile !== undefined && !command.profile.trim()) {
+          return failure("invalid_option", "--profile requires a value");
+        }
+        return success(createMcpConfig(command.profile, getRequiredStringOption(command, "client")));
       }
       if (subcommand === "serve") {
         return failure("mcp_serve_requires_stdio", "mcp serve must be run from the CLI entrypoint");

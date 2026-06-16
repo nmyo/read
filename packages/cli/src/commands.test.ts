@@ -264,6 +264,17 @@ describe("commands", () => {
     });
   });
 
+  it("does not consume the next flag as a missing profile value", () => {
+    expect(parseCommand(["mcp", "config", "--profile", "--json"])).toEqual({
+      name: "mcp",
+      args: ["config"],
+      json: true,
+      profile: "",
+      mode: undefined,
+      options: {},
+    });
+  });
+
   it("returns version", async () => {
     const result = await runCommand(["--version"], await createWorkspace().then((w) => w.env));
     expect(result.ok).toBe(true);
@@ -396,6 +407,21 @@ describe("commands", () => {
     expect(invalidClient).toMatchObject({
       ok: false,
       error: { code: "command_failed" },
+    });
+
+    const missingClient = await runCommand(["mcp", "config", "--client", "--json"], workspace.env);
+    expect(missingClient).toMatchObject({
+      ok: false,
+      error: { code: "invalid_option" },
+    });
+
+    const missingProfile = await runCommand(
+      ["mcp", "config", "--profile", "--json"],
+      workspace.env,
+    );
+    expect(missingProfile).toMatchObject({
+      ok: false,
+      error: { code: "invalid_option" },
     });
 
     const invalid = await runCommand(["mcp", "config", "--profile", "root"], workspace.env);
