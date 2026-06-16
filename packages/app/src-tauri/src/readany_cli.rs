@@ -477,12 +477,27 @@ fn path_cli_command() -> CliCommand {
     }
 }
 
+fn action_can_use_bundled_cli(action: &str) -> bool {
+    matches!(
+        action,
+        "version"
+            | "install"
+            | "uninstall"
+            | "doctor"
+            | "mcp_config"
+            | "tools_list"
+            | "skill_status"
+            | "skill_install"
+            | "skill_uninstall"
+    )
+}
+
 fn resolve_cli_command(action: &str, resource_dir: Option<PathBuf>) -> CliCommand {
     if let Some(command) = env_cli_command() {
         return command;
     }
 
-    if matches!(action, "install" | "uninstall") {
+    if action_can_use_bundled_cli(action) {
         if let Some(command) = bundled_cli_command(resource_dir.clone()) {
             return command;
         }
@@ -1059,6 +1074,53 @@ mod tests {
         assert_eq!(command.program, "node");
         assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
         assert_eq!(command.source, "bundle");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolves_management_actions_to_bundled_cli_before_path() {
+        let root = temp_test_dir("management-bundle");
+        let cli = root.join("readany-cli/bin/readany.js");
+        fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
+        fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
+
+        for action in [
+            "version",
+            "doctor",
+            "mcp_config",
+            "tools_list",
+            "skill_status",
+            "skill_install",
+            "skill_uninstall",
+        ] {
+            let command = resolve_cli_command(action, Some(root.clone()));
+            assert_eq!(command.program, "node", "{action}");
+            assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
+            assert_eq!(command.source, "bundle", "{action}");
+        }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn leaves_data_and_draft_actions_on_path() {
+        let root = temp_test_dir("path-actions");
+        let cli = root.join("readany-cli/bin/readany.js");
+        fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
+        fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
+
+        for action in [
+            "audit_list",
+            "epub_draft_create",
+            "epub_chapter_read",
+            "epub_export",
+        ] {
+            let command = resolve_cli_command(action, Some(root.clone()));
+            assert_eq!(command.program, "readany", "{action}");
+            assert!(command.prefix_args.is_empty(), "{action}");
+            assert_eq!(command.source, "path", "{action}");
+        }
+
         let _ = fs::remove_dir_all(root);
     }
 

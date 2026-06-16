@@ -64,7 +64,7 @@
 - 已支持真实样本验收辅助脚本：`pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <file>` 会使用 built CLI 对指定真实书库样本执行 books/chapter/RAG/knowledge/context/audit 检查；默认只读，只有显式 `--draft-export --export-dir <dir>` 才会创建 EPUB draft 并导出证据文件。
 - 已支持本地 release preflight：`pnpm cli:preflight` 会顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`；后续 release CI 可以复用这个入口。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.chapters.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
-- 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、通过受限 `mcp_config` action 复制 CLI 生成的 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
+- 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、通过受限 `mcp_config` action 复制 CLI 生成的 MCP 配置；这些管理动作会优先使用桌面包内的 CLI，用户还未安装全局 `readany` 时也能完成诊断和安装。默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
 - Tauri 打包前置命令已改为先构建 `@readany/cli`，再构建 app；`packages/cli/dist/` 会作为 `readany-cli/` 资源进入桌面包，Rust preflight 测试会校验前置命令、资源映射和 bundle resolver 路径一致。
 - 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；工作区也可通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export；设置页只负责接入和权限管理。
 

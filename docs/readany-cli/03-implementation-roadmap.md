@@ -344,7 +344,7 @@ Phase 7 完成标准：
 
 - `设置 -> 外部 AI 访问` tab。
 - 受限 Tauri command：只允许调用 ReadAny CLI allowlist 动作，不开放任意 shell。
-- 桌面包资源配置：`packages/cli/dist/` 打包到 `readany-cli/`，install/uninstall 优先使用资源内 CLI，再回退到开发仓库 CLI 和 PATH。
+- 桌面包资源配置：`packages/cli/dist/` 打包到 `readany-cli/`，设置页管理动作（version / doctor / mcp config / tools list / skill status/install/uninstall / install / uninstall）优先使用资源内 CLI，再回退到开发仓库 CLI 和 PATH；书库读取和 draft/export 动作仍走 PATH 中已安装的 `readany`。
 - Tauri 打包前置命令：先构建 `@readany/cli`，再构建 app；Rust preflight 测试校验 CLI dist 资源映射和 bundle resolver 路径一致。
 - CLI version / doctor / tools list / skill status 展示。
 - Skill install / uninstall。
