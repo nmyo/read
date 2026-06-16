@@ -814,5 +814,71 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       strictM5: true,
       errors: [],
     });
+
+    const strictFullRecordWithEvidence = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        strictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(strictFullRecordWithEvidence.status).toBe(1);
+    expect(JSON.parse(strictFullRecordWithEvidence.stdout)).toMatchObject({
+      ok: false,
+      strictM5: true,
+      errors: expect.arrayContaining([
+        "Strict M5 record must reference at least one sample SHA-256 from evidence.",
+        "Strict M5 record must reference at least one citation target from evidence.",
+        "Strict M5 record must reference doctor distribution flags from evidence.",
+      ]),
+    });
+
+    const anchoredStrictRecordPath = join(root, "evidence", "strict-m5-record-with-anchors.md");
+    await writeFile(
+      anchoredStrictRecordPath,
+      `${await readFile(strictRecordPath, "utf8")}
+
+## Evidence Anchors
+- sample SHA-256：${evidence.sampleFiles[0]?.sha256}
+- citation target：${evidence.citationTargets.find((target) => target.type === "rag-chunk")?.cfi}
+- distribution：builtBundle: true
+- distribution：desktopResourceBundle: false
+- distribution：nativeBinary: false
+`,
+      "utf8",
+    );
+    const anchoredStrictFullRecord = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(anchoredStrictFullRecord.status, anchoredStrictFullRecord.stderr || anchoredStrictFullRecord.stdout).toBe(0);
+    expect(JSON.parse(anchoredStrictFullRecord.stdout)).toMatchObject({
+      ok: true,
+      strictM5: true,
+      errors: [],
+    });
   });
 });

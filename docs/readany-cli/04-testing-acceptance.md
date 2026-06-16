@@ -153,7 +153,7 @@ pnpm --filter @readany/cli smoke:agent
 - MCP stdio 入口必须通过构建后 CLI smoke：`dist/bin/readany.js mcp serve --profile readonly` 能响应 `initialize`、`tools/list`、`tools/call`。
 - 外部 agent 自动 smoke 必须通过：`pnpm --filter @readany/cli smoke:agent` 会使用 built CLI 验证 generic / Claude / Cursor / Codex MCP 配置片段可复制且不混入元数据，并通过 stdio MCP 验证 readonly 发现/搜索、MCP tools/list 安全元数据、PDF fallback 章节读取、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit、源 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read。该 smoke 使用 fixture 数据，只能作为 M5 真实外部 agent 验收的前置证据。
 - 真实样本验收可以使用 `pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <file>` 采证；该脚本默认只读，会在 stdout 输出脱敏摘要，并在 evidence JSON 中记录 `doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和仍需人工验收的 M5 清单，清单项会附带建议补充的 `evidence` 和 `commands`；只有显式 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区，不替代样本来源说明、真实外部 agent 和打包产物验收。
-- 验收记录和真实样本 evidence 可以使用 `pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json>` 校验结构；最终 M5 记录必须加 `--strict-m5`，用机器闸门阻止“部分通过”、仍有未勾选范围、外部 agent 表格不足两条完整记录或打包矩阵缺平台记录的验收被当作完成。
+- 验收记录和真实样本 evidence 可以使用 `pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json>` 校验结构；最终 M5 记录必须加 `--strict-m5`，用机器闸门阻止“部分通过”、仍有未勾选范围、外部 agent 表格不足两条完整记录、打包矩阵缺平台记录，或验收记录没有引用真实 evidence 锚点的验收被当作完成。
 - 发布前本地 preflight 必须通过：`pnpm cli:preflight` 会顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`；触碰桌面前端或 release matrix 时使用 `pnpm cli:preflight:full` 额外覆盖 `pnpm --filter app build`。
 
 如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：

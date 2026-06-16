@@ -315,6 +315,42 @@ function validateEvidence(evidence) {
   return { errors, warnings };
 }
 
+function citationAnchor(target) {
+  return target?.cfi ?? target?.startCfi ?? (target?.page ? `page:${target.page}` : undefined);
+}
+
+function validateStrictM5RecordEvidenceLinks(recordText, evidence, errors) {
+  const sampleHashes = (evidence?.sampleFiles ?? [])
+    .map((sample) => sample.sha256)
+    .filter(Boolean);
+  assertCondition(
+    sampleHashes.some((hash) => recordText.includes(hash)),
+    errors,
+    "Strict M5 record must reference at least one sample SHA-256 from evidence.",
+  );
+
+  const citationAnchors = (evidence?.citationTargets ?? [])
+    .map(citationAnchor)
+    .filter(Boolean);
+  assertCondition(
+    citationAnchors.some((anchor) => recordText.includes(anchor)),
+    errors,
+    "Strict M5 record must reference at least one citation target from evidence.",
+  );
+
+  const distribution = evidence?.doctor?.distribution;
+  const distributionAnchors = [
+    distribution?.builtBundle === true ? "builtBundle: true" : undefined,
+    distribution?.desktopResourceBundle === true ? "desktopResourceBundle: true" : "desktopResourceBundle: false",
+    distribution?.nativeBinary === true ? "nativeBinary: true" : "nativeBinary: false",
+  ].filter(Boolean);
+  assertCondition(
+    distributionAnchors.every((anchor) => recordText.includes(anchor)),
+    errors,
+    "Strict M5 record must reference doctor distribution flags from evidence.",
+  );
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -328,10 +364,12 @@ async function main() {
   const errors = [];
   const warnings = [];
   const validated = {};
+  let recordText;
+  let evidence;
 
   if (options.recordPath) {
     const recordPath = resolveInputPath(options.recordPath);
-    const recordText = await readFile(recordPath, "utf8");
+    recordText = await readFile(recordPath, "utf8");
     const result = validateRecord(recordText, { strictM5: options.strictM5 });
     errors.push(...result.errors);
     warnings.push(...result.warnings);
@@ -340,11 +378,15 @@ async function main() {
 
   if (options.evidencePath) {
     const evidencePath = resolveInputPath(options.evidencePath);
-    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    evidence = JSON.parse(await readFile(evidencePath, "utf8"));
     const result = validateEvidence(evidence);
     errors.push(...result.errors);
     warnings.push(...result.warnings);
     validated.evidence = evidencePath;
+  }
+
+  if (options.strictM5 && recordText && evidence) {
+    validateStrictM5RecordEvidenceLinks(recordText, evidence, errors);
   }
 
   const output = {
