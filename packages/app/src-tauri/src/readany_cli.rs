@@ -33,6 +33,8 @@ pub struct ReadAnyCliRunOptions {
     audit_limit: Option<u16>,
     book_id: Option<String>,
     draft_id: Option<String>,
+    operation_id: Option<String>,
+    reason: Option<String>,
 }
 
 fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
@@ -50,6 +52,9 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "epub_history" => epub_draft_read_args(options, "history", "editor"),
         "epub_diff" => epub_draft_read_args(options, "diff", "editor"),
         "epub_validate" => epub_draft_read_args(options, "validate", "publisher"),
+        "epub_toc_rebuild" => epub_toc_rebuild_args(options),
+        "epub_undo" => epub_undo_args(options),
+        "epub_draft_discard" => epub_draft_discard_args(options),
         _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
 }
@@ -121,6 +126,51 @@ fn epub_draft_read_args(
     ])
 }
 
+fn epub_toc_rebuild_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    Ok(vec![
+        "epub".to_string(),
+        "toc".to_string(),
+        "rebuild".to_string(),
+        draft_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_undo_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let operation_id = normalized_entity_id(options.operation_id.as_deref(), "operation id")?;
+    Ok(vec![
+        "epub".to_string(),
+        "undo".to_string(),
+        draft_id,
+        operation_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_draft_discard_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let mut args = vec![
+        "epub".to_string(),
+        "draft".to_string(),
+        "discard".to_string(),
+        draft_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ];
+    if let Some(reason) = normalized_reason(options.reason.as_deref()) {
+        args.push("--reason".to_string());
+        args.push(reason);
+    }
+    Ok(args)
+}
+
 fn normalized_entity_id(value: Option<&str>, label: &str) -> Result<String, String> {
     let value = value.ok_or_else(|| format!("Missing {}.", label))?.trim();
     if value.is_empty() {
@@ -133,6 +183,14 @@ fn normalized_entity_id(value: Option<&str>, label: &str) -> Result<String, Stri
         return Err(format!("{} must not contain whitespace.", label));
     }
     Ok(value.to_string())
+}
+
+fn normalized_reason(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(value.chars().take(240).collect())
 }
 
 fn normalized_audit_action_prefix(value: Option<&str>) -> Option<String> {
@@ -375,6 +433,64 @@ mod tests {
                 "--json".to_string()
             ])
         );
+        assert_eq!(
+            args_for_action(
+                "epub_toc_rebuild",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "toc".to_string(),
+                "rebuild".to_string(),
+                "draft-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_undo",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    operation_id: Some("op-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "undo".to_string(),
+                "draft-1".to_string(),
+                "op-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_draft_discard",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    reason: Some("user rejected draft".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "draft".to_string(),
+                "discard".to_string(),
+                "draft-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string(),
+                "--reason".to_string(),
+                "user rejected draft".to_string()
+            ])
+        );
         assert!(args_for_action("shell", &ReadAnyCliRunOptions::default()).is_err());
         assert!(
             args_for_action("doctor --profile admin", &ReadAnyCliRunOptions::default()).is_err()
@@ -400,6 +516,9 @@ mod tests {
         assert!(args_for_action("epub_history", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_diff", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_validate", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_toc_rebuild", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_undo", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_draft_discard", &ReadAnyCliRunOptions::default()).is_err());
 
         let invalid = ReadAnyCliRunOptions {
             draft_id: Some("draft 1".to_string()),
@@ -408,6 +527,18 @@ mod tests {
         assert!(args_for_action("epub_history", &invalid).is_err());
         assert!(args_for_action("epub_diff", &invalid).is_err());
         assert!(args_for_action("epub_validate", &invalid).is_err());
+        assert!(args_for_action("epub_toc_rebuild", &invalid).is_err());
+        assert!(args_for_action("epub_draft_discard", &invalid).is_err());
+
+        assert!(args_for_action(
+            "epub_undo",
+            &ReadAnyCliRunOptions {
+                draft_id: Some("draft-1".to_string()),
+                operation_id: Some("op 1".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
     }
 
     #[test]

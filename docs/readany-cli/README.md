@@ -23,8 +23,8 @@
 
 建议阅读顺序：
 
-1. 先读 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)：确认目标、功能范围、分层、测试、验收和停止线。
-2. 再读 [12-delivery-blueprint.md](12-delivery-blueprint.md)：按工程执行顺序拆任务。
+1. 先读 [12-delivery-blueprint.md](12-delivery-blueprint.md)：这是一份可以直接执行的主蓝图，覆盖怎么做、需要什么功能、怎么测试、怎么验收、做到什么程度为止。
+2. 再读 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)：确认目标、功能范围、分层、测试、验收和停止线。
 3. 开 issue 时读 [11-implementation-issue.md](11-implementation-issue.md)：可以直接复制为工程 issue 正文。
 4. 做验收时读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md) 和 [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md)。
 
@@ -60,7 +60,7 @@
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
-- 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开首版 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；后续完整 draft 工作区继续承接章节编辑、元数据编辑、undo/discard 和 export；设置页只负责接入和权限管理。
+- 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果，也可通过受限 action 执行 toc rebuild、undo 和 discard；后续完整 draft 工作区继续承接章节编辑、元数据编辑和 export；设置页只负责接入和权限管理。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 

@@ -197,7 +197,7 @@ draft 工作区至少要提供：
 - 用户能看到 doctor 检查项。
 - 用户知道 readonly 不允许写入和导出。
 
-当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开首版 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果。完整验收还需要继续补章节编辑、元数据编辑、undo/discard、export，以及在实际打包产物中确认 Node / native module 运行时是否随包可用。
+当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果，也可执行 toc rebuild、undo、discard。完整验收还需要继续补章节编辑、元数据编辑、export，以及在实际打包产物中确认 Node / native module 运行时是否随包可用。
 
 客户端 M4 做到：
 

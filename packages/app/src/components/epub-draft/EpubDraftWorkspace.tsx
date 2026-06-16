@@ -1,8 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@readany/core/utils";
-import { AlertCircle, CheckCircle2, FileDiff, History, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileDiff,
+  History,
+  ListTree,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import type { ElementType } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -91,6 +102,30 @@ type EpubValidationResult = {
   issues: EpubValidationIssue[];
 };
 
+type EpubTocRebuildResult = {
+  draftId: string;
+  bookId: string;
+  operationId: string;
+  changed: boolean;
+};
+
+type EpubUndoResult = {
+  draftId: string;
+  bookId: string;
+  operationId: string;
+  undoneAction: string;
+  undoOperationId: string;
+  changed: boolean;
+};
+
+type EpubDiscardResult = {
+  draftId: string;
+  bookId: string;
+  status: "discarded";
+  operationId: string;
+  discardedAt: string;
+};
+
 type DraftWorkspaceSnapshot = {
   history?: EpubDraftHistoryResult;
   diff?: EpubDiffResult;
@@ -151,11 +186,27 @@ function unwrapCommand<T>(result: CliRunResult, key: string): T {
   return value;
 }
 
-async function runDraftAction(action: string, draftId: string): Promise<CliRunResult> {
+async function runDraftAction(
+  action: string,
+  draftId: string,
+  options: Record<string, unknown> = {},
+): Promise<CliRunResult> {
   return invoke<CliRunResult>("readany_cli_run", {
     action,
-    options: { draftId },
+    options: { draftId, ...options },
   });
+}
+
+async function loadDraftCommand<T>(
+  action: string,
+  draftId: string,
+  key: string,
+): Promise<{ value?: T; error?: string }> {
+  try {
+    return { value: unwrapCommand<T>(await runDraftAction(action, draftId), key) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 function formatDateTime(value: string, locale: string) {
@@ -176,7 +227,9 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const [activeDraftId, setActiveDraftId] = useState(draftId);
   const [snapshot, setSnapshot] = useState<DraftWorkspaceSnapshot>({ raw: {} });
   const [loading, setLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [discardReason, setDiscardReason] = useState("");
 
   useEffect(() => {
     setDraftIdInput(draftId);
@@ -195,25 +248,26 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
       setLastError(null);
       try {
         const [historyResult, diffResult, validationResult] = await Promise.all([
-          runDraftAction("epub_history", normalizedDraftId),
-          runDraftAction("epub_diff", normalizedDraftId),
-          runDraftAction("epub_validate", normalizedDraftId),
+          loadDraftCommand<EpubDraftHistoryResult>("epub_history", normalizedDraftId, "history"),
+          loadDraftCommand<EpubDiffResult>("epub_diff", normalizedDraftId, "diff"),
+          loadDraftCommand<EpubValidationResult>("epub_validate", normalizedDraftId, "validation"),
         ]);
 
-        const history = unwrapCommand<EpubDraftHistoryResult>(historyResult, "history");
-        const diff = unwrapCommand<EpubDiffResult>(diffResult, "diff");
-        const validation = unwrapCommand<EpubValidationResult>(validationResult, "validation");
+        const errors = [historyResult.error, diffResult.error, validationResult.error].filter(
+          Boolean,
+        );
         setSnapshot({
-          history,
-          diff,
-          validation,
+          history: historyResult.value,
+          diff: diffResult.value,
+          validation: validationResult.value,
           raw: {
-            history,
-            diff,
-            validation,
+            history: historyResult.value,
+            diff: diffResult.value,
+            validation: validationResult.value,
           },
         });
         setActiveDraftId(normalizedDraftId);
+        setLastError(errors.length ? errors.join("\n") : null);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setLastError(message);
@@ -233,6 +287,90 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
     () => snapshot.diff?.entries.filter((entry) => entry.status !== "unchanged").slice(0, 80) ?? [],
     [snapshot.diff?.entries],
   );
+
+  const undoableEntries = useMemo(
+    () => {
+      const undoneOperationIds = new Set(
+        snapshot.history?.entries
+          .filter((entry) => entry.action === "epub.undo" && entry.operationId)
+          .map((entry) => entry.operationId),
+      );
+      return (
+        snapshot.history?.entries
+          .filter((entry) =>
+            ["epub.chapter.patch", "epub.metadata.patch", "epub.toc.rebuild"].includes(
+              entry.action,
+            ),
+          )
+          .filter((entry) => !undoneOperationIds.has(entry.id)) ?? []
+      );
+    },
+    [snapshot.history?.entries],
+  );
+
+  const runWorkspaceMutation = async <T,>(
+    action: string,
+    key: string,
+    options: Record<string, unknown> = {},
+  ): Promise<T | null> => {
+    setActionBusy(action);
+    setLastError(null);
+    try {
+      const result = unwrapCommand<T>(await runDraftAction(action, activeDraftId, options), key);
+      await loadWorkspace(activeDraftId);
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLastError(message);
+      toast.error(message);
+      return null;
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleRebuildToc = async () => {
+    const result = await runWorkspaceMutation<EpubTocRebuildResult>("epub_toc_rebuild", "toc");
+    if (result) {
+      toast.success(
+        result.changed
+          ? t("epubDraft.tocRebuilt", "TOC rebuilt")
+          : t("epubDraft.tocAlreadyClean", "TOC already up to date"),
+      );
+    }
+  };
+
+  const handleUndo = async (operationId: string) => {
+    const result = await runWorkspaceMutation<EpubUndoResult>("epub_undo", "undo", {
+      operationId,
+    });
+    if (result) {
+      toast.success(t("epubDraft.undoComplete", "Undo complete"));
+    }
+  };
+
+  const handleDiscard = async () => {
+    if (
+      !window.confirm(
+        t(
+          "epubDraft.discardConfirm",
+          "Discard this draft? The source EPUB will not be changed, but the draft can no longer be edited.",
+        ),
+      )
+    ) {
+      return;
+    }
+    const result = await runWorkspaceMutation<EpubDiscardResult>(
+      "epub_draft_discard",
+      "discarded",
+      {
+        reason: discardReason,
+      },
+    );
+    if (result) {
+      toast.success(t("epubDraft.discarded", "Draft discarded"));
+    }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -297,11 +435,99 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
           </div>
 
           {lastError ? (
-            <div className="mt-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="mt-4 flex items-start gap-2 whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <span>{lastError}</span>
             </div>
           ) : null}
+
+          <section className="mt-5">
+            <SectionTitle
+              title={t("epubDraft.controls", "Draft controls")}
+              desc={t(
+                "epubDraft.controlsDesc",
+                "These actions write only to the controlled draft workspace and append history entries.",
+              )}
+            />
+            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-md border bg-card p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <ListTree className="size-4 text-muted-foreground" />
+                  {t("epubDraft.rebuildToc", "Rebuild TOC")}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {t(
+                    "epubDraft.rebuildTocDesc",
+                    "Regenerate the EPUB3 nav from spine chapters. This does not rewrite source EPUB.",
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-4"
+                  variant="outline"
+                  disabled={loading || !!actionBusy || snapshot.history?.status === "discarded"}
+                  onClick={() => void handleRebuildToc()}
+                >
+                  <ListTree className="size-3.5" />
+                  {actionBusy === "epub_toc_rebuild"
+                    ? t("common.loading", "Loading")
+                    : t("epubDraft.rebuild", "Rebuild")}
+                </Button>
+              </div>
+
+              <div className="rounded-md border bg-card p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <RotateCcw className="size-4 text-muted-foreground" />
+                  {t("epubDraft.undo", "Undo")}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {t(
+                    "epubDraft.undoDesc",
+                    "Undo a recorded chapter, metadata, or toc patch from the operation list.",
+                  )}
+                </p>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  {t("epubDraft.undoableCount", "{{count}} undoable operations", {
+                    count: undoableEntries.length,
+                  })}
+                </p>
+              </div>
+
+              <div className="rounded-md border bg-card p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Trash2 className="size-4 text-muted-foreground" />
+                  {t("epubDraft.discard", "Discard")}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {t(
+                    "epubDraft.discardDesc",
+                    "Mark this draft inactive. Source EPUB and exported files are not touched.",
+                  )}
+                </p>
+                <Textarea
+                  value={discardReason}
+                  onChange={(event) => setDiscardReason(event.target.value)}
+                  placeholder={t("epubDraft.discardReason", "Reason, optional")}
+                  className="mt-3 min-h-16 text-xs"
+                  disabled={snapshot.history?.status === "discarded"}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  variant="outline"
+                  disabled={loading || !!actionBusy || snapshot.history?.status === "discarded"}
+                  onClick={() => void handleDiscard()}
+                >
+                  <Trash2 className="size-3.5" />
+                  {actionBusy === "epub_draft_discard"
+                    ? t("common.loading", "Loading")
+                    : t("epubDraft.discard", "Discard")}
+                </Button>
+              </div>
+            </div>
+          </section>
 
           <section className="mt-5">
             <SectionTitle
@@ -383,9 +609,26 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
             {snapshot.history?.entries.length ? (
               snapshot.history.entries.map((entry) => (
                 <div key={entry.id} className="rounded-md border bg-background p-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span className="truncate text-xs font-medium text-foreground">{entry.action}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {entry.action}
+                      </span>
+                    </div>
+                    {undoableEntries.some((item) => item.id === entry.id) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        disabled={loading || !!actionBusy || snapshot.history?.status === "discarded"}
+                        onClick={() => void handleUndo(entry.id)}
+                      >
+                        <RotateCcw className="size-3" />
+                        {t("epubDraft.undo", "Undo")}
+                      </Button>
+                    ) : null}
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {formatDateTime(entry.timestamp, i18n.language)}
