@@ -1,6 +1,7 @@
 import { setPlatformService } from "@readany/core/services";
 import { getPlatformService } from "@readany/core/services";
 import type { Book, Highlight, Note } from "@readany/core/types";
+import type { ReadingContext } from "@readany/core/types";
 import type { SearchMode } from "@readany/core/types";
 import {
   createEpubDraft,
@@ -141,6 +142,94 @@ export async function listBookmarks(bookId: string, env: NodeJS.ProcessEnv = pro
 export async function listSkills(env: NodeJS.ProcessEnv = process.env) {
   await ensureCoreInitialized(env);
   return getSkills();
+}
+
+export type ReaderContextOptions = {
+  env?: NodeJS.ProcessEnv;
+  includeSelection?: boolean;
+  includeSurroundingText?: boolean;
+  includeHighlights?: boolean;
+  contentLimit?: number;
+};
+
+export type ReaderContextSnapshot = {
+  available: boolean;
+  context: ReadingContext | null;
+};
+
+function clampTextLimit(value: number | undefined, fallback: number, max: number): number {
+  if (!Number.isFinite(value) || !value || value <= 0) return fallback;
+  return Math.min(Math.floor(value), max);
+}
+
+function trimText(value: string, limit: number): string {
+  return value.length > limit ? value.slice(0, limit) : value;
+}
+
+function sanitizeReadingContext(
+  context: ReadingContext,
+  options: {
+    includeSelection: boolean;
+    includeSurroundingText: boolean;
+    includeHighlights: boolean;
+    contentLimit?: number;
+  },
+): ReadingContext {
+  const contentLimit = clampTextLimit(options.contentLimit, 12000, 50000);
+  return {
+    ...context,
+    selection:
+      options.includeSelection && context.selection
+        ? {
+            ...context.selection,
+            text: trimText(context.selection.text, contentLimit),
+          }
+        : undefined,
+    surroundingText: options.includeSurroundingText
+      ? trimText(context.surroundingText || "", contentLimit)
+      : "",
+    recentHighlights: options.includeHighlights
+      ? (context.recentHighlights || []).slice(0, 20).map((highlight) => ({
+          ...highlight,
+          text: trimText(highlight.text, contentLimit),
+          note: highlight.note ? trimText(highlight.note, contentLimit) : undefined,
+        }))
+      : [],
+  };
+}
+
+export async function getReaderContextSnapshot(
+  options: ReaderContextOptions = {},
+): Promise<ReaderContextSnapshot> {
+  const {
+    env = process.env,
+    includeSelection = true,
+    includeSurroundingText = true,
+    includeHighlights = true,
+    contentLimit,
+  } = options;
+  await ensureCoreInitialized(env);
+  const platform = getPlatformService();
+  const appData = await platform.getAppDataDir();
+  const filePath = await platform.joinPath(appData, "readany-store", "reader-context.json");
+
+  try {
+    const parsed = JSON.parse(await platform.readTextFile(filePath)) as ReadingContext;
+    if (!parsed || typeof parsed.bookId !== "string" || !parsed.bookId.trim()) {
+      return { available: false, context: null };
+    }
+    return {
+      available: true,
+      context: sanitizeReadingContext(parsed, {
+        includeSelection,
+        includeSurroundingText,
+        includeHighlights,
+        contentLimit,
+      }),
+    };
+  } catch {
+    return { available: false, context: null };
+  }
 }
 
 export type EpubInspectBookResult = EpubInspectResult & {

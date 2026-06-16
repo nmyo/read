@@ -164,6 +164,7 @@ describe("mcp", () => {
         { name: "books.get" },
         { name: "chapters.list" },
         { name: "chapters.get" },
+        { name: "context.get" },
         { name: "notes.search" },
         { name: "notes.export" },
         { name: "highlights.search" },
@@ -205,6 +206,82 @@ describe("mcp", () => {
       ok: true,
       data: {
         books: [{ id: "mcp-book", meta: { title: "MCP for Readers" } }],
+      },
+    });
+  });
+
+  it("reads the latest reader context snapshot", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    await mkdir(join(env.READANY_HOME!, "readany-store"), { recursive: true });
+    await writeFile(
+      join(env.READANY_HOME!, "readany-store", "reader-context.json"),
+      JSON.stringify({
+        bookId: "mcp-book",
+        bookTitle: "MCP for Readers",
+        currentChapter: {
+          index: 1,
+          title: "Agent Access",
+          href: "OPS/chapter-1.xhtml",
+        },
+        currentPosition: {
+          cfi: "epubcfi(/6/20)",
+          percentage: 0.5,
+          page: 7,
+        },
+        selection: {
+          text: "External agents should receive export metadata, not full exported files.",
+          cfi: "epubcfi(/6/30)",
+          chapterIndex: 1,
+          chapterTitle: "Agent Access",
+        },
+        surroundingText:
+          "External agents should receive export metadata, not full exported files. The reader is validating the access boundary.",
+        recentHighlights: [
+          {
+            text: "MCP export should stay file-based.",
+            cfi: "epubcfi(/6/28)",
+            note: "Export boundary",
+          },
+        ],
+        operationType: "selecting",
+        timestamp: 1700000000000,
+      }),
+      "utf8",
+    );
+
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "context.get",
+          arguments: { contentLimit: 24 },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    expect(response).toMatchObject({ isError: false });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: true,
+      data: {
+        readerContext: {
+          available: true,
+          context: {
+            bookId: "mcp-book",
+            selection: {
+              text: "External agents should r",
+            },
+            surroundingText: "External agents should r",
+            recentHighlights: [
+              {
+                text: "MCP export should stay f",
+              },
+            ],
+          },
+        },
       },
     });
   });

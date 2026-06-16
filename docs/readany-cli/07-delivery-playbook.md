@@ -86,8 +86,9 @@ readonly profile 无法调用任何写入工具。
 
 - `readany chapters list <book-id> --json`。
 - `readany chapter get <book-id> <chapter-id> --chunk-start 1 --chunk-count 20 --json`。
+- `readany context get --json`。
 - `readany rag search <query> --book <book-id> --json`。
-- MCP tools：`chapters.list`、`chapters.get`、`rag.search`。
+- MCP tools：`chapters.list`、`chapters.get`、`context.get`、`rag.search`。
 - 当前书、当前章、选区上下文的资源表达。
 - 大正文分页或范围读取，避免一次返回整本书。
 
@@ -97,7 +98,7 @@ readonly profile 无法调用任何写入工具。
 外部 AI 可以基于真实章节内容和 RAG 结果回答问题，并能给出可回跳的引用位置。
 ```
 
-其中 indexed chunks 章节视图、未索引 EPUB/PDF fallback、chunk range 读取和 `rag.search` 的 BM25 / hybrid / vector 能力已经提前落地；M2 剩余重点是当前书、当前章、选区上下文资源。
+其中 indexed chunks 章节视图、未索引 EPUB/PDF fallback、chunk range 读取、reader context snapshot 读取和 `rag.search` 的 BM25 / hybrid / vector 能力已经提前落地；M2 剩余重点是桌面端写入 reader context snapshot 的 UI 接线和引用回跳完整验收。
 
 ### M3 - AI 编辑和 EPUB 精排
 

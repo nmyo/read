@@ -109,6 +109,7 @@ readany books search <query> --json
 readany book get <book-id> --json
 readany chapters list <book-id> --json
 readany chapter get <book-id> <chapter-id> --chunk-start 1 --chunk-count 20 --json
+readany context get --json
 readany notes search <query> --json
 readany highlights search <query> --json
 readany bookmarks list <book-id> --json
@@ -126,6 +127,7 @@ books.search
 books.get
 chapters.list
 chapters.get
+context.get
 notes.search
 highlights.search
 rag.search
@@ -142,6 +144,7 @@ audit.list
 当前边界：
 
 - `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB/PDF fallback。
+- `context.get` 当前只读取桌面端写入的 reader context snapshot，返回当前书、当前章、位置、选区、可见正文和最近高亮，不读取 UI 内存。
 - `rag.search` 当前支持 BM25、hybrid 和 vector。BM25 总是可用；hybrid 在 embedding 未配置或失败时回退 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
 
 ### 2.4 MCP 能力

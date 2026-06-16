@@ -10,6 +10,7 @@ describe("tool registry", () => {
       "books.get",
       "chapters.list",
       "chapters.get",
+      "context.get",
       "notes.search",
       "notes.export",
       "highlights.search",
@@ -63,6 +64,16 @@ describe("tool registry", () => {
   it("requires query input for search tools", () => {
     const searchTools = listTools().filter((tool) => tool.name.endsWith(".search"));
     expect(searchTools.every((tool) => tool.inputSchema.required?.includes("query"))).toBe(true);
+  });
+
+  it("exposes include controls for reader context", () => {
+    const contextTool = listTools().find((tool) => tool.name === "context.get");
+    expect(contextTool?.inputSchema.properties).toMatchObject({
+      includeSelection: expect.any(Object),
+      includeSurroundingText: expect.any(Object),
+      includeHighlights: expect.any(Object),
+      contentLimit: expect.any(Object),
+    });
   });
 
   it("declares all implemented RAG search modes", () => {

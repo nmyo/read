@@ -135,6 +135,36 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "context.get",
+    description: "Read the latest desktop reader context snapshot, including current book, chapter, position, selection, surrounding text, and recent highlights when available.",
+    scopes: ["content.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        includeSelection: {
+          type: "boolean",
+          description: "Include the currently selected text when present. Defaults to true.",
+        },
+        includeSurroundingText: {
+          type: "boolean",
+          description: "Include visible/surrounding reader text. Defaults to true.",
+        },
+        includeHighlights: {
+          type: "boolean",
+          description: "Include recent highlights from the snapshot. Defaults to true.",
+        },
+        contentLimit: {
+          type: "number",
+          minimum: 1,
+          maximum: 50000,
+          description: "Maximum number of characters to return for each text field.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "notes.search",
     description: "Search notes in the ReadAny library.",
     scopes: ["note.read"],

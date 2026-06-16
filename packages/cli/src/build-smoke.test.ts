@@ -139,6 +139,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "books.get" },
           { name: "chapters.list" },
           { name: "chapters.get" },
+          { name: "context.get" },
           { name: "notes.search" },
           { name: "notes.export" },
           { name: "highlights.search" },

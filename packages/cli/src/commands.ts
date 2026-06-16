@@ -100,6 +100,15 @@ function getStringOption(command: ParsedCommand, name: string): string | undefin
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+function getBooleanOption(command: ParsedCommand, name: string, fallback: boolean): boolean {
+  const value = command.options[name];
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return fallback;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return fallback;
+}
+
 function isNotesExportFormat(value: string): value is "markdown" | "json" | "obsidian" | "notion" {
   return value === "markdown" || value === "json" || value === "obsidian" || value === "notion";
 }
@@ -124,6 +133,7 @@ Usage:
   readany book get <book-id> [--json]
   readany chapters list <book-id> [--json]
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
+  readany context get [--json] [--limit 12000] [--include-selection true|false] [--include-surrounding-text true|false] [--include-highlights true|false]
   readany epub inspect <book-id> [--json] [--profile editor]
   readany epub draft create <book-id> [--json] [--profile editor]
   readany epub draft discard <draft-id> [--json] [--profile editor] [--reason "..."]
@@ -138,7 +148,7 @@ Usage:
   readany notes search <query> [--json] [--book <book-id>]
   readany notes export <book-id> --output <path> [--json] [--profile publisher] [--format markdown] [--overwrite]
   readany highlights search <query> [--json] [--book <book-id>]
-  readany rag search <query> --book <book-id> [--json] [--limit 5]
+  readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
 `;
 }
@@ -401,6 +411,23 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         });
       }
       return failure("unknown_rag_command", `Unknown rag command: ${subcommand}`);
+    }
+
+    if (command.name === "context") {
+      const data = await getDataApi();
+      const subcommand = command.args[0] ?? "get";
+      if (subcommand === "get") {
+        return success({
+          readerContext: await data.getReaderContextSnapshot({
+            includeSelection: getBooleanOption(command, "include-selection", true),
+            includeSurroundingText: getBooleanOption(command, "include-surrounding-text", true),
+            includeHighlights: getBooleanOption(command, "include-highlights", true),
+            contentLimit: getNumberOption(command, "limit", 12000),
+            env,
+          }),
+        });
+      }
+      return failure("unknown_context_command", `Unknown context command: ${subcommand}`);
     }
 
     if (command.name === "epub") {

@@ -195,6 +195,45 @@ async function seedVectorLibrary(dataRoot: string): Promise<void> {
   localDb.close();
 }
 
+async function writeReaderContextSnapshot(dataRoot: string): Promise<void> {
+  await mkdir(join(dataRoot, "readany-store"), { recursive: true });
+  await writeFile(
+    join(dataRoot, "readany-store", "reader-context.json"),
+    JSON.stringify({
+      bookId: "book-1",
+      bookTitle: "Agent Systems",
+      currentChapter: {
+        index: 1,
+        title: "Tools",
+        href: "OPS/chapter-1.xhtml",
+      },
+      currentPosition: {
+        cfi: "epubcfi(/6/10)",
+        percentage: 0.42,
+        page: 12,
+      },
+      selection: {
+        text: "Agents need safe tool boundaries and permissioned local context.",
+        cfi: "epubcfi(/6/10)",
+        chapterIndex: 1,
+        chapterTitle: "Tools",
+      },
+      surroundingText:
+        "Agents need safe tool boundaries and permissioned local context. The reader is looking at the tool safety section.",
+      recentHighlights: [
+        {
+          text: "Draft-first editing keeps users safe.",
+          cfi: "epubcfi(/6/8)",
+          note: "Important safety point",
+        },
+      ],
+      operationType: "selecting",
+      timestamp: 1700000000000,
+    }),
+    "utf8",
+  );
+}
+
 describe("commands", () => {
   it("parses json and profile flags", () => {
     expect(parseCommand(["doctor", "--json", "--profile", "editor"])).toEqual({
@@ -233,7 +272,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 21 },
+        tools: { count: 22 },
       });
     }
   });
@@ -1271,6 +1310,81 @@ describe("commands", () => {
     } finally {
       globalThis.fetch = previousFetch;
     }
+  });
+
+  it("returns unavailable reader context when no snapshot exists", async () => {
+    const workspace = await createWorkspace();
+    const result = await runCommand(["context", "get", "--json"], workspace.env);
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        readerContext: {
+          available: false,
+          context: null,
+        },
+      },
+    });
+  });
+
+  it("reads the latest reader context snapshot", async () => {
+    const workspace = await createWorkspace();
+    await writeReaderContextSnapshot(workspace.dataRoot);
+
+    const result = await runCommand(["context", "get", "--json", "--limit", "24"], workspace.env);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      readerContext: {
+        available: true,
+        context: {
+          bookId: "book-1",
+          bookTitle: "Agent Systems",
+          currentChapter: {
+            index: 1,
+            title: "Tools",
+          },
+          currentPosition: {
+            cfi: "epubcfi(/6/10)",
+            percentage: 0.42,
+          },
+          selection: {
+            cfi: "epubcfi(/6/10)",
+            text: "Agents need safe tool bo",
+          },
+          surroundingText: "Agents need safe tool bo",
+          recentHighlights: [
+            {
+              text: "Draft-first editing keep",
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("can omit optional reader context text fields", async () => {
+    const workspace = await createWorkspace();
+    await writeReaderContextSnapshot(workspace.dataRoot);
+
+    const result = await runCommand(
+      [
+        "context",
+        "get",
+        "--json",
+        "--include-selection",
+        "false",
+        "--include-surrounding-text",
+        "false",
+        "--include-highlights",
+        "false",
+      ],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.readerContext.context.selection).toBeUndefined();
+    expect(result.data.readerContext.context.surroundingText).toBe("");
+    expect(result.data.readerContext.context.recentHighlights).toEqual([]);
   });
 
   it("rejects unknown rag modes", async () => {

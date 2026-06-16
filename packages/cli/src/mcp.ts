@@ -19,6 +19,7 @@ import {
   exportBookNotesWorkspace,
   getBookById,
   getEpubDraftHistory,
+  getReaderContextSnapshot,
   getIndexedChapter,
   listIndexedChapters,
   listBooks,
@@ -271,6 +272,23 @@ async function callReadAnyTool(
       return failure("chapter_not_found", `Chapter ${chapterId} was not found in ${bookId}`);
     }
     return success({ chapter });
+  }
+
+  if (toolName === "context.get") {
+    return success({
+      readerContext: await getReaderContextSnapshot({
+        includeSelection:
+          typeof args.includeSelection === "boolean" ? args.includeSelection : true,
+        includeSurroundingText:
+          typeof args.includeSurroundingText === "boolean"
+            ? args.includeSurroundingText
+            : true,
+        includeHighlights:
+          typeof args.includeHighlights === "boolean" ? args.includeHighlights : true,
+        contentLimit: getNumber(args, "contentLimit", 12000),
+        env,
+      }),
+    });
   }
 
   if (toolName === "notes.search") {
