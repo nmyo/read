@@ -165,6 +165,34 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "bookmarks.list",
+    description: "List bookmarks for a ReadAny book.",
+    scopes: ["note.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny book id.",
+        },
+      },
+      required: ["bookId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "skills.list",
+    description: "List user-defined ReadAny AI skills and whether they are enabled.",
+    scopes: ["stats.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+    },
+  },
+  {
     name: "notes.search",
     description: "Search notes in the ReadAny library.",
     scopes: ["note.read"],

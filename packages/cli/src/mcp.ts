@@ -22,10 +22,12 @@ import {
   getEpubDraftHistory,
   getReaderContextSnapshot,
   getIndexedChapter,
+  listBookmarks,
   listIndexedChapters,
   listBooks,
   listHighlights,
   listNotes,
+  listSkills,
   createEpubDraftForBook,
   inspectEpubBook,
   patchEpubChapter,
@@ -296,6 +298,16 @@ async function callReadAnyTool(
         env,
       }),
     });
+  }
+
+  if (toolName === "bookmarks.list") {
+    const bookId = getString(args, "bookId");
+    if (!bookId) return failure("missing_book_id", "bookmarks.list requires bookId");
+    return success({ bookmarks: await listBookmarks(bookId, env) });
+  }
+
+  if (toolName === "skills.list") {
+    return success({ skills: await listSkills(env) });
   }
 
   if (toolName === "notes.search") {

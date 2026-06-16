@@ -99,6 +99,7 @@ epub.export
 - `readany tools list --json`
 - 用户安装桌面客户端后，客户端能安装、卸载或修复 CLI。
 - CLI 自己可以安装自己、卸载自己，桌面端只是调用入口。
+- `bookmarks.list` 和 `skills.list` 已同步进入 CLI help、MCP registry、MCP tools/call 和单测。
 
 不做：
 

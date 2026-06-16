@@ -11,6 +11,8 @@ describe("tool registry", () => {
       "chapters.list",
       "chapters.get",
       "context.get",
+      "bookmarks.list",
+      "skills.list",
       "notes.search",
       "notes.export",
       "knowledge.export",
@@ -74,6 +76,24 @@ describe("tool registry", () => {
   it("requires query input for search tools", () => {
     const searchTools = listTools().filter((tool) => tool.name.endsWith(".search"));
     expect(searchTools.every((tool) => tool.inputSchema.required?.includes("query"))).toBe(true);
+  });
+
+  it("declares discovery tools for bookmarks and skills", () => {
+    expect(listTools().find((tool) => tool.name === "bookmarks.list")).toMatchObject({
+      scopes: ["note.read"],
+      risk: "low",
+      inputSchema: {
+        required: ["bookId"],
+        additionalProperties: false,
+      },
+    });
+    expect(listTools().find((tool) => tool.name === "skills.list")).toMatchObject({
+      scopes: ["stats.read"],
+      risk: "low",
+      inputSchema: {
+        additionalProperties: false,
+      },
+    });
   });
 
   it("exposes include controls for reader context", () => {

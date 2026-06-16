@@ -127,6 +127,20 @@ async function seedLibrary(dataRoot: string): Promise<void> {
       'highlight-1', 'book-1', 'epubcfi(/6/8)', 'Draft-first editing keeps users safe.',
       'yellow', 'Important safety point', 'Safety', 5000, 5000
     );
+
+    INSERT INTO bookmarks (
+      id, book_id, cfi, label, chapter_title, created_at
+    ) VALUES (
+      'bookmark-1', 'book-1', 'epubcfi(/6/6)', 'Review this section', 'Tools', 5500
+    );
+
+    INSERT INTO skills (
+      id, name, description, icon, enabled, parameters, prompt, built_in, created_at, updated_at
+    ) VALUES (
+      'skill-1', 'Chapter Polisher', 'Suggests safer chapter edits.', NULL, 1,
+      '[{"name":"tone","type":"string","description":"Target tone","required":false}]',
+      'Polish chapter text in a controlled draft.', 0, 5600, 5600
+    );
   `);
   db.close();
 
@@ -275,7 +289,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 25 },
+        tools: { count: 27 },
       });
     }
   });
@@ -299,6 +313,55 @@ describe("commands", () => {
       options: {
         book: "book-1",
         limit: "5",
+      },
+    });
+  });
+
+  it("lists bookmarks and skills from the CLI", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const bookmarks = await runCommand(["bookmarks", "list", "book-1"], workspace.env);
+    expect(bookmarks).toMatchObject({
+      ok: true,
+      data: {
+        bookmarks: [
+          {
+            id: "bookmark-1",
+            bookId: "book-1",
+            label: "Review this section",
+            chapterTitle: "Tools",
+          },
+        ],
+      },
+    });
+
+    const missingBook = await runCommand(["bookmarks", "list"], workspace.env);
+    expect(missingBook).toMatchObject({
+      ok: false,
+      error: { code: "missing_book_id" },
+    });
+
+    const skills = await runCommand(["skills", "list"], workspace.env);
+    expect(skills).toMatchObject({
+      ok: true,
+      data: {
+        skills: [
+          {
+            id: "skill-1",
+            name: "Chapter Polisher",
+            enabled: true,
+            builtIn: false,
+            parameters: [
+              {
+                name: "tone",
+                type: "string",
+                description: "Target tone",
+                required: false,
+              },
+            ],
+          },
+        ],
       },
     });
   });

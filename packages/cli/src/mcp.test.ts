@@ -117,6 +117,19 @@ async function seedBook(env: NodeJS.ProcessEnv): Promise<void> {
       'External agents should receive export metadata, not full exported files.',
       'yellow', 'Export boundary', 'Agent Access', 8000, 8000
     );
+
+    INSERT INTO bookmarks (
+      id, book_id, cfi, label, chapter_title, created_at
+    ) VALUES (
+      'mcp-bookmark', 'mcp-book', 'epubcfi(/6/32)', 'Return here', 'Agent Access', 8100
+    );
+
+    INSERT INTO skills (
+      id, name, description, icon, enabled, parameters, prompt, built_in, created_at, updated_at
+    ) VALUES (
+      'mcp-skill', 'MCP Reviewer', 'Reviews external access plans.', NULL, 1,
+      '[]', 'Review the access plan.', 0, 8200, 8200
+    );
   `);
   db.close();
   await writeFile(join(env.READANY_HOME!, "books", "mcp.epub"), buildInspectableEpub());
@@ -165,6 +178,8 @@ describe("mcp", () => {
         { name: "chapters.list" },
         { name: "chapters.get" },
         { name: "context.get" },
+        { name: "bookmarks.list" },
+        { name: "skills.list" },
         { name: "notes.search" },
         { name: "notes.export" },
         { name: "knowledge.export" },
@@ -250,6 +265,65 @@ describe("mcp", () => {
             }),
           ]),
         },
+      },
+    });
+  });
+
+  it("calls readonly bookmark and skill discovery tools", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+
+    const bookmarksResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "bookmarks.list",
+          arguments: { bookId: "mcp-book" },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(bookmarksResponse).toMatchObject({ isError: false });
+    const bookmarksText = (bookmarksResponse as { content: Array<{ text: string }> }).content[0]
+      .text;
+    expect(JSON.parse(bookmarksText)).toMatchObject({
+      ok: true,
+      data: {
+        bookmarks: [
+          {
+            id: "mcp-bookmark",
+            bookId: "mcp-book",
+            label: "Return here",
+            chapterTitle: "Agent Access",
+          },
+        ],
+      },
+    });
+
+    const skillsResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "skills.list",
+          arguments: {},
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(skillsResponse).toMatchObject({ isError: false });
+    const skillsText = (skillsResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(skillsText)).toMatchObject({
+      ok: true,
+      data: {
+        skills: [
+          {
+            id: "mcp-skill",
+            name: "MCP Reviewer",
+            enabled: true,
+          },
+        ],
       },
     });
   });

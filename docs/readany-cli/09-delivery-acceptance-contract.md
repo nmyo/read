@@ -447,7 +447,7 @@ M5 通过条件：
 
 - ReadAny 有独立 CLI package。
 - ReadAny 有 readonly MCP 入口。
-- 外部 AI 可以读取书籍、笔记、高亮、已索引章节和 RAG chunks 检索结果。
+- 外部 AI 可以读取书籍、笔记、高亮、书签、技能列表、已索引章节和 RAG chunks 检索结果。
 - 外部 AI 在 editor profile 下可以检查 EPUB 结构。
 - 外部 AI 在 editor profile 下可以创建受控 EPUB draft workspace。
 - 外部 AI 在 editor profile 下可以读取 draft EPUB 章节文本。

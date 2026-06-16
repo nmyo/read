@@ -138,6 +138,8 @@ Usage:
   readany chapters list <book-id> [--json]
   readany chapter get <book-id> <chapter-id> [--json] [--chunk-start 1] [--chunk-count 5] [--limit 12000]
   readany context get [--json] [--limit 12000] [--include-selection true|false] [--include-surrounding-text true|false] [--include-highlights true|false]
+  readany bookmarks list <book-id> [--json]
+  readany skills list [--json]
   readany epub inspect <book-id> [--json] [--profile editor]
   readany epub draft create <book-id> [--json] [--profile editor]
   readany epub draft discard <draft-id> [--json] [--profile editor] [--reason "..."]
