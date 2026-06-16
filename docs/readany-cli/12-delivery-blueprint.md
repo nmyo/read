@@ -110,6 +110,7 @@ readany skill install
 readany skill uninstall
 readany skill status --json
 readany mcp serve --profile readonly
+readany mcp config --profile readonly --json
 ```
 
 Skill 安装位置：

@@ -135,6 +135,18 @@ function parseEpubChapterPatchPlan(value: unknown): unknown[] {
   return patches;
 }
 
+export function createMcpConfig(profile: string | undefined = "readonly") {
+  const parsedProfile = parseAccessProfile(profile);
+  return {
+    mcpServers: {
+      readany: {
+        command: "readany",
+        args: ["mcp", "serve", "--profile", parsedProfile],
+      },
+    },
+  };
+}
+
 async function getDataApi() {
   return import("./data.js");
 }
@@ -178,6 +190,7 @@ Usage:
   readany knowledge export --output <path> [--json] [--profile publisher] [--format markdown|json|obsidian] [--limit 1000] [--overwrite]
   readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
+  readany mcp config [--json] [--profile readonly|editor|publisher]
 `;
 }
 
@@ -276,6 +289,9 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
 
     if (command.name === "mcp") {
       const subcommand = command.args[0];
+      if (subcommand === "config") {
+        return success(createMcpConfig(command.profile));
+      }
       if (subcommand === "serve") {
         return failure("mcp_serve_requires_stdio", "mcp serve must be run from the CLI entrypoint");
       }

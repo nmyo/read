@@ -86,7 +86,13 @@ readany skill status --json
 - 测试连接。
 - 切换 profile。
 
-复制配置时给外部 agent 的最小片段：
+复制配置时给外部 agent 的最小片段可由 CLI 生成：
+
+```bash
+readany mcp config --profile readonly --json
+```
+
+输出中的核心配置为：
 
 ```json
 {

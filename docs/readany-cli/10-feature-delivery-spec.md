@@ -155,9 +155,11 @@ audit.list
 readany mcp serve --profile readonly
 readany mcp serve --profile editor
 readany mcp serve --profile publisher
+readany mcp config --profile readonly --json
 ```
 
 第一阶段实际开放 readonly 配置，editor / publisher 只能在用户明确开启后使用。
+`mcp config` 只生成外部 agent 配置片段，不启动服务、不增加工具权限。
 
 MCP 必须支持：
 

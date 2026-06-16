@@ -108,6 +108,20 @@ Module._load = function patchedLoad(request, parent, isMain) {
       },
     });
 
+    const mcpConfig = runBuiltCli(["mcp", "config", "--json"], env);
+    expect(mcpConfig.status, mcpConfig.stderr).toBe(0);
+    expect(JSON.parse(mcpConfig.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        mcpServers: {
+          readany: {
+            command: "readany",
+            args: ["mcp", "serve", "--profile", "readonly"],
+          },
+        },
+      },
+    });
+
     const tools = runBuiltCli(["tools", "list", "--json"], env);
     expect(tools.status, tools.stderr).toBe(0);
     expect(JSON.parse(tools.stdout)).toMatchObject({

@@ -295,6 +295,42 @@ describe("commands", () => {
     }
   });
 
+  it("prints MCP config for external agents", async () => {
+    const workspace = await createWorkspace();
+
+    const readonly = await runCommand(["mcp", "config"], workspace.env);
+    expect(readonly).toMatchObject({
+      ok: true,
+      data: {
+        mcpServers: {
+          readany: {
+            command: "readany",
+            args: ["mcp", "serve", "--profile", "readonly"],
+          },
+        },
+      },
+    });
+
+    const publisher = await runCommand(["mcp", "config", "--profile", "publisher"], workspace.env);
+    expect(publisher).toMatchObject({
+      ok: true,
+      data: {
+        mcpServers: {
+          readany: {
+            command: "readany",
+            args: ["mcp", "serve", "--profile", "publisher"],
+          },
+        },
+      },
+    });
+
+    const invalid = await runCommand(["mcp", "config", "--profile", "root"], workspace.env);
+    expect(invalid).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+  });
+
   it("returns empty book list from an empty workspace", async () => {
     const workspace = await createWorkspace();
     const result = await runCommand(["books", "list"], workspace.env);
