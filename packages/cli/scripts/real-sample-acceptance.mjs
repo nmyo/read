@@ -385,6 +385,40 @@ function firstChapter(chapters) {
   return chapters.find((chapter) => chapter.id) ?? null;
 }
 
+function createChapterCitationTarget(bookId, chapter) {
+  return {
+    type: chapter?.source === "pdf" ? "pdf-page" : "chapter",
+    bookId,
+    chapterId: chapter?.id,
+    chapterIndex: chapter?.index,
+    chapterTitle: chapter?.title,
+    page: chapter?.page,
+    cfi: chapter?.cfi ?? chapter?.startCfi,
+    startCfi: chapter?.startCfi,
+    endCfi: chapter?.endCfi,
+    source: chapter?.source,
+  };
+}
+
+function createChunkCitationTarget(result) {
+  const chunk = result?.chunk;
+  return {
+    type: "rag-chunk",
+    bookId: chunk?.bookId,
+    chunkId: chunk?.id,
+    chapterIndex: chunk?.chapterIndex,
+    chapterTitle: chunk?.chapterTitle,
+    cfi: chunk?.startCfi,
+    startCfi: chunk?.startCfi,
+    endCfi: chunk?.endCfi,
+    matchType: result?.matchType,
+  };
+}
+
+function isUsableCitationTarget(target) {
+  return Boolean(target?.bookId && (target.cfi || target.startCfi || target.page || target.chapterId || target.chunkId));
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -415,6 +449,7 @@ async function main() {
   const checks = [];
   const commands = [];
   const sampleFilesByBookId = new Map();
+  const citationTargets = [];
 
   const record = (name, step, details = {}) => {
     commands.push({
@@ -467,6 +502,10 @@ async function main() {
   const chaptersData = requireOk(chapters);
   const chapter = firstChapter(chaptersData.chapters);
   assert(chapter, `No chapters were returned for ${options.bookId}`);
+  const primaryChapterCitation = createChapterCitationTarget(options.bookId, chapter);
+  if (isUsableCitationTarget(primaryChapterCitation)) {
+    citationTargets.push(primaryChapterCitation);
+  }
   record("chapters.list primary sample", chapters, {
     bookId: options.bookId,
     count: chaptersData.chapters.length,
@@ -492,11 +531,18 @@ async function main() {
   const rag = runCli(["rag", "search", options.ragQuery, "--book", options.bookId, "--mode", "bm25", "--limit", "3"], env);
   const ragData = requireOk(rag);
   assert(Array.isArray(ragData.results) && ragData.results.length > 0, "rag.search returned no results");
+  const ragCitationTargets = ragData.results
+    .map((result) => createChunkCitationTarget(result))
+    .filter(isUsableCitationTarget);
+  assert(ragCitationTargets.length > 0, "rag.search returned no usable citation targets");
+  citationTargets.push(...ragCitationTargets);
   record("rag.search primary sample", rag, {
     bookId: options.bookId,
     queryHash: sha256(options.ragQuery),
     count: ragData.results.length,
     firstChunkId: ragData.results[0]?.chunk?.id,
+    citationTargetCount: ragCitationTargets.length,
+    firstCitationTarget: ragCitationTargets[0],
   });
 
   const knowledgeQuery = options.knowledgeQuery ?? options.ragQuery;
@@ -608,6 +654,10 @@ async function main() {
     const pdfChaptersData = requireOk(pdfChapters);
     const pdfPage = pdfChaptersData.chapters.find((item) => item.source === "pdf");
     assert(pdfPage, `No PDF fallback pages were returned for ${options.pdfBookId}`);
+    const pdfPageCitation = createChapterCitationTarget(options.pdfBookId, pdfPage);
+    if (isUsableCitationTarget(pdfPageCitation)) {
+      citationTargets.push(pdfPageCitation);
+    }
     record("pdf chapters.list real sample", pdfChapters, {
       bookId: options.pdfBookId,
       count: pdfChaptersData.chapters.length,
@@ -617,9 +667,13 @@ async function main() {
     const pdfRead = runCli(["chapter", "get", options.pdfBookId, pdfPage.id, "--limit", "4000"], env);
     const pdfReadData = requireOk(pdfRead);
     assert(pdfReadData.chapter?.source === "pdf", "PDF chapter.get did not return PDF source");
+    const pdfReadCitation = createChapterCitationTarget(options.pdfBookId, pdfReadData.chapter);
+    assert(isUsableCitationTarget(pdfReadCitation), "PDF chapter.get did not return a usable page citation");
+    citationTargets.push(pdfReadCitation);
     record("pdf chapter.get real sample", pdfRead, {
       bookId: options.pdfBookId,
       pageId: pdfPage.id,
+      cfi: pdfReadData.chapter.cfi,
       contentLength: pdfReadData.chapter.content?.length ?? 0,
       contentHash: sha256(pdfReadData.chapter.content ?? ""),
     });
@@ -633,11 +687,14 @@ async function main() {
 
   const sampleFiles = Array.from(sampleFilesByBookId.values());
   const manualAcceptanceRequired = createManualAcceptanceRequirements();
+  const citationTargetTypes = Array.from(new Set(citationTargets.map((target) => target.type).filter(Boolean)));
   const summary = {
     commandCount: commands.length,
     checkCount: checks.length,
     sampleFileCount: sampleFiles.length,
     sampleFormats: Array.from(new Set(sampleFiles.map((sample) => sample.format).filter(Boolean))),
+    citationTargetCount: citationTargets.length,
+    citationTargetTypes,
     draftExport: options.draftExport,
     pdfChecked: Boolean(options.pdfBookId),
     doctorFailedChecks: doctorData.checks
@@ -658,6 +715,7 @@ async function main() {
     pdfBookId: options.pdfBookId,
     summary,
     sampleFiles,
+    citationTargets,
     draftExport: options.draftExport,
     keepDraft: options.keepDraft,
     checks,

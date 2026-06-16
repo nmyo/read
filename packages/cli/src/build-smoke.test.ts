@@ -400,6 +400,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         checkCount: number;
         sampleFileCount: number;
         sampleFormats: string[];
+        citationTargetCount: number;
+        citationTargetTypes: string[];
         draftExport: boolean;
         pdfChecked: boolean;
         doctorFailedChecks: string[];
@@ -427,6 +429,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         checkCount: expect.any(Number),
         sampleFileCount: 2,
         sampleFormats: expect.arrayContaining(["epub", "pdf"]),
+        citationTargetCount: expect.any(Number),
+        citationTargetTypes: expect.arrayContaining(["chapter", "rag-chunk", "pdf-page"]),
         draftExport: true,
         pdfChecked: true,
         doctorFailedChecks: expect.any(Array),
@@ -491,6 +495,20 @@ Module._load = function patchedLoad(request, parent, isMain) {
         bytes: number;
         sha256: string;
       }>;
+      citationTargets: Array<{
+        type: string;
+        bookId: string;
+        chapterId?: string;
+        chunkId?: string;
+        chapterIndex?: number;
+        chapterTitle?: string;
+        page?: number;
+        cfi?: string;
+        startCfi?: string;
+        endCfi?: string;
+        source?: string;
+        matchType?: string;
+      }>;
       summary: typeof output.summary;
       manualAcceptanceRequired: Array<{
         id: string;
@@ -541,6 +559,33 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(evidence.summary).toEqual(output.summary);
     expect(evidence.summary.commandCount).toBe(evidence.commands.length);
     expect(evidence.summary.checkCount).toBe(evidence.checks.length);
+    expect(evidence.summary.citationTargetCount).toBe(evidence.citationTargets.length);
+    expect(evidence.citationTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "chapter",
+          bookId: "agent-smoke-book",
+          chapterId: expect.any(String),
+          startCfi: expect.stringMatching(/^epubcfi/),
+        }),
+        expect.objectContaining({
+          type: "rag-chunk",
+          bookId: "agent-smoke-book",
+          chunkId: expect.any(String),
+          cfi: expect.stringMatching(/^epubcfi/),
+          startCfi: expect.stringMatching(/^epubcfi/),
+          matchType: "bm25",
+        }),
+        expect.objectContaining({
+          type: "pdf-page",
+          bookId: "agent-smoke-pdf",
+          chapterId: "page-1",
+          page: 1,
+          cfi: "page:1",
+          source: "pdf",
+        }),
+      ]),
+    );
     expect(evidence.sampleFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

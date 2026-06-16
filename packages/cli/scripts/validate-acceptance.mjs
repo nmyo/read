@@ -150,6 +150,7 @@ function validateEvidence(evidence) {
   assertCondition(Array.isArray(evidence?.checks), errors, "Evidence checks must be an array.");
   assertCondition(Array.isArray(evidence?.commands), errors, "Evidence commands must be an array.");
   assertCondition(Array.isArray(evidence?.sampleFiles), errors, "Evidence sampleFiles must be an array.");
+  assertCondition(Array.isArray(evidence?.citationTargets), errors, "Evidence citationTargets must be an array.");
 
   assertCondition(typeof evidence?.doctor?.version === "string", errors, "Doctor version is required.");
   assertCondition(typeof evidence?.doctor?.runtime?.node === "string", errors, "Doctor runtime.node is required.");
@@ -204,8 +205,30 @@ function validateEvidence(evidence) {
       errors,
       "Summary sampleFileCount must match sampleFiles length.",
     );
+    assertCondition(
+      evidence.summary.citationTargetCount === evidence.citationTargets?.length,
+      errors,
+      "Summary citationTargetCount must match citationTargets length.",
+    );
   } else {
     warnings.push("Evidence has no summary field.");
+  }
+
+  const citationTargets = evidence?.citationTargets ?? [];
+  assertCondition(citationTargets.length > 0, errors, "At least one citation target is required.");
+  assertCondition(
+    citationTargets.some((target) => target.type === "rag-chunk" && target.bookId && target.chunkId && (target.cfi || target.startCfi)),
+    errors,
+    "At least one RAG chunk citation target with bookId/chunkId/CFI is required.",
+  );
+  for (const [index, target] of citationTargets.entries()) {
+    assertCondition(typeof target.type === "string" && target.type.length > 0, errors, `Citation target ${index} type is required.`);
+    assertCondition(typeof target.bookId === "string" && target.bookId.length > 0, errors, `Citation target ${index} bookId is required.`);
+    assertCondition(
+      Boolean(target.cfi || target.startCfi || target.page || target.chapterId || target.chunkId),
+      errors,
+      `Citation target ${index} must include a jumpback location.`,
+    );
   }
 
   for (const [index, sample] of (evidence?.sampleFiles ?? []).entries()) {
