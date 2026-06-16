@@ -16,6 +16,7 @@ export type EpubChapterReadResult = {
   href: string;
   mediaType?: string;
   title?: string;
+  contentFormat: "text" | "xhtml";
   content: string;
   contentTruncated: boolean;
   contentLimit: number;
@@ -44,7 +45,7 @@ export type EpubChapterPatchResult = {
 export async function readEpubChapterFromDraft(
   draftId: string,
   chapterId: string,
-  options: { contentLimit?: number } = {},
+  options: { contentLimit?: number; contentFormat?: "text" | "xhtml" } = {},
 ): Promise<EpubChapterReadResult> {
   const platform = getPlatformService();
   const { dataDir, manifest } = await readActiveEpubDraftManifest(draftId);
@@ -148,7 +149,7 @@ export async function readEpubChapterFromBookFile(
   bookId: string,
   bookFilePath: string,
   chapterId: string,
-  options: { contentLimit?: number } = {},
+  options: { contentLimit?: number; contentFormat?: "text" | "xhtml" } = {},
 ): Promise<EpubChapterReadResult> {
   const platform = getPlatformService();
   const dataDir = await platform.getDataDir();
@@ -206,19 +207,21 @@ async function findChapterResource(
 async function readEpubChapterBytes(
   bytes: Uint8Array,
   chapterId: string,
-  options: { contentLimit?: number },
+  options: { contentLimit?: number; contentFormat?: "text" | "xhtml" },
 ): Promise<Omit<EpubChapterReadResult, "source" | "draftId" | "bookId">> {
   const chapter = await findChapterResource(bytes, chapterId);
   const title = extractTitle(chapter.content);
-  const text = extractReadableText(chapter.content);
+  const contentFormat = options.contentFormat ?? "text";
+  const content = contentFormat === "xhtml" ? chapter.content : extractReadableText(chapter.content);
   const contentLimit = clampContentLimit(options.contentLimit);
-  const truncated = text.length > contentLimit;
+  const truncated = content.length > contentLimit;
   return {
     id: chapter.id,
     href: chapter.href,
     mediaType: chapter.mediaType,
     title,
-    content: truncated ? text.slice(0, contentLimit) : text,
+    contentFormat,
+    content: truncated ? content.slice(0, contentLimit) : content,
     contentTruncated: truncated,
     contentLimit,
   };

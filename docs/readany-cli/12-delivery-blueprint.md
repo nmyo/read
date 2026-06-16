@@ -244,7 +244,7 @@ inspect -> draft create -> chapter read -> patch -> metadata patch -> toc rebuil
 readany epub inspect <book-id> --profile editor --json
 readany epub draft create <book-id> --profile editor --json
 readany epub draft discard <draft-id> --profile editor --json
-readany epub chapter read <draft-id> <chapter-id> --profile editor --json
+readany epub chapter read <draft-id> <chapter-id> --profile editor --format text|xhtml --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor --json
 readany epub metadata patch <draft-id> --patch <file> --profile editor --json
 readany epub toc rebuild <draft-id> --profile editor --json
@@ -256,7 +256,7 @@ readany epub diff <draft-id> --profile editor --json
 
 - `inspect` 只读 EPUB package、metadata、manifest、spine、toc、资源引用，不修改文件。
 - `draft create` 从源 EPUB 复制到受控 workspace，记录 source hash、manifest、history，后续所有修改只写 draft。
-- `chapter read` 从 draft 映射读取受控章节内容，必须有限长输出。
+- `chapter read` 从 draft 映射读取受控章节内容，默认返回可读文本；`xhtml` 模式返回完整 XHTML 供编辑器保存回 draft，必须有限长输出。
 - `chapter patch` 只替换 draft 内指定 XHTML 资源，保存前做基本 XHTML / manifest 约束校验，并写 operation history。
 - `metadata patch` 只修改 draft OPF metadata，patch schema 必须限制字段，不接受任意 XML 字符串拼接。
 - `toc rebuild` 基于 spine 章节重建 EPUB3 nav，并写 operation history；NCX 支持另行验收，不能暗示已完整覆盖。
@@ -300,7 +300,7 @@ AI 必须能做：
 ```bash
 node packages/cli/dist/bin/readany.js epub inspect <book-id> --profile editor --json
 node packages/cli/dist/bin/readany.js epub draft create <book-id> --profile editor --json
-node packages/cli/dist/bin/readany.js epub chapter read <draft-id> <chapter-id> --profile editor --json
+node packages/cli/dist/bin/readany.js epub chapter read <draft-id> <chapter-id> --profile editor --format xhtml --json
 node packages/cli/dist/bin/readany.js epub chapter patch <draft-id> <chapter-id> --xhtml <fixture.xhtml> --profile editor --json
 node packages/cli/dist/bin/readany.js epub metadata patch <draft-id> --patch <fixture.json> --profile editor --json
 node packages/cli/dist/bin/readany.js epub toc rebuild <draft-id> --profile editor --json

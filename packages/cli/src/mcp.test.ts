@@ -851,10 +851,36 @@ describe("mcp", () => {
           bookId: "mcp-book",
           id: "chapter-1",
           href: "chapter-1.xhtml",
+          contentFormat: "text",
           content: "Agent Access",
         },
       },
     });
+
+    const xhtmlResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.read",
+          arguments: { draftId, chapterId: "chapter-1", contentFormat: "xhtml" },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(xhtmlResponse).toMatchObject({ isError: false });
+    const xhtmlText = (xhtmlResponse as { content: Array<{ text: string }> }).content[0].text;
+    const xhtmlParsed = JSON.parse(xhtmlText) as { data: { chapter: { content: string } } };
+    expect(xhtmlParsed).toMatchObject({
+      ok: true,
+      data: {
+        chapter: {
+          contentFormat: "xhtml",
+          contentTruncated: false,
+        },
+      },
+    });
+    expect(xhtmlParsed.data.chapter.content).toContain("<body>Agent Access</body>");
   });
 
   it("gates epub.draft.discard by editor profile and discards a draft", async () => {

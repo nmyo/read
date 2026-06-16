@@ -285,14 +285,15 @@ export async function readEpubChapter(
     draftId?: string;
     chapterId: string;
     contentLimit?: number;
+    contentFormat?: "text" | "xhtml";
     env?: NodeJS.ProcessEnv;
   },
 ): Promise<import("@readany/core/epub/chapter").EpubChapterReadResult | null> {
-  const { bookId, draftId, chapterId, contentLimit, env = process.env } = options;
+  const { bookId, draftId, chapterId, contentLimit, contentFormat, env = process.env } = options;
   await ensureCoreInitialized(env);
 
   if (draftId) {
-    return readEpubChapterFromDraft(draftId, chapterId, { contentLimit });
+    return readEpubChapterFromDraft(draftId, chapterId, { contentLimit, contentFormat });
   }
 
   if (!bookId) return null;
@@ -301,7 +302,10 @@ export async function readEpubChapter(
   if (book.format !== "epub") {
     throw new Error(`Book ${bookId} is ${book.format}; only EPUB chapter reads are currently supported.`);
   }
-  return readEpubChapterFromBookFile(bookId, book.filePath, chapterId, { contentLimit });
+  return readEpubChapterFromBookFile(bookId, book.filePath, chapterId, {
+    contentLimit,
+    contentFormat,
+  });
 }
 
 export async function patchEpubChapter(

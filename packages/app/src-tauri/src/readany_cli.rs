@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
 #[derive(Serialize)]
@@ -33,6 +37,8 @@ pub struct ReadAnyCliRunOptions {
     audit_limit: Option<u16>,
     book_id: Option<String>,
     draft_id: Option<String>,
+    chapter_id: Option<String>,
+    xhtml: Option<String>,
     operation_id: Option<String>,
     reason: Option<String>,
 }
@@ -48,7 +54,10 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "skill_status" => Ok(strings(&["skill", "status", "--json"])),
         "skill_install" => Ok(strings(&["skill", "install", "--json"])),
         "skill_uninstall" => Ok(strings(&["skill", "uninstall", "--json"])),
+        "epub_inspect" => epub_inspect_args(options),
         "epub_draft_create" => epub_draft_create_args(options),
+        "epub_chapter_read" => epub_chapter_read_args(options),
+        "epub_chapter_patch" => epub_chapter_patch_args(options, None),
         "epub_history" => epub_draft_read_args(options, "history", "editor"),
         "epub_diff" => epub_draft_read_args(options, "diff", "editor"),
         "epub_validate" => epub_draft_read_args(options, "validate", "publisher"),
@@ -104,6 +113,60 @@ fn epub_draft_create_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>,
         "draft".to_string(),
         "create".to_string(),
         book_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_inspect_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let book_id = normalized_entity_id(options.book_id.as_deref(), "book id")?;
+    Ok(vec![
+        "epub".to_string(),
+        "inspect".to_string(),
+        book_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_chapter_read_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let chapter_id = normalized_entity_id(options.chapter_id.as_deref(), "chapter id")?;
+    Ok(vec![
+        "epub".to_string(),
+        "chapter".to_string(),
+        "read".to_string(),
+        draft_id,
+        chapter_id,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--format".to_string(),
+        "xhtml".to_string(),
+        "--limit".to_string(),
+        "50000".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_chapter_patch_args(
+    options: &ReadAnyCliRunOptions,
+    xhtml_path: Option<&Path>,
+) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let chapter_id = normalized_entity_id(options.chapter_id.as_deref(), "chapter id")?;
+    let xhtml_path = xhtml_path
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_else(|| "<controlled-temp-xhtml>".to_string());
+    Ok(vec![
+        "epub".to_string(),
+        "chapter".to_string(),
+        "patch".to_string(),
+        draft_id,
+        chapter_id,
+        "--xhtml".to_string(),
+        xhtml_path,
         "--profile".to_string(),
         "editor".to_string(),
         "--json".to_string(),
@@ -193,6 +256,25 @@ fn normalized_reason(value: Option<&str>) -> Option<String> {
     Some(value.chars().take(240).collect())
 }
 
+fn normalized_xhtml(value: Option<&str>) -> Result<String, String> {
+    let value = value.ok_or_else(|| "Missing XHTML content.".to_string())?;
+    if value.trim().is_empty() {
+        return Err("Missing XHTML content.".to_string());
+    }
+    if value.len() > 1_000_000 {
+        return Err("XHTML content is too large.".to_string());
+    }
+    Ok(value.to_string())
+}
+
+fn temp_xhtml_path() -> PathBuf {
+    let id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    env::temp_dir().join(format!("readany-epub-chapter-{}.xhtml", id))
+}
+
 fn normalized_audit_action_prefix(value: Option<&str>) -> Option<String> {
     let value = value?.trim();
     if value.is_empty() {
@@ -279,7 +361,31 @@ pub async fn readany_cli_run(
     options: Option<ReadAnyCliRunOptions>,
 ) -> Result<ReadAnyCliRunResult, String> {
     let options = options.unwrap_or_default();
-    let args = args_for_action(&action, &options)?;
+    let temp_xhtml = if action == "epub_chapter_patch" {
+        let xhtml = normalized_xhtml(options.xhtml.as_deref())?;
+        let path = temp_xhtml_path();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|error| format!("Failed to prepare temporary XHTML patch file: {}", error))?;
+        file.write_all(xhtml.as_bytes())
+            .map_err(|error| format!("Failed to write temporary XHTML patch file: {}", error))?;
+        Some(path)
+    } else {
+        None
+    };
+    let args = if let Some(path) = temp_xhtml.as_deref() {
+        match epub_chapter_patch_args(&options, Some(path)) {
+            Ok(args) => args,
+            Err(error) => {
+                let _ = fs::remove_file(path);
+                return Err(error);
+            }
+        }
+    } else {
+        args_for_action(&action, &options)?
+    };
 
     let resource_dir = app.path().resource_dir().ok();
     let cli_command = resolve_cli_command(&action, resource_dir);
@@ -290,11 +396,17 @@ pub async fn readany_cli_run(
             .args(&args)
             .output()
             .map_err(|error| {
+                if let Some(path) = temp_xhtml.as_deref() {
+                    let _ = fs::remove_file(path);
+                }
                 format!(
                     "Failed to run ReadAny CLI via {}: {}",
                     cli_command.source, error
                 )
             })?;
+        if let Some(path) = temp_xhtml.as_deref() {
+            let _ = fs::remove_file(path);
+        }
 
         Ok(ReadAnyCliRunResult {
             ok: output.status.success(),
@@ -366,6 +478,23 @@ mod tests {
         );
         assert_eq!(
             args_for_action(
+                "epub_inspect",
+                &ReadAnyCliRunOptions {
+                    book_id: Some("book-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "inspect".to_string(),
+                "book-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
                 "epub_draft_create",
                 &ReadAnyCliRunOptions {
                     book_id: Some("book-1".to_string()),
@@ -377,6 +506,52 @@ mod tests {
                 "draft".to_string(),
                 "create".to_string(),
                 "book-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_chapter_read",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    chapter_id: Some("chapter-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "chapter".to_string(),
+                "read".to_string(),
+                "draft-1".to_string(),
+                "chapter-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--format".to_string(),
+                "xhtml".to_string(),
+                "--limit".to_string(),
+                "50000".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_chapter_patch",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    chapter_id: Some("chapter-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "chapter".to_string(),
+                "patch".to_string(),
+                "draft-1".to_string(),
+                "chapter-1".to_string(),
+                "--xhtml".to_string(),
+                "<controlled-temp-xhtml>".to_string(),
                 "--profile".to_string(),
                 "editor".to_string(),
                 "--json".to_string()
@@ -500,6 +675,7 @@ mod tests {
     #[test]
     fn validates_epub_draft_create_options() {
         assert!(args_for_action("epub_draft_create", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_inspect", &ReadAnyCliRunOptions::default()).is_err());
 
         assert!(args_for_action(
             "epub_draft_create",
@@ -514,6 +690,8 @@ mod tests {
     #[test]
     fn validates_epub_draft_workspace_options() {
         assert!(args_for_action("epub_history", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_chapter_read", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_chapter_patch", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_diff", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_validate", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_toc_rebuild", &ReadAnyCliRunOptions::default()).is_err());
@@ -525,6 +703,8 @@ mod tests {
             ..ReadAnyCliRunOptions::default()
         };
         assert!(args_for_action("epub_history", &invalid).is_err());
+        assert!(args_for_action("epub_chapter_read", &invalid).is_err());
+        assert!(args_for_action("epub_chapter_patch", &invalid).is_err());
         assert!(args_for_action("epub_diff", &invalid).is_err());
         assert!(args_for_action("epub_validate", &invalid).is_err());
         assert!(args_for_action("epub_toc_rebuild", &invalid).is_err());
@@ -539,6 +719,27 @@ mod tests {
             }
         )
         .is_err());
+
+        let invalid_chapter = ReadAnyCliRunOptions {
+            draft_id: Some("draft-1".to_string()),
+            chapter_id: Some("chapter 1".to_string()),
+            ..ReadAnyCliRunOptions::default()
+        };
+        assert!(args_for_action("epub_chapter_read", &invalid_chapter).is_err());
+        assert!(args_for_action("epub_chapter_patch", &invalid_chapter).is_err());
+    }
+
+    #[test]
+    fn validates_epub_chapter_patch_xhtml() {
+        use super::normalized_xhtml;
+
+        assert!(normalized_xhtml(None).is_err());
+        assert!(normalized_xhtml(Some("   ")).is_err());
+        assert_eq!(
+            normalized_xhtml(Some("<html><body>ok</body></html>")),
+            Ok("<html><body>ok</body></html>".to_string())
+        );
+        assert!(normalized_xhtml(Some(&"x".repeat(1_000_001))).is_err());
     }
 
     #[test]

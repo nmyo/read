@@ -475,11 +475,58 @@ describe("commands", () => {
           bookId: "book-1",
           id: "chapter-1",
           href: "chapter-1.xhtml",
+          contentFormat: "text",
           content: "Tools",
           contentTruncated: false,
         },
       });
     }
+
+    const xhtmlResult = await runCommand(
+      [
+        "epub",
+        "chapter",
+        "read",
+        draftId,
+        "chapter-1",
+        "--profile",
+        "editor",
+        "--format",
+        "xhtml",
+      ],
+      workspace.env,
+    );
+    expect(xhtmlResult.ok).toBe(true);
+    if (xhtmlResult.ok) {
+      expect(xhtmlResult.data).toMatchObject({
+        chapter: {
+          contentFormat: "xhtml",
+          contentTruncated: false,
+        },
+      });
+      expect((xhtmlResult.data as { chapter: { content: string } }).chapter.content).toContain(
+        "<body>Tools</body>",
+      );
+    }
+
+    const invalidFormat = await runCommand(
+      [
+        "epub",
+        "chapter",
+        "read",
+        draftId,
+        "chapter-1",
+        "--profile",
+        "editor",
+        "--format",
+        "html",
+      ],
+      workspace.env,
+    );
+    expect(invalidFormat).toMatchObject({
+      ok: false,
+      error: { code: "invalid_format" },
+    });
   });
 
   it("patches an EPUB draft chapter with editor profile", async () => {

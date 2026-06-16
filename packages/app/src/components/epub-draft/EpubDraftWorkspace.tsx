@@ -1,16 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@readany/core/utils";
 import {
   AlertCircle,
+  BookOpen,
   CheckCircle2,
   FileDiff,
   History,
   ListTree,
   RefreshCw,
   RotateCcw,
+  Save,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -102,6 +111,58 @@ type EpubValidationResult = {
   issues: EpubValidationIssue[];
 };
 
+type EpubInspectSpineItem = {
+  idref: string;
+  linear?: string;
+  href?: string;
+  mediaType?: string;
+};
+
+type EpubInspectTocItem = {
+  label: string;
+  href: string;
+  level: number;
+};
+
+type EpubInspectResult = {
+  bookId: string;
+  packagePath: string;
+  spine: {
+    count: number;
+    items: EpubInspectSpineItem[];
+  };
+  toc: {
+    count: number;
+    items: EpubInspectTocItem[];
+  };
+};
+
+type EpubChapterReadResult = {
+  source: "draft" | "book";
+  id: string;
+  href: string;
+  mediaType?: string;
+  title?: string;
+  contentFormat: "text" | "xhtml";
+  content: string;
+  contentTruncated: boolean;
+  contentLimit: number;
+  draftId?: string;
+  bookId?: string;
+};
+
+type EpubChapterPatchResult = {
+  draftId: string;
+  bookId: string;
+  chapterId: string;
+  href: string;
+  resourcePath: string;
+  changed: boolean;
+  operationId: string;
+  updatedAt: string;
+  title?: string;
+};
+
 type EpubTocRebuildResult = {
   draftId: string;
   bookId: string;
@@ -130,7 +191,8 @@ type DraftWorkspaceSnapshot = {
   history?: EpubDraftHistoryResult;
   diff?: EpubDiffResult;
   validation?: EpubValidationResult;
-  raw: Partial<Record<"history" | "diff" | "validation", unknown>>;
+  inspect?: EpubInspectResult;
+  raw: Partial<Record<"history" | "diff" | "validation" | "inspect", unknown>>;
 };
 
 interface EpubDraftWorkspaceProps {
@@ -201,9 +263,10 @@ async function loadDraftCommand<T>(
   action: string,
   draftId: string,
   key: string,
+  options: Record<string, unknown> = {},
 ): Promise<{ value?: T; error?: string }> {
   try {
-    return { value: unwrapCommand<T>(await runDraftAction(action, draftId), key) };
+    return { value: unwrapCommand<T>(await runDraftAction(action, draftId, options), key) };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
@@ -221,6 +284,22 @@ function formatDateTime(value: string, locale: string) {
   }).format(new Date(time));
 }
 
+function stripHrefFragment(value: string) {
+  return value.split("#")[0];
+}
+
+function chapterTitleForItem(
+  item: EpubInspectSpineItem,
+  index: number,
+  tocByHref: Map<string, string>,
+) {
+  if (item.href) {
+    const label = tocByHref.get(stripHrefFragment(item.href));
+    if (label) return label;
+  }
+  return item.idref || `Chapter ${index + 1}`;
+}
+
 export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const { t, i18n } = useTranslation();
   const [draftIdInput, setDraftIdInput] = useState(draftId);
@@ -230,6 +309,10 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [discardReason, setDiscardReason] = useState("");
+  const [selectedChapterId, setSelectedChapterId] = useState("");
+  const [chapterDraft, setChapterDraft] = useState<EpubChapterReadResult | null>(null);
+  const [chapterContent, setChapterContent] = useState("");
+  const [chapterDirty, setChapterDirty] = useState(false);
 
   useEffect(() => {
     setDraftIdInput(draftId);
@@ -252,18 +335,31 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
           loadDraftCommand<EpubDiffResult>("epub_diff", normalizedDraftId, "diff"),
           loadDraftCommand<EpubValidationResult>("epub_validate", normalizedDraftId, "validation"),
         ]);
+        const inspectResult = historyResult.value?.bookId
+          ? await loadDraftCommand<EpubInspectResult>(
+              "epub_inspect",
+              normalizedDraftId,
+              "epub",
+              { bookId: historyResult.value.bookId },
+            )
+          : { error: t("epubDraft.inspectNeedsHistory", "History is required before inspect.") };
 
-        const errors = [historyResult.error, diffResult.error, validationResult.error].filter(
-          Boolean,
-        );
+        const errors = [
+          historyResult.error,
+          diffResult.error,
+          validationResult.error,
+          inspectResult.error,
+        ].filter(Boolean);
         setSnapshot({
           history: historyResult.value,
           diff: diffResult.value,
           validation: validationResult.value,
+          inspect: inspectResult.value,
           raw: {
             history: historyResult.value,
             diff: diffResult.value,
             validation: validationResult.value,
+            inspect: inspectResult.value,
           },
         });
         setActiveDraftId(normalizedDraftId);
@@ -286,6 +382,24 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const changedEntries = useMemo(
     () => snapshot.diff?.entries.filter((entry) => entry.status !== "unchanged").slice(0, 80) ?? [],
     [snapshot.diff?.entries],
+  );
+
+  const chapterOptions = useMemo(
+    () => {
+      const tocByHref = new Map(
+        snapshot.inspect?.toc.items.map((item) => [stripHrefFragment(item.href), item.label]) ?? [],
+      );
+      return (
+        snapshot.inspect?.spine.items
+          .filter((item) => item.idref && item.linear !== "no" && item.mediaType?.includes("html"))
+          .map((item, index) => ({
+            id: item.idref,
+            label: chapterTitleForItem(item, index, tocByHref),
+            href: item.href ?? "",
+          })) ?? []
+      );
+    },
+    [snapshot.inspect?.spine.items, snapshot.inspect?.toc.items],
   );
 
   const undoableEntries = useMemo(
@@ -346,6 +460,80 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
     });
     if (result) {
       toast.success(t("epubDraft.undoComplete", "Undo complete"));
+    }
+  };
+
+  const handleLoadChapter = async () => {
+    if (!selectedChapterId) {
+      toast.error(t("epubDraft.selectChapterFirst", "Select a chapter first"));
+      return;
+    }
+    setActionBusy("epub_chapter_read");
+    setLastError(null);
+    try {
+      const chapter = unwrapCommand<EpubChapterReadResult>(
+        await runDraftAction("epub_chapter_read", activeDraftId, {
+          chapterId: selectedChapterId,
+        }),
+        "chapter",
+      );
+      setChapterDraft(chapter);
+      setChapterContent(chapter.content);
+      setChapterDirty(false);
+      if (chapter.contentTruncated) {
+        toast.warning(
+          t(
+            "epubDraft.chapterTruncated",
+            "Chapter content was truncated. Saving is disabled for this chapter.",
+          ),
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLastError(message);
+      toast.error(message);
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleSaveChapter = async () => {
+    if (!chapterDraft) {
+      toast.error(t("epubDraft.loadChapterFirst", "Load a chapter first"));
+      return;
+    }
+    if (chapterDraft.contentTruncated) {
+      toast.error(t("epubDraft.cannotSaveTruncated", "Cannot save truncated chapter content"));
+      return;
+    }
+    if (
+      !window.confirm(
+        t(
+          "epubDraft.saveChapterConfirm",
+          "Save this XHTML chapter into the draft? The source EPUB will not be changed.",
+        ),
+      )
+    ) {
+      return;
+    }
+    const result = await runWorkspaceMutation<EpubChapterPatchResult>(
+      "epub_chapter_patch",
+      "patch",
+      {
+        chapterId: chapterDraft.id,
+        xhtml: chapterContent,
+      },
+    );
+    if (result) {
+      setChapterDraft((current) =>
+        current ? { ...current, content: chapterContent, contentTruncated: false } : current,
+      );
+      setChapterDirty(false);
+      toast.success(
+        result.changed
+          ? t("epubDraft.chapterSaved", "Chapter saved")
+          : t("epubDraft.chapterUnchanged", "Chapter unchanged"),
+      );
     }
   };
 
@@ -526,6 +714,116 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
                     : t("epubDraft.discard", "Discard")}
                 </Button>
               </div>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <SectionTitle
+              title={t("epubDraft.chapterEditor", "Chapter editor")}
+              desc={t(
+                "epubDraft.chapterEditorDesc",
+                "Load full XHTML from the draft, edit it, and save back through the controlled CLI bridge.",
+              )}
+            />
+            <div className="mt-3 rounded-md border bg-card p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Select
+                  value={selectedChapterId}
+                  onValueChange={(value) => {
+                    if (chapterDirty && !window.confirm(t("epubDraft.switchChapterConfirm", "Discard unsaved chapter edits?"))) {
+                      return;
+                    }
+                    setSelectedChapterId(value);
+                    setChapterDraft(null);
+                    setChapterContent("");
+                    setChapterDirty(false);
+                  }}
+                  disabled={!chapterOptions.length || snapshot.history?.status === "discarded"}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder={t("epubDraft.selectChapter", "Select chapter")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chapterOptions.map((chapter) => (
+                      <SelectItem key={chapter.id} value={chapter.id}>
+                        {chapter.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    loading ||
+                    !!actionBusy ||
+                    !selectedChapterId ||
+                    snapshot.history?.status === "discarded"
+                  }
+                  onClick={() => void handleLoadChapter()}
+                >
+                  <BookOpen className="size-3.5" />
+                  {actionBusy === "epub_chapter_read"
+                    ? t("common.loading", "Loading")
+                    : t("epubDraft.loadChapter", "Load")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={
+                    loading ||
+                    !!actionBusy ||
+                    !chapterDraft ||
+                    !chapterDirty ||
+                    chapterDraft.contentTruncated ||
+                    snapshot.history?.status === "discarded"
+                  }
+                  onClick={() => void handleSaveChapter()}
+                >
+                  <Save className="size-3.5" />
+                  {actionBusy === "epub_chapter_patch"
+                    ? t("common.saving", "Saving")
+                    : t("common.save", "Save")}
+                </Button>
+              </div>
+
+              {chapterDraft ? (
+                <div className="mt-3">
+                  <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-mono">{chapterDraft.id}</span>
+                    <span>{chapterDraft.title ?? chapterDraft.href}</span>
+                    {chapterDraft.contentTruncated ? (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
+                        {t("epubDraft.truncated", "Truncated")}
+                      </span>
+                    ) : null}
+                    {chapterDirty ? (
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
+                        {t("epubDraft.unsaved", "Unsaved")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <Textarea
+                    value={chapterContent}
+                    onChange={(event) => {
+                      setChapterContent(event.target.value);
+                      setChapterDirty(true);
+                    }}
+                    spellCheck={false}
+                    className="min-h-[360px] resize-y font-mono text-xs leading-relaxed"
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </div>
+              ) : (
+                <EmptyPanel
+                  text={
+                    chapterOptions.length
+                      ? t("epubDraft.noChapterLoaded", "Select and load a chapter to edit.")
+                      : t("epubDraft.noChapterOptions", "No editable XHTML spine chapters found.")
+                  }
+                />
+              )}
             </div>
           </section>
 

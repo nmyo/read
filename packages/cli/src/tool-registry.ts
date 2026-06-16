@@ -535,6 +535,12 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
           maximum: 50000,
           description: "Maximum number of content characters to return.",
         },
+        contentFormat: {
+          type: "string",
+          enum: ["text", "xhtml"],
+          description:
+            "Return readable text by default, or full XHTML for controlled draft editing.",
+        },
       },
       required: ["draftId", "chapterId"],
       additionalProperties: false,

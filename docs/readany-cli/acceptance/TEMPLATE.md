@@ -62,7 +62,7 @@ EPUB draft / export 相关：
 ```bash
 readany epub inspect <book-id> --profile editor --json
 readany epub draft create <book-id> --profile editor --json
-readany epub chapter read <draft-id> <chapter-id> --profile editor --json
+readany epub chapter read <draft-id> <chapter-id> --profile editor --format xhtml --json
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <fixture.xhtml> --profile editor --json
 readany epub metadata patch <draft-id> --patch <fixture.json> --profile editor --json
 readany epub toc rebuild <draft-id> --profile editor --json

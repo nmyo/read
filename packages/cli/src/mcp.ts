@@ -61,6 +61,11 @@ type ToolPropertySchema = {
   enum?: unknown;
 };
 
+function getEpubChapterReadFormat(args: Record<string, unknown>): "text" | "xhtml" {
+  const value = args.contentFormat;
+  return value === "xhtml" ? "xhtml" : "text";
+}
+
 function getResultErrorCode(result: unknown): string | undefined {
   if (!result || typeof result !== "object") return undefined;
   if ("error" in result) return "jsonrpc_error";
@@ -471,6 +476,7 @@ async function callReadAnyTool(
       draftId,
       chapterId,
       contentLimit: getNumber(args, "contentLimit", 12000),
+      contentFormat: getEpubChapterReadFormat(args),
       env,
     });
     if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);

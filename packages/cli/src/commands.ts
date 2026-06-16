@@ -117,6 +117,10 @@ function isKnowledgeExportFormat(value: string): value is "markdown" | "json" | 
   return value === "markdown" || value === "json" || value === "obsidian";
 }
 
+function isEpubChapterReadFormat(value: string): value is "text" | "xhtml" {
+  return value === "text" || value === "xhtml";
+}
+
 async function getDataApi() {
   return import("./data.js");
 }
@@ -143,7 +147,7 @@ Usage:
   readany epub inspect <book-id> [--json] [--profile editor]
   readany epub draft create <book-id> [--json] [--profile editor]
   readany epub draft discard <draft-id> [--json] [--profile editor] [--reason "..."]
-  readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000]
+  readany epub chapter read <draft-id> <chapter-id> [--json] [--profile editor] [--limit 12000] [--format text|xhtml]
   readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--json] [--profile editor]
   readany epub metadata patch <draft-id> --patch <file> [--json] [--profile editor]
   readany epub toc rebuild <draft-id> [--json] [--profile editor]
@@ -555,10 +559,15 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           if (!chapterId) {
             return failure("missing_chapter_id", "epub chapter read requires a chapter id");
           }
+          const format = getStringOption(command, "format") ?? "text";
+          if (!isEpubChapterReadFormat(format)) {
+            return failure("invalid_format", "epub chapter read format must be text or xhtml");
+          }
           const chapter = await data.readEpubChapter({
             draftId,
             chapterId,
             contentLimit: getLimit(command, 12000),
+            contentFormat: format,
             env,
           });
           if (!chapter) return failure("chapter_not_found", `Chapter ${chapterId} was not found`);

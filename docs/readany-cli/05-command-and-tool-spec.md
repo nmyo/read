@@ -66,7 +66,7 @@ readany skills list [--json]
 readany rag search <query> --book <book-id> [--mode bm25|hybrid|vector] [--limit 5] [--json]
 readany epub inspect <book-id> [--profile editor] [--json]
 readany epub draft create <book-id> [--profile editor] [--json]
-readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--json]
+readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--format text|xhtml] [--json]
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--profile editor] [--json]
 readany epub metadata patch <draft-id> --patch <file> [--profile editor] [--json]
 readany epub toc rebuild <draft-id> [--profile editor] [--json]
@@ -76,7 +76,7 @@ readany epub validate <draft-id> [--profile publisher] [--json]
 readany epub export <draft-id> --output <path> [--profile publisher] [--overwrite] [--json]
 ```
 
-当前 `chapters.*` 优先基于 indexed chunks 返回章节视图；没有 chunks 且书籍是 EPUB 时，会 fallback 到真实 EPUB spine/manifest；没有 chunks 且书籍是 PDF 时，会 fallback 到 page text，章节 id 形如 `page-1`。indexed 章节支持 chunk range 和 content limit；EPUB/PDF fallback 章节支持 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；`epub draft create` 只复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改章节、不导出文件；`epub chapter read` 只读取 draft 章节文本。
+当前 `chapters.*` 优先基于 indexed chunks 返回章节视图；没有 chunks 且书籍是 EPUB 时，会 fallback 到真实 EPUB spine/manifest；没有 chunks 且书籍是 PDF 时，会 fallback 到 page text，章节 id 形如 `page-1`。indexed 章节支持 chunk range 和 content limit；EPUB/PDF fallback 章节支持 content limit，避免一次返回超大正文。`epub inspect` 是只读结构检查，需要 `editor` profile 或更高权限；`epub draft create` 只复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改章节、不导出文件；`epub chapter read` 默认读取 draft 章节可读文本，`--format xhtml` 可读取完整 XHTML 供受控章节编辑器保存回 draft。
 
 ### Draft 编辑命令
 
@@ -84,7 +84,7 @@ readany epub export <draft-id> --output <path> [--profile publisher] [--overwrit
 
 ```bash
 readany epub draft create <book-id> [--profile editor] [--json]
-readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--json]
+readany epub chapter read <draft-id> <chapter-id> [--profile editor] [--limit 12000] [--format text|xhtml] [--json]
 readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> [--profile editor] [--json]
 readany epub metadata patch <draft-id> --patch <file> [--profile editor] [--json]
 readany epub toc rebuild <draft-id> [--profile editor] [--json]
@@ -97,6 +97,7 @@ readany epub export <draft-id> --output <path> [--profile publisher] [--overwrit
 
 补充约定：
 
+- `epub.chapter.read` 默认返回可读文本；`--format xhtml` 返回完整 XHTML，供桌面 draft 工作区或外部 AI 在受控 draft 中编辑。
 - `epub.chapter.patch` 只修改 draft 中的单个章节资源，不能直接改原始书文件。
 - `epub.metadata.patch` 只修改 draft 中的 metadata。
 - `epub.toc.rebuild` 只修改 draft 中的 EPUB3 nav 目录，基于 spine XHTML 章节生成一级目录。
@@ -165,7 +166,7 @@ epub.validate
 epub.export
 ```
 
-`audit.list` 当前已经可用，但它只读取最近 CLI/MCP 审计元数据，不返回工具参数正文、密钥或大内容。`notes.export` 当前已经可用，但它只导出单本书 notes/highlights 文件，默认不覆盖已有文件，也不把完整导出内容塞进 MCP 响应。`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.draft.discard` 当前已经可用，但它只标记 draft inactive。`epub.chapter.read` 当前已经可用，但它只读取 draft XHTML 章节文本。`epub.chapter.patch` 当前已经可用，但它只替换 draft 内单个 XHTML 章节资源。`epub.metadata.patch` 当前已经可用，但它只修改 draft OPF metadata。`epub.toc.rebuild` 当前已经可用，但它只重建 EPUB3 nav 目录。`epub.history` 当前已经可用，但它只读取 draft operation history。`epub.diff` 当前已经可用，但它只比较 source/draft EPUB entry 的 hash 和 size，不返回完整正文。`epub.undo` 当前已经可用，但它只撤销已记录且资源未被后续改动覆盖的 draft patch。`epub.validate` 当前已经可用，但它只校验 active draft 的结构和引用，不自动修改。`epub.export` 当前已经可用，但它只在 validate 通过后导出新 EPUB，默认不覆盖已有文件、不覆盖源 EPUB。其余 `epub.*` 写入工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前已支持 indexed chunks 优先、未索引 EPUB fallback 和未索引 PDF page fallback。`context.get` 当前已可用，但它只读取桌面端写入的 reader context snapshot，不修改阅读状态、不读取裸 UI 内存。`rag.search` 当前支持 BM25、hybrid 和 vector；BM25 总是可用，hybrid 在 embedding 未配置或失败时回退到 BM25，vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` / `READANY_EMBEDDING_BASE_URL` / `READANY_EMBEDDING_API_KEY` 环境配置。
+`audit.list` 当前已经可用，但它只读取最近 CLI/MCP 审计元数据，不返回工具参数正文、密钥或大内容。`notes.export` 当前已经可用，但它只导出单本书 notes/highlights 文件，默认不覆盖已有文件，也不把完整导出内容塞进 MCP 响应。`epub.inspect` 当前已经可用，但它只是只读结构检查。`epub.draft.create` 当前已经可用，但它只创建受控 draft workspace。`epub.draft.discard` 当前已经可用，但它只标记 draft inactive。`epub.chapter.read` 当前已经可用，默认读取 draft 可读文本，也支持 `--format xhtml` 返回完整 XHTML。`epub.chapter.patch` 当前已经可用，但它只替换 draft 内单个 XHTML 章节资源。`epub.metadata.patch` 当前已经可用，但它只修改 draft OPF metadata。`epub.toc.rebuild` 当前已经可用，但它只重建 EPUB3 nav 目录。`epub.history` 当前已经可用，但它只读取 draft operation history。`epub.diff` 当前已经可用，但它只比较 source/draft EPUB entry 的 hash 和 size，不返回完整正文。`epub.undo` 当前已经可用，但它只撤销已记录且资源未被后续改动覆盖的 draft patch。`epub.validate` 当前已经可用，但它只校验 active draft 的结构和引用，不自动修改。`epub.export` 当前已经可用，但它只在 validate 通过后导出新 EPUB，默认不覆盖已有文件、不覆盖源 EPUB。其余 `epub.*` 写入工具接入真实实现前只能保留在设计文档里。`chapters.*` 当前已支持 indexed chunks 优先、未索引 EPUB fallback 和未索引 PDF page fallback。`context.get` 当前已可用，但它只读取桌面端写入的 reader context snapshot，不修改阅读状态、不读取裸 UI 内存。`rag.search` 当前支持 BM25、hybrid 和 vector；BM25 总是可用，hybrid 在 embedding 未配置或失败时回退到 BM25，vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` / `READANY_EMBEDDING_BASE_URL` / `READANY_EMBEDDING_API_KEY` 环境配置。
 
 未来补齐时，`tools/list` 仍然要遵循一个原则：先完成真实实现、权限、测试和文档，再把工具放进列表。不能为了“让 AI 知道能力存在”而提前注册。
 

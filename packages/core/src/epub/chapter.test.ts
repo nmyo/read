@@ -140,10 +140,38 @@ describe("readEpubChapterFromDraft", () => {
       id: "chapter-1",
       href: "chapter-1.xhtml",
       title: "First Chapter",
+      contentFormat: "text",
       content: "First Chapter Draft ",
       contentTruncated: true,
       contentLimit: 20,
     });
+  });
+
+  it("can read raw XHTML for controlled draft editing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-chapter-"));
+    const dataDir = await createPlatform(root);
+    await writeFile(join(dataDir, "books", "sample.epub"), buildEpub());
+    const book = {
+      id: "book-1",
+      filePath: "books/sample.epub",
+      format: "epub",
+      meta: { title: "Chapter Draft" },
+    } as Book;
+    const draft = await createEpubDraft(book, { draftId: "draft-1" });
+
+    const chapter = await readEpubChapterFromDraft(draft.draftId, "chapter-1", {
+      contentFormat: "xhtml",
+      contentLimit: 1000,
+    });
+
+    expect(chapter).toMatchObject({
+      source: "draft",
+      id: "chapter-1",
+      contentFormat: "xhtml",
+      contentTruncated: false,
+    });
+    expect(chapter.content).toContain("<body>");
+    expect(chapter.content).toContain("Draft chapter text for editing.");
   });
 
   it("patches a chapter resource in the draft without changing the source EPUB", async () => {
@@ -189,6 +217,7 @@ describe("readEpubChapterFromDraft", () => {
     const chapter = await readEpubChapterFromDraft(draft.draftId, "chapter-1");
     expect(chapter).toMatchObject({
       title: "Revised Chapter",
+      contentFormat: "text",
       content: "Revised Chapter Clean draft text.",
     });
 
