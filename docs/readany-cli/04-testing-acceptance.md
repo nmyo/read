@@ -256,6 +256,7 @@ M1 必须做到：
 [ ] inputSchema 限制额外字段，MCP 调用会拒绝未声明参数
 [ ] inputSchema 的 minLength / minimum / maximum / enum 会被运行时校验
 [ ] readonly profile 权限路径有测试
+[ ] tools/list 对外暴露 risk / scopes / minimumProfile
 [ ] 不输出密钥、同步配置、任意本地路径
 [ ] 大结果有 limit / cursor / range 中至少一种限制
 [ ] 审计日志记录调用名、profile、结果，不记录完整正文参数

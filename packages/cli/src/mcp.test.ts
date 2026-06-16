@@ -205,6 +205,48 @@ describe("mcp", () => {
     });
   });
 
+  it("includes safety metadata in tools/list for external agents", async () => {
+    const response = await handleMcpRequest({ method: "tools/list" }, "readonly", await createEnv());
+    const tools = (response as { tools: Array<Record<string, unknown>> }).tools;
+
+    expect(tools.find((tool) => tool.name === "books.search")).toMatchObject({
+      description: expect.stringContaining("Minimum profile: readonly"),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+      _meta: {
+        "readany/risk": "low",
+        "readany/scopes": ["book.read"],
+        "readany/minimumProfile": "readonly",
+      },
+    });
+    expect(tools.find((tool) => tool.name === "epub.chapter.patch")).toMatchObject({
+      description: expect.stringContaining("Minimum profile: editor"),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+      },
+      _meta: {
+        "readany/risk": "medium",
+        "readany/scopes": ["epub.draft"],
+        "readany/minimumProfile": "editor",
+      },
+    });
+    expect(tools.find((tool) => tool.name === "epub.export")).toMatchObject({
+      description: expect.stringContaining("Minimum profile: publisher"),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+      },
+      _meta: {
+        "readany/risk": "high",
+        "readany/scopes": ["epub.export"],
+        "readany/minimumProfile": "publisher",
+      },
+    });
+  });
+
   it("calls a readonly tool", async () => {
     const env = await createEnv();
     await seedBook(env);

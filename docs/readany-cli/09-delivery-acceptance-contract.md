@@ -210,9 +210,12 @@ CLI 负责：
 - `inputSchema`
 - `scopes`
 - `risk`
+- `minimumProfile`
 - 是否 readonly
 - 输出大小控制策略
 - 运行时校验规则
+
+MCP `tools/list` 必须把 risk / scopes / minimumProfile 放进外部 agent 可见的机器可读元数据，并在 description 中保留人类可读摘要。
 
 未完成的能力只允许出现在设计文档，不允许出现在 registry。
 

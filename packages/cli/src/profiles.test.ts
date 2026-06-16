@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PROFILE,
+  getMinimumProfileForScopes,
   parseAccessProfile,
   profileHasScope,
   PROFILE_SCOPES,
@@ -26,5 +27,13 @@ describe("profiles", () => {
       expect(PROFILE_SCOPES.publisher).toContain(scope);
     }
     expect(PROFILE_SCOPES.publisher).toContain("epub.export");
+  });
+
+  it("finds the minimum profile that satisfies a scope set", () => {
+    expect(getMinimumProfileForScopes(["book.read", "content.read"])).toBe("readonly");
+    expect(getMinimumProfileForScopes(["note.write"])).toBe("assistant");
+    expect(getMinimumProfileForScopes(["epub.inspect", "epub.draft"])).toBe("editor");
+    expect(getMinimumProfileForScopes(["epub.export"])).toBe("publisher");
+    expect(getMinimumProfileForScopes(["sync.run"])).toBe("admin");
   });
 });

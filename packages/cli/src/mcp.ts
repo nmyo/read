@@ -3,7 +3,7 @@ import { stdin as input, stdout as output } from "node:process";
 import type { CommandResult } from "./result.js";
 import { failure, success } from "./result.js";
 import type { AccessProfile, PermissionScope } from "./profiles.js";
-import { parseAccessProfile, profileHasScope } from "./profiles.js";
+import { getMinimumProfileForScopes, parseAccessProfile, profileHasScope } from "./profiles.js";
 import {
   appendCliAuditEntry,
   isCliAuditSource,
@@ -106,10 +106,26 @@ async function recordMcpAudit(
 }
 
 function toMcpTool(tool: ReturnType<typeof listTools>[number]) {
+  const minimumProfile = getMinimumProfileForScopes(tool.scopes);
+  const safetySummary = `Risk: ${tool.risk}. Minimum profile: ${minimumProfile}. Required scopes: ${tool.scopes.join(", ")}.`;
+  const destructiveHint =
+    tool.name.includes(".patch") ||
+    tool.name.endsWith(".discard") ||
+    tool.name.endsWith(".undo") ||
+    tool.name.endsWith(".export");
   return {
     name: tool.name,
-    description: tool.description,
+    description: `${tool.description}\n\n${safetySummary}`,
     inputSchema: tool.inputSchema,
+    annotations: {
+      readOnlyHint: tool.risk === "low",
+      destructiveHint,
+    },
+    _meta: {
+      "readany/risk": tool.risk,
+      "readany/scopes": tool.scopes,
+      "readany/minimumProfile": minimumProfile,
+    },
   };
 }
 

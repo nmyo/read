@@ -73,3 +73,20 @@ export function parseAccessProfile(value: string | undefined): AccessProfile {
 export function profileHasScope(profile: AccessProfile, scope: PermissionScope): boolean {
   return PROFILE_SCOPES[profile].includes(scope);
 }
+
+const PROFILE_ORDER = [
+  "readonly",
+  "assistant",
+  "editor",
+  "publisher",
+  "admin",
+] satisfies AccessProfile[];
+
+export function getMinimumProfileForScopes(scopes: readonly PermissionScope[]): AccessProfile {
+  for (const profile of PROFILE_ORDER) {
+    if (scopes.every((scope) => profileHasScope(profile, scope))) {
+      return profile;
+    }
+  }
+  return "admin";
+}

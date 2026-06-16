@@ -232,6 +232,8 @@ type ReadAnyTool = {
 };
 ```
 
+MCP `tools/list` 会把 `risk`、`scopes` 和由 scope 推导出的 `minimumProfile` 写入 `_meta`，并在 description 中附加人类可读摘要。外部 agent 应先读取这些字段，再决定是否提示用户提升 profile。
+
 风险等级：
 
 - `low`：只读。
