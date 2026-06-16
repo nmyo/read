@@ -117,6 +117,35 @@ function createEnvironmentEvidence() {
   };
 }
 
+function createManualAcceptanceRequirements() {
+  return [
+    {
+      id: "sample-source",
+      label: "Record the real sample source, license/privacy status, and whether it is publishable.",
+    },
+    {
+      id: "external-agent-clients",
+      label: "Verify at least two real external agent clients, with at least one using MCP.",
+    },
+    {
+      id: "desktop-settings",
+      label: "Verify the desktop External AI settings page can install/update/remove CLI and Skill and copy MCP config.",
+    },
+    {
+      id: "packaged-app-matrix",
+      label: "Verify packaged app install, doctor, Skill, MCP, and draft export on macOS, Windows, and Linux.",
+    },
+    {
+      id: "reader-jumpback",
+      label: "Verify RAG and chapter citations can jump back in the desktop reader.",
+    },
+    {
+      id: "runtime-bundle",
+      label: "Verify native binary or full runtime bundle behavior for users without a separate Node setup.",
+    },
+  ];
+}
+
 async function createSampleFileEvidence(label, book, readanyHome) {
   assert(book?.id, `${label} sample did not include a book id`);
   assert(book?.filePath, `${label} sample did not include a book file path`);
@@ -534,6 +563,7 @@ async function main() {
     keepDraft: options.keepDraft,
     checks,
     commands,
+    manualAcceptanceRequired: createManualAcceptanceRequirements(),
     note: "This helper records real-sample evidence. It does not replace manual external-agent or packaged-app matrix acceptance.",
   };
 

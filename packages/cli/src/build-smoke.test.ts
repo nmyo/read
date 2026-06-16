@@ -410,6 +410,10 @@ Module._load = function patchedLoad(request, parent, isMain) {
         bytes: number;
         sha256: string;
       }>;
+      manualAcceptanceRequired: Array<{
+        id: string;
+        label: string;
+      }>;
     };
     expect(evidence.environment).toMatchObject({
       platform: process.platform,
@@ -443,5 +447,12 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ]),
     );
     expect(evidence.sampleFiles.every((sample) => sample.bytes > 0)).toBe(true);
+    expect(evidence.manualAcceptanceRequired).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "external-agent-clients" }),
+        expect.objectContaining({ id: "packaged-app-matrix" }),
+        expect.objectContaining({ id: "runtime-bundle" }),
+      ]),
+    );
   });
 });
