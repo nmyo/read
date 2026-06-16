@@ -1,4 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getPlatformService } from "@readany/core/services";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -9,6 +17,7 @@ import {
   History,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
   Terminal,
   XCircle,
 } from "lucide-react";
@@ -34,6 +43,14 @@ type CliRunResult = {
   status?: number | null;
   stdout: string;
   stderr: string;
+};
+
+type CliRunOptions = {
+  auditSource?: "cli" | "mcp";
+  auditFailedOnly?: boolean;
+  auditActionPrefix?: string;
+  auditDate?: string;
+  auditLimit?: number;
 };
 
 type CommandResult<T = unknown> =
@@ -120,6 +137,11 @@ export function ExternalAISettings() {
   const [auditResult, setAuditResult] = useState<CliRunResult>();
   const [lastActionResult, setLastActionResult] = useState<CliRunResult>();
   const [copied, setCopied] = useState(false);
+  const [auditSource, setAuditSource] = useState<"all" | "cli" | "mcp">("all");
+  const [auditStatus, setAuditStatus] = useState<"all" | "failed">("all");
+  const [auditActionPrefix, setAuditActionPrefix] = useState("");
+  const [auditDate, setAuditDate] = useState("");
+  const [auditLimit, setAuditLimit] = useState("8");
 
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
   const skill = useMemo(() => parseCliJson<SkillStatus>(skillResult), [skillResult]);
@@ -133,11 +155,27 @@ export function ExternalAISettings() {
   const cliVersion = versionResult?.ok ? versionResult.stdout.trim() : "";
   const skillInstalled = skill?.ok ? skill.data.installed : false;
   const readonlyToolNames = tools?.ok ? tools.data.tools.map((tool) => tool.name) : [];
+  const auditOptions = useMemo<CliRunOptions>(
+    () => ({
+      auditSource: auditSource === "all" ? undefined : auditSource,
+      auditFailedOnly: auditStatus === "failed",
+      auditActionPrefix: auditActionPrefix.trim() || undefined,
+      auditDate: auditDate || undefined,
+      auditLimit: Math.min(50, Math.max(1, Number.parseInt(auditLimit, 10) || 8)),
+    }),
+    [auditActionPrefix, auditDate, auditLimit, auditSource, auditStatus],
+  );
+  const failedAuditEntries = audit?.ok
+    ? audit.data.audit.entries.filter((entry) => !entry.ok)
+    : [];
 
-  async function runCli(action: CliAction) {
+  async function runCli(action: CliAction, options?: CliRunOptions) {
     setLoadingAction(action);
     try {
-      const result = await invoke<CliRunResult>("readany_cli_run", { action });
+      const result = await invoke<CliRunResult>("readany_cli_run", {
+        action,
+        options: options ?? null,
+      });
       setLastActionResult(result);
       if (action === "version") setVersionResult(result);
       if (action === "doctor") setDoctorResult(result);
@@ -172,7 +210,7 @@ export function ExternalAISettings() {
     await runCli("doctor");
     await runCli("skill_status");
     await runCli("tools_list");
-    await runCli("audit_list");
+    await runCli("audit_list", auditOptions);
   }
 
   async function handleSkillInstall() {
@@ -201,6 +239,19 @@ export function ExternalAISettings() {
     await getPlatformService().copyToClipboard(MCP_CONFIG);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function refreshAudit() {
+    await runCli("audit_list", auditOptions);
+  }
+
+  async function resetAuditFilters() {
+    setAuditSource("all");
+    setAuditStatus("all");
+    setAuditActionPrefix("");
+    setAuditDate("");
+    setAuditLimit("8");
+    await runCli("audit_list", { auditLimit: 8 });
   }
 
   useEffect(() => {
@@ -370,7 +421,7 @@ export function ExternalAISettings() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => void runCli("audit_list")}
+            onClick={() => void refreshAudit()}
             disabled={busy}
           >
             <RefreshCw
@@ -378,6 +429,63 @@ export function ExternalAISettings() {
             />
             刷新
           </Button>
+        </div>
+
+        <div className="mt-3 rounded-md bg-background p-3">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">筛选</p>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[minmax(7rem,0.8fr)_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(9rem,1.1fr)_minmax(5rem,0.6fr)_auto]">
+            <Select value={auditSource} onValueChange={(value) => setAuditSource(value as typeof auditSource)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部来源</SelectItem>
+                <SelectItem value="cli">CLI</SelectItem>
+                <SelectItem value="mcp">MCP</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={auditStatus} onValueChange={(value) => setAuditStatus(value as typeof auditStatus)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部结果</SelectItem>
+                <SelectItem value="failed">仅失败</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              className="h-8 text-xs"
+              placeholder="action prefix"
+              value={auditActionPrefix}
+              onChange={(event) => setAuditActionPrefix(event.target.value)}
+            />
+            <Input
+              className="h-8 text-xs"
+              type="date"
+              value={auditDate}
+              onChange={(event) => setAuditDate(event.target.value)}
+            />
+            <Input
+              className="h-8 text-xs"
+              inputMode="numeric"
+              min={1}
+              max={50}
+              type="number"
+              value={auditLimit}
+              onChange={(event) => setAuditLimit(event.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
+                应用
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => void resetAuditFilters()} disabled={busy}>
+                重置
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-3 space-y-2">
@@ -394,6 +502,11 @@ export function ExternalAISettings() {
                       {entry.profile ? ` · ${entry.profile}` : ""}
                       {entry.code ? ` · ${entry.code}` : ""}
                     </p>
+                    {!entry.ok ? (
+                      <p className="mt-1 truncate text-[11px] text-destructive">
+                        失败详情：{entry.code || "未返回错误码"}
+                      </p>
+                    ) : null}
                   </div>
                   {statusLabel(entry.ok, "成功", "失败")}
                 </div>
@@ -410,6 +523,16 @@ export function ExternalAISettings() {
             </p>
           ) : null}
         </div>
+        {audit?.ok && failedAuditEntries.length > 0 ? (
+          <div className="mt-3 rounded-md bg-background px-3 py-2">
+            <p className="text-xs font-medium text-foreground">失败详情</p>
+            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+              {failedAuditEntries
+                .map((entry) => `${entry.action}: ${entry.code || "unknown_error"}`)
+                .join(" · ")}
+            </p>
+          </div>
+        ) : null}
       </section>
     </div>
   );

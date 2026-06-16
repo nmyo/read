@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -23,19 +23,86 @@ struct CliCommand {
     source: String,
 }
 
-fn args_for_action(action: &str) -> Option<Vec<&'static str>> {
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadAnyCliRunOptions {
+    audit_source: Option<String>,
+    audit_failed_only: Option<bool>,
+    audit_action_prefix: Option<String>,
+    audit_date: Option<String>,
+    audit_limit: Option<u16>,
+}
+
+fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
     match action {
-        "version" => Some(vec!["--version"]),
-        "install" => Some(vec!["install", "--user", "--json"]),
-        "uninstall" => Some(vec!["uninstall", "--user", "--json"]),
-        "doctor" => Some(vec!["doctor", "--json"]),
-        "tools_list" => Some(vec!["tools", "list", "--json"]),
-        "audit_list" => Some(vec!["audit", "list", "--json", "--limit", "8"]),
-        "skill_status" => Some(vec!["skill", "status", "--json"]),
-        "skill_install" => Some(vec!["skill", "install", "--json"]),
-        "skill_uninstall" => Some(vec!["skill", "uninstall", "--json"]),
-        _ => None,
+        "version" => Ok(strings(&["--version"])),
+        "install" => Ok(strings(&["install", "--user", "--json"])),
+        "uninstall" => Ok(strings(&["uninstall", "--user", "--json"])),
+        "doctor" => Ok(strings(&["doctor", "--json"])),
+        "tools_list" => Ok(strings(&["tools", "list", "--json"])),
+        "audit_list" => audit_list_args(options),
+        "skill_status" => Ok(strings(&["skill", "status", "--json"])),
+        "skill_install" => Ok(strings(&["skill", "install", "--json"])),
+        "skill_uninstall" => Ok(strings(&["skill", "uninstall", "--json"])),
+        _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
+}
+
+fn strings(args: &[&str]) -> Vec<String> {
+    args.iter().map(|arg| (*arg).to_string()).collect()
+}
+
+fn audit_list_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let mut args = strings(&["audit", "list", "--json", "--limit"]);
+    args.push(options.audit_limit.unwrap_or(8).clamp(1, 50).to_string());
+
+    if let Some(source) = options.audit_source.as_deref() {
+        match source {
+            "cli" | "mcp" => {
+                args.push("--source".to_string());
+                args.push(source.to_string());
+            }
+            _ => return Err("Unsupported audit source filter.".to_string()),
+        }
+    }
+
+    if options.audit_failed_only.unwrap_or(false) {
+        args.push("--failed".to_string());
+    }
+
+    if let Some(prefix) = normalized_audit_action_prefix(options.audit_action_prefix.as_deref()) {
+        args.push("--action-prefix".to_string());
+        args.push(prefix);
+    }
+
+    if let Some(date) = options.audit_date.as_deref() {
+        if !is_valid_audit_date(date) {
+            return Err("Audit date must use YYYY-MM-DD.".to_string());
+        }
+        args.push("--date".to_string());
+        args.push(date.to_string());
+    }
+
+    Ok(args)
+}
+
+fn normalized_audit_action_prefix(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(value.chars().take(80).collect())
+}
+
+fn is_valid_audit_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
 }
 
 fn is_executable_file(path: &Path) -> bool {
@@ -102,10 +169,10 @@ fn resolve_cli_command(action: &str, resource_dir: Option<PathBuf>) -> CliComman
 pub async fn readany_cli_run(
     app: AppHandle,
     action: String,
+    options: Option<ReadAnyCliRunOptions>,
 ) -> Result<ReadAnyCliRunResult, String> {
-    let Some(args) = args_for_action(&action) else {
-        return Err(format!("Unsupported ReadAny CLI action: {}", action));
-    };
+    let options = options.unwrap_or_default();
+    let args = args_for_action(&action, &options)?;
 
     let resource_dir = app.path().resource_dir().ok();
     let cli_command = resolve_cli_command(&action, resource_dir);
@@ -135,7 +202,7 @@ pub async fn readany_cli_run(
                 )
             },
             command_source: cli_command.source,
-            args: args.iter().map(|arg| (*arg).to_string()).collect(),
+            args,
             status: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
@@ -147,7 +214,7 @@ pub async fn readany_cli_run(
 
 #[cfg(test)]
 mod tests {
-    use super::{args_for_action, bundled_cli_command, resolve_cli_command};
+    use super::{args_for_action, bundled_cli_command, resolve_cli_command, ReadAnyCliRunOptions};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -164,18 +231,77 @@ mod tests {
 
     #[test]
     fn exposes_only_allowlisted_cli_actions() {
-        assert_eq!(args_for_action("version"), Some(vec!["--version"]));
-        assert_eq!(args_for_action("doctor"), Some(vec!["doctor", "--json"]));
         assert_eq!(
-            args_for_action("audit_list"),
-            Some(vec!["audit", "list", "--json", "--limit", "8"])
+            args_for_action("version", &ReadAnyCliRunOptions::default()),
+            Ok(vec!["--version".to_string()])
         );
         assert_eq!(
-            args_for_action("skill_install"),
-            Some(vec!["skill", "install", "--json"])
+            args_for_action("doctor", &ReadAnyCliRunOptions::default()),
+            Ok(vec!["doctor".to_string(), "--json".to_string()])
         );
-        assert_eq!(args_for_action("shell"), None);
-        assert_eq!(args_for_action("doctor --profile admin"), None);
+        assert_eq!(
+            args_for_action("audit_list", &ReadAnyCliRunOptions::default()),
+            Ok(vec![
+                "audit".to_string(),
+                "list".to_string(),
+                "--json".to_string(),
+                "--limit".to_string(),
+                "8".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action("skill_install", &ReadAnyCliRunOptions::default()),
+            Ok(vec![
+                "skill".to_string(),
+                "install".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert!(args_for_action("shell", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(
+            args_for_action("doctor --profile admin", &ReadAnyCliRunOptions::default()).is_err()
+        );
+    }
+
+    #[test]
+    fn validates_audit_list_options() {
+        let options = ReadAnyCliRunOptions {
+            audit_source: Some("mcp".to_string()),
+            audit_failed_only: Some(true),
+            audit_action_prefix: Some("tools/call".to_string()),
+            audit_date: Some("2026-06-16".to_string()),
+            audit_limit: Some(500),
+        };
+
+        assert_eq!(
+            args_for_action("audit_list", &options),
+            Ok(vec![
+                "audit".to_string(),
+                "list".to_string(),
+                "--json".to_string(),
+                "--limit".to_string(),
+                "50".to_string(),
+                "--source".to_string(),
+                "mcp".to_string(),
+                "--failed".to_string(),
+                "--action-prefix".to_string(),
+                "tools/call".to_string(),
+                "--date".to_string(),
+                "2026-06-16".to_string()
+            ])
+        );
+
+        let invalid_source = ReadAnyCliRunOptions {
+            audit_source: Some("shell".to_string()),
+            ..ReadAnyCliRunOptions::default()
+        };
+        assert!(args_for_action("audit_list", &invalid_source).is_err());
+
+        let invalid_date = ReadAnyCliRunOptions {
+            audit_date: Some("2026-6-16".to_string()),
+            ..ReadAnyCliRunOptions::default()
+        };
+        assert!(args_for_action("audit_list", &invalid_date).is_err());
     }
 
     #[test]

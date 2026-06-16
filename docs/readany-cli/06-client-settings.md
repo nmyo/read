@@ -160,7 +160,7 @@ draft 工作区至少要提供：
 - `install` / `uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。
 - 当前 CLI 是 Node bundle。管理命令已经拆成不加载 `better-sqlite3` 的路径，因此安装、卸载、Skill 管理和基础诊断不需要 SQLite 原生模块；书库读取、MCP 查询等数据能力仍依赖 Node 和 `better-sqlite3` 运行时。后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
 - 设置页只提供 readonly MCP 配置，不开放 editor / publisher profile。
-- 设置页已接入最近审计日志浏览，只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证；审计筛选和失败详情留到后续阶段。
+- 设置页已接入最近审计日志浏览，只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证；支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
 
 ## UI 验收细节
 
