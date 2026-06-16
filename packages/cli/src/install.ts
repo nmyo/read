@@ -1,5 +1,4 @@
-import { constants } from "node:fs";
-import { access, chmod, lstat, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from "node:fs/promises";
 import { homedir, platform } from "node:os";
 import { basename, dirname, join } from "node:path";
 
@@ -25,6 +24,8 @@ export type UninstallResult = {
   path: string;
   mode: InstallMode;
 };
+
+const MANAGED_SHIM_MARKER = "readany-cli-managed";
 
 function getDefaultUserBinDir(platformName: NodeJS.Platform): string {
   if (platformName === "win32") {
@@ -71,11 +72,17 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function assertManagedShim(shimPath: string): Promise<void> {
+async function assertManagedShim(shimPath: string, binPath: string): Promise<void> {
   if (!(await pathExists(shimPath))) return;
 
   const stat = await lstat(shimPath);
-  if (stat.isSymbolicLink()) return;
+  if (stat.isSymbolicLink()) {
+    const target = await readlink(shimPath);
+    if (target === binPath) return;
+  } else {
+    const content = await readFile(shimPath, "utf8").catch(() => "");
+    if (content.includes(MANAGED_SHIM_MARKER) && content.includes(binPath)) return;
+  }
 
   const name = basename(shimPath);
   throw new Error(`${name} already exists and is not managed by ReadAny CLI: ${shimPath}`);
@@ -84,13 +91,13 @@ async function assertManagedShim(shimPath: string): Promise<void> {
 export async function installCli(options: InstallOptions): Promise<InstallResult> {
   const shim = resolveShimPath(options);
   await mkdir(dirname(shim.path), { recursive: true });
-  await assertManagedShim(shim.path);
+  await assertManagedShim(shim.path, options.binPath);
   await rm(shim.path, { force: true });
 
   if (shim.platformName === "win32") {
     await writeFile(
       shim.path,
-      `@echo off\r\nnode "${options.binPath}" %*\r\n`,
+      `@echo off\r\nREM ${MANAGED_SHIM_MARKER}\r\nnode "${options.binPath}" %*\r\n`,
       "utf8",
     );
   } else {
@@ -112,7 +119,7 @@ export async function uninstallCli(options: InstallOptions): Promise<UninstallRe
     return { removed: false, path: shim.path, mode: shim.mode };
   }
 
-  await assertManagedShim(shim.path);
+  await assertManagedShim(shim.path, options.binPath);
   await rm(shim.path, { force: true });
   return { removed: true, path: shim.path, mode: shim.mode };
 }
