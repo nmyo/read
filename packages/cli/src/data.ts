@@ -30,6 +30,7 @@ import {
   patchEpubChapterInDraft,
   readEpubChapterFromBookFile,
   readEpubChapterFromDraft,
+  type EpubChapterPatchResult,
 } from "@readany/core/epub/chapter";
 import {
   listPdfPagesFromBookFile,
@@ -315,10 +316,90 @@ export async function patchEpubChapter(
     xhtml: string;
     env?: NodeJS.ProcessEnv;
   },
-): Promise<import("@readany/core/epub/chapter").EpubChapterPatchResult> {
+): Promise<EpubChapterPatchResult> {
   const { draftId, chapterId, xhtml, env = process.env } = options;
   await ensureCoreInitialized(env);
   return patchEpubChapterInDraft(draftId, chapterId, xhtml);
+}
+
+export type EpubChapterPatchPlanItem = {
+  chapterId: string;
+  xhtml: string;
+};
+
+export type EpubChaptersPatchResult = {
+  draftId: string;
+  bookId: string;
+  requestedCount: number;
+  patchedCount: number;
+  changedCount: number;
+  patches: EpubChapterPatchResult[];
+  manifestPath: string;
+  historyPath: string;
+};
+
+export async function patchEpubChapters(
+  options: {
+    draftId: string;
+    patches: unknown;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<EpubChaptersPatchResult> {
+  const { draftId, patches, env = process.env } = options;
+  const patchPlan = assertEpubChapterPatchPlan(patches);
+  await ensureCoreInitialized(env);
+
+  const results: EpubChapterPatchResult[] = [];
+  for (const patch of patchPlan) {
+    results.push(await patchEpubChapterInDraft(draftId, patch.chapterId, patch.xhtml));
+  }
+
+  const first = results[0];
+  if (!first) {
+    throw new Error("epub chapters patch requires at least one patch");
+  }
+
+  return {
+    draftId,
+    bookId: first.bookId,
+    requestedCount: patchPlan.length,
+    patchedCount: results.length,
+    changedCount: results.filter((result) => result.changed).length,
+    patches: results,
+    manifestPath: first.manifestPath,
+    historyPath: first.historyPath,
+  };
+}
+
+export function assertEpubChapterPatchPlan(patches: unknown): EpubChapterPatchPlanItem[] {
+  if (!Array.isArray(patches) || patches.length === 0) {
+    throw new Error("epub chapters patch requires at least one patch");
+  }
+  if (patches.length > 50) {
+    throw new Error("epub chapters patch accepts at most 50 patches");
+  }
+
+  const seenChapterIds = new Set<string>();
+  const plan: EpubChapterPatchPlanItem[] = [];
+  for (const patch of patches) {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("epub chapters patch requires every patch to be an object");
+    }
+    const item = patch as Record<string, unknown>;
+    if (typeof item.chapterId !== "string" || !item.chapterId.trim()) {
+      throw new Error("epub chapters patch requires every patch to include chapterId");
+    }
+    if (typeof item.xhtml !== "string" || !item.xhtml.trim()) {
+      throw new Error("epub chapters patch requires every patch to include xhtml");
+    }
+    const chapterId = item.chapterId.trim();
+    if (seenChapterIds.has(chapterId)) {
+      throw new Error(`epub chapters patch contains duplicate chapterId: ${chapterId}`);
+    }
+    seenChapterIds.add(chapterId);
+    plan.push({ chapterId, xhtml: item.xhtml });
+  }
+  return plan;
 }
 
 export async function patchEpubMetadata(

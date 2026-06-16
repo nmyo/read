@@ -575,6 +575,49 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "epub.chapters.patch",
+    description:
+      "Apply a bounded batch of chapter XHTML replacements to the same EPUB draft workspace.",
+    scopes: ["epub.draft"],
+    risk: "high",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        patches: {
+          type: "array",
+          minItems: 1,
+          maxItems: 50,
+          description:
+            "Ordered chapter replacement plan. Each item is applied through the same draft history path as epub.chapter.patch.",
+          items: {
+            type: "object",
+            properties: {
+              chapterId: {
+                type: "string",
+                minLength: 1,
+                description: "EPUB manifest item id for the XHTML chapter to replace.",
+              },
+              xhtml: {
+                type: "string",
+                minLength: 1,
+                description: "Full replacement XHTML document for the chapter.",
+              },
+            },
+            required: ["chapterId", "xhtml"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["draftId", "patches"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "epub.metadata.patch",
     description: "Patch metadata fields inside an EPUB draft workspace package document.",
     scopes: ["epub.draft"],
@@ -591,6 +634,20 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
           type: "object",
           description:
             "Metadata fields to patch: title, creator, language, publisher, description, modified, subjects.",
+          properties: {
+            title: { type: "string", minLength: 1 },
+            creator: { type: "string", minLength: 1 },
+            language: { type: "string", minLength: 1 },
+            publisher: { type: "string", minLength: 1 },
+            description: { type: "string", minLength: 1 },
+            modified: { type: "string", minLength: 1 },
+            subjects: {
+              type: "array",
+              maxItems: 50,
+              items: { type: "string", minLength: 1 },
+            },
+          },
+          additionalProperties: false,
         },
       },
       required: ["draftId", "metadata"],

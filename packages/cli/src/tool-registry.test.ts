@@ -25,6 +25,7 @@ describe("tool registry", () => {
       "epub.draft.discard",
       "epub.chapter.read",
       "epub.chapter.patch",
+      "epub.chapters.patch",
       "epub.metadata.patch",
       "epub.toc.rebuild",
       "epub.history",
@@ -52,6 +53,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.draft.discard")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.chapter.read")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.chapter.patch")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.chapters.patch")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.metadata.patch")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.toc.rebuild")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.history")?.risk).toBe("medium");

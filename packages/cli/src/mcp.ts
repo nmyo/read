@@ -31,6 +31,7 @@ import {
   createEpubDraftForBook,
   inspectEpubBook,
   patchEpubChapter,
+  patchEpubChapters,
   patchEpubMetadata,
   readEpubChapter,
   rebuildEpubTocWorkspace,
@@ -50,7 +51,7 @@ type JsonRpcRequest = {
 
 type ToolCallParams = {
   name?: string;
-  arguments?: Record<string, unknown>;
+  arguments?: unknown;
 };
 
 type ToolPropertySchema = {
@@ -58,7 +59,13 @@ type ToolPropertySchema = {
   minLength?: unknown;
   minimum?: unknown;
   maximum?: unknown;
+  minItems?: unknown;
+  maxItems?: unknown;
   enum?: unknown;
+  properties?: Record<string, unknown>;
+  required?: string[];
+  additionalProperties?: boolean;
+  items?: unknown;
 };
 
 function getEpubChapterReadFormat(args: Record<string, unknown>): "text" | "xhtml" {
@@ -111,6 +118,10 @@ function parseArgs(params: unknown): Record<string, unknown> {
   return params as Record<string, unknown>;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function getString(args: Record<string, unknown>, key: string): string | undefined {
   const value = args[key];
   return typeof value === "string" && value.trim() ? value : undefined;
@@ -149,82 +160,132 @@ function validateToolArguments(
   tool: ReadAnyTool,
   args: Record<string, unknown>,
 ): CommandResult<void> {
-  const properties = tool.inputSchema.properties ?? {};
-  const allowedKeys = new Set(Object.keys(properties));
-  const unknownKeys = Object.keys(args).filter((key) => !allowedKeys.has(key));
+  const invalid = validateObjectSchema(tool.name, tool.inputSchema, args);
+  return invalid ?? success(undefined);
+}
 
-  if (!tool.inputSchema.additionalProperties && unknownKeys.length > 0) {
+function validateObjectSchema(
+  path: string,
+  schema: ToolPropertySchema,
+  value: Record<string, unknown>,
+): CommandResult<never> | undefined {
+  const properties = schema.properties ?? {};
+  const allowedKeys = new Set(Object.keys(properties));
+  const unknownKeys = Object.keys(value).filter((key) => !allowedKeys.has(key));
+
+  if (schema.additionalProperties === false && unknownKeys.length > 0) {
     return failure(
       "invalid_tool_arguments",
-      `Unknown arguments for ${tool.name}: ${unknownKeys.join(", ")}`,
+      `Unknown arguments for ${path}: ${unknownKeys.join(", ")}`,
     );
   }
 
-  for (const key of tool.inputSchema.required ?? []) {
-    if (!(key in args)) {
-      return failure("invalid_tool_arguments", `${tool.name} requires argument: ${key}`);
+  for (const key of schema.required ?? []) {
+    if (!(key in value)) {
+      return failure("invalid_tool_arguments", `${path} requires argument: ${key}`);
     }
   }
 
-  for (const [key, value] of Object.entries(args)) {
+  for (const [key, childValue] of Object.entries(value)) {
     const schema = properties[key];
     if (!schema || typeof schema !== "object" || !("type" in schema)) continue;
     const typedSchema = schema as ToolPropertySchema;
-    const type = typedSchema.type;
-    if (type === "string" && typeof value !== "string") {
-      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a string`);
-    }
-    if (
-      type === "string" &&
-      typeof value === "string" &&
-      typeof typedSchema.minLength === "number" &&
-      value.trim().length < typedSchema.minLength
-    ) {
-      return failure(
-        "invalid_tool_arguments",
-        `${tool.name}.${key} must be at least ${typedSchema.minLength} characters`,
-      );
-    }
-    if (type === "number" && typeof value !== "number") {
-      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a number`);
-    }
-    if (type === "boolean" && typeof value !== "boolean") {
-      return failure("invalid_tool_arguments", `${tool.name}.${key} must be a boolean`);
-    }
-    if (
-      type === "number" &&
-      typeof value === "number" &&
-      typeof typedSchema.minimum === "number" &&
-      value < typedSchema.minimum
-    ) {
-      return failure(
-        "invalid_tool_arguments",
-        `${tool.name}.${key} must be greater than or equal to ${typedSchema.minimum}`,
-      );
-    }
-    if (
-      type === "number" &&
-      typeof value === "number" &&
-      typeof typedSchema.maximum === "number" &&
-      value > typedSchema.maximum
-    ) {
-      return failure(
-        "invalid_tool_arguments",
-        `${tool.name}.${key} must be less than or equal to ${typedSchema.maximum}`,
-      );
-    }
-    if (
-      Array.isArray(typedSchema.enum) &&
-      !typedSchema.enum.some((allowedValue) => allowedValue === value)
-    ) {
-      return failure(
-        "invalid_tool_arguments",
-        `${tool.name}.${key} must be one of: ${typedSchema.enum.join(", ")}`,
-      );
-    }
+    const invalid = validateValueSchema(`${path}.${key}`, typedSchema, childValue);
+    if (invalid) return invalid;
   }
 
-  return success(undefined);
+  return undefined;
+}
+
+function validateValueSchema(
+  path: string,
+  schema: ToolPropertySchema,
+  value: unknown,
+): CommandResult<never> | undefined {
+  const type = schema.type;
+  if (type === "string" && typeof value !== "string") {
+    return failure("invalid_tool_arguments", `${path} must be a string`);
+  }
+  if (
+    type === "string" &&
+    typeof value === "string" &&
+    typeof schema.minLength === "number" &&
+    value.trim().length < schema.minLength
+  ) {
+    return failure(
+      "invalid_tool_arguments",
+      `${path} must be at least ${schema.minLength} characters`,
+    );
+  }
+  if (type === "number" && typeof value !== "number") {
+    return failure("invalid_tool_arguments", `${path} must be a number`);
+  }
+  if (type === "boolean" && typeof value !== "boolean") {
+    return failure("invalid_tool_arguments", `${path} must be a boolean`);
+  }
+  if (type === "object") {
+    if (!isPlainRecord(value)) {
+      return failure("invalid_tool_arguments", `${path} must be an object`);
+    }
+    return validateObjectSchema(path, schema, value);
+  }
+  if (type === "array") {
+    if (!Array.isArray(value)) {
+      return failure("invalid_tool_arguments", `${path} must be an array`);
+    }
+    if (typeof schema.minItems === "number" && value.length < schema.minItems) {
+      return failure(
+        "invalid_tool_arguments",
+        `${path} must contain at least ${schema.minItems} items`,
+      );
+    }
+    if (typeof schema.maxItems === "number" && value.length > schema.maxItems) {
+      return failure(
+        "invalid_tool_arguments",
+        `${path} must contain at most ${schema.maxItems} items`,
+      );
+    }
+    if (schema.items && typeof schema.items === "object") {
+      for (const [index, item] of value.entries()) {
+        const invalid = validateValueSchema(
+          `${path}[${index}]`,
+          schema.items as ToolPropertySchema,
+          item,
+        );
+        if (invalid) return invalid;
+      }
+    }
+  }
+  if (
+    type === "number" &&
+    typeof value === "number" &&
+    typeof schema.minimum === "number" &&
+    value < schema.minimum
+  ) {
+    return failure(
+      "invalid_tool_arguments",
+      `${path} must be greater than or equal to ${schema.minimum}`,
+    );
+  }
+  if (
+    type === "number" &&
+    typeof value === "number" &&
+    typeof schema.maximum === "number" &&
+    value > schema.maximum
+  ) {
+    return failure(
+      "invalid_tool_arguments",
+      `${path} must be less than or equal to ${schema.maximum}`,
+    );
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.some((allowedValue) => allowedValue === value)) {
+    return failure(
+      "invalid_tool_arguments",
+      `${path} must be one of: ${schema.enum.join(", ")}`,
+    );
+  }
+
+  return undefined;
 }
 
 async function callReadAnyTool(
@@ -499,6 +560,18 @@ async function callReadAnyTool(
     return success({ patch });
   }
 
+  if (toolName === "epub.chapters.patch") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.chapters.patch requires draftId");
+    const patches = args.patches as Array<{ chapterId: string; xhtml: string }>;
+    const result = await patchEpubChapters({
+      draftId,
+      patches,
+      env,
+    });
+    return success({ batch: result });
+  }
+
   if (toolName === "epub.metadata.patch") {
     const draftId = getString(args, "draftId");
     if (!draftId) return failure("missing_draft_id", "epub.metadata.patch requires draftId");
@@ -634,6 +707,13 @@ export async function handleMcpRequest(
       return result;
     }
     const args = params.arguments ?? {};
+    if (!isPlainRecord(args)) {
+      result = asMcpContent(
+        failure("invalid_tool_arguments", "tools/call arguments must be an object"),
+      );
+      await recordMcpAudit(env, profile, action, result);
+      return result;
+    }
     try {
       result = asMcpContent(await callReadAnyTool(profile, name, args, env));
     } catch (error) {

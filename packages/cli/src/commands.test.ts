@@ -23,13 +23,14 @@ function buildInspectableEpub(): Uint8Array {
     ),
     textEntry(
       "OPS/package.opf",
-      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Agent Systems</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Agent Systems</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/><item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/><itemref idref="chapter-2"/></spine></package>`,
     ),
     textEntry(
       "OPS/nav.xhtml",
-      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Tools</a></li></ol></nav></body></html>`,
+      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Tools</a></li><li><a href="chapter-2.xhtml">Drafts</a></li></ol></nav></body></html>`,
     ),
     textEntry("OPS/chapter-1.xhtml", "<html><body>Tools</body></html>"),
+    textEntry("OPS/chapter-2.xhtml", "<html><body>Drafts</body></html>"),
   ]);
 }
 
@@ -289,7 +290,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 27 },
+        tools: { count: 28 },
       });
     }
   });
@@ -614,6 +615,110 @@ describe("commands", () => {
       bookId: "book-1",
       chapterId: "chapter-1",
     });
+  });
+
+  it("patches an EPUB draft chapter batch through the same draft history", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string; historyPath: string } }).draft
+      .draftId;
+    const historyPath = (draftResult.data as { draft: { historyPath: string } }).draft.historyPath;
+    const patchPath = join(workspace.root, "chapters.patch.json");
+    await writeFile(
+      patchPath,
+      JSON.stringify(
+        {
+          patches: [
+            {
+              chapterId: "chapter-1",
+              xhtml:
+                '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Updated Tools</h1><p>Batch patch first chapter.</p></body></html>',
+            },
+            {
+              chapterId: "chapter-2",
+              xhtml:
+                '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Updated Drafts</h1><p>Batch patch second chapter.</p></body></html>',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const readonly = await runCommand(
+      ["epub", "chapters", "patch", draftId, "--patch", patchPath],
+      workspace.env,
+    );
+    expect(readonly).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const result = await runCommand(
+      ["epub", "chapters", "patch", draftId, "--patch", patchPath, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      batch: {
+        draftId,
+        bookId: "book-1",
+        requestedCount: 2,
+        patchedCount: 2,
+        changedCount: 2,
+        patches: [
+          {
+            chapterId: "chapter-1",
+            title: "Updated Tools",
+            contentPreview: "Updated Tools Batch patch first chapter.",
+          },
+          {
+            chapterId: "chapter-2",
+            title: "Updated Drafts",
+            contentPreview: "Updated Drafts Batch patch second chapter.",
+          },
+        ],
+      },
+    });
+
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    const firstRead = await runCommand(
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(firstRead).toMatchObject({
+      ok: true,
+      data: { chapter: { content: "Updated Tools Batch patch first chapter." } },
+    });
+    const secondRead = await runCommand(
+      ["epub", "chapter", "read", draftId, "chapter-2", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(secondRead).toMatchObject({
+      ok: true,
+      data: { chapter: { content: "Updated Drafts Batch patch second chapter." } },
+    });
+
+    const historyLines = (await readFile(join(workspace.dataRoot, historyPath), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(historyLines.slice(-2)).toMatchObject([
+      { action: "epub.chapter.patch", draftId, bookId: "book-1", chapterId: "chapter-1" },
+      { action: "epub.chapter.patch", draftId, bookId: "book-1", chapterId: "chapter-2" },
+    ]);
   });
 
   it("patches EPUB draft metadata with editor profile", async () => {
@@ -982,8 +1087,11 @@ describe("commands", () => {
         draftId,
         bookId: "book-1",
         navPath: "OPS/nav.xhtml",
-        itemCount: 1,
-        items: [{ id: "chapter-1", href: "chapter-1.xhtml", label: "chapter-1" }],
+        itemCount: 2,
+        items: [
+          { id: "chapter-1", href: "chapter-1.xhtml", label: "chapter-1" },
+          { id: "chapter-2", href: "chapter-2.xhtml", label: "chapter-2" },
+        ],
       },
     });
     expect(JSON.stringify(result.data)).not.toContain(workspace.root);
@@ -1023,9 +1131,9 @@ describe("commands", () => {
         valid: true,
         draftFilePath: expect.stringMatching(/^drafts\/epub\/book-1-.+\/source\.epub$/),
         packagePath: "OPS/package.opf",
-        manifestItemCount: 2,
-        spineItemCount: 1,
-        tocItemCount: 1,
+        manifestItemCount: 3,
+        spineItemCount: 2,
+        tocItemCount: 2,
         errorCount: 0,
         issues: [],
       },
@@ -1180,11 +1288,14 @@ describe("commands", () => {
             creator: "Ada Reader",
             language: "en",
           },
-          manifest: { count: 2 },
-          spine: { count: 1 },
+          manifest: { count: 3 },
+          spine: { count: 2 },
           toc: {
-            count: 1,
-            items: [{ label: "Tools", href: "chapter-1.xhtml" }],
+            count: 2,
+            items: [
+              { label: "Tools", href: "chapter-1.xhtml" },
+              { label: "Drafts", href: "chapter-2.xhtml" },
+            ],
           },
         },
       });
@@ -1303,6 +1414,12 @@ describe("commands", () => {
             id: "chapter-1",
             title: "Tools",
             href: "chapter-1.xhtml",
+          },
+          {
+            source: "epub",
+            id: "chapter-2",
+            title: "Drafts",
+            href: "chapter-2.xhtml",
           },
         ],
       });

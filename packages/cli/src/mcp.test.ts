@@ -24,13 +24,14 @@ function buildInspectableEpub(): Uint8Array {
     ),
     textEntry(
       "OPS/package.opf",
-      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>MCP for Readers</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>MCP for Readers</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/><item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/><itemref idref="chapter-2"/></spine></package>`,
     ),
     textEntry(
       "OPS/nav.xhtml",
-      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Agent Access</a></li></ol></nav></body></html>`,
+      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">Agent Access</a></li><li><a href="chapter-2.xhtml">Draft Safety</a></li></ol></nav></body></html>`,
     ),
     textEntry("OPS/chapter-1.xhtml", "<html><body>Agent Access</body></html>"),
+    textEntry("OPS/chapter-2.xhtml", "<html><body>Draft Safety</body></html>"),
   ]);
 }
 
@@ -192,6 +193,7 @@ describe("mcp", () => {
         { name: "epub.draft.discard" },
         { name: "epub.chapter.read" },
         { name: "epub.chapter.patch" },
+        { name: "epub.chapters.patch" },
         { name: "epub.metadata.patch" },
         { name: "epub.toc.rebuild" },
         { name: "epub.history" },
@@ -729,8 +731,8 @@ describe("mcp", () => {
             creator: "Ada Reader",
           },
           toc: {
-            count: 1,
-            items: [{ label: "Agent Access" }],
+            count: 2,
+            items: [{ label: "Agent Access" }, { label: "Draft Safety" }],
           },
         },
       },
@@ -1007,6 +1009,100 @@ describe("mcp", () => {
     });
   });
 
+  it("gates epub.chapters.patch and applies batch patches through draft history", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+    const patches = [
+      {
+        chapterId: "chapter-1",
+        xhtml:
+          '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Batch Agent Access</h1><p>First MCP batch patch.</p></body></html>',
+      },
+      {
+        chapterId: "chapter-2",
+        xhtml:
+          '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Batch Draft Safety</h1><p>Second MCP batch patch.</p></body></html>',
+      },
+    ];
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapters.patch",
+          arguments: { draftId, patches },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapters.patch",
+          arguments: { draftId, patches },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        batch: {
+          draftId,
+          bookId: "mcp-book",
+          requestedCount: 2,
+          patchedCount: 2,
+          changedCount: 2,
+          patches: [
+            { chapterId: "chapter-1", title: "Batch Agent Access" },
+            { chapterId: "chapter-2", title: "Batch Draft Safety" },
+          ],
+        },
+      },
+    });
+
+    const historyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.history", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(historyResponse).toMatchObject({ isError: false });
+    const historyText = (historyResponse as { content: Array<{ text: string }> }).content[0].text;
+    const history = JSON.parse(historyText) as {
+      data: { history: { entries: Array<{ action: string; chapterId?: string }> } };
+    };
+    expect(history.data.history.entries.slice(-2)).toMatchObject([
+      { action: "epub.chapter.patch", chapterId: "chapter-1" },
+      { action: "epub.chapter.patch", chapterId: "chapter-2" },
+    ]);
+  });
+
   it("gates epub.metadata.patch by editor profile and patches draft metadata", async () => {
     const env = await createEnv();
     await seedBook(env);
@@ -1102,6 +1198,33 @@ describe("mcp", () => {
     });
   });
 
+  it("rejects unknown nested epub.metadata.patch fields", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.metadata.patch",
+          arguments: {
+            draftId: "draft-1",
+            metadata: {
+              title: "MCP Metadata Revised",
+              rawXml: "<package/>",
+            },
+          },
+        },
+      },
+      "editor",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
+    });
+  });
+
   it("gates epub.toc.rebuild by editor profile and rebuilds draft toc", async () => {
     const env = await createEnv();
     await seedBook(env);
@@ -1149,7 +1272,7 @@ describe("mcp", () => {
           draftId,
           bookId: "mcp-book",
           navPath: "OPS/nav.xhtml",
-          itemCount: 1,
+          itemCount: 2,
         },
       },
     });
@@ -1675,6 +1798,12 @@ describe("mcp", () => {
             title: "Agent Access",
             href: "chapter-1.xhtml",
           },
+          {
+            source: "epub",
+            id: "chapter-2",
+            title: "Draft Safety",
+            href: "chapter-2.xhtml",
+          },
         ],
       },
     });
@@ -1819,6 +1948,71 @@ describe("mcp", () => {
       ok: false,
       error: { code: "invalid_tool_arguments" },
     });
+  });
+
+  it("rejects non-object MCP tool arguments", async () => {
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "books.search",
+          arguments: "query=mcp",
+        },
+      },
+      "readonly",
+      await createEnv(),
+    );
+
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
+    });
+  });
+
+  it("rejects invalid nested batch patch arguments", async () => {
+    const env = await createEnv();
+    const cases = [
+      {
+        patches: [],
+        message: "empty patches",
+      },
+      {
+        patches: [
+          {
+            chapterId: "chapter-1",
+            xhtml: "<html><body>Updated</body></html>",
+            rawSql: "select * from books",
+          },
+        ],
+        message: "unknown nested field",
+      },
+    ];
+
+    for (const item of cases) {
+      const response = await handleMcpRequest(
+        {
+          method: "tools/call",
+          params: {
+            name: "epub.chapters.patch",
+            arguments: {
+              draftId: "draft-1",
+              patches: item.patches,
+            },
+          },
+        },
+        "editor",
+        env,
+      );
+
+      expect(response, item.message).toMatchObject({ isError: true });
+      const text = (response as { content: Array<{ text: string }> }).content[0].text;
+      expect(JSON.parse(text), item.message).toMatchObject({
+        ok: false,
+        error: { code: "invalid_tool_arguments" },
+      });
+    }
   });
 
   it("rejects epub.chapter.patch without xhtml", async () => {

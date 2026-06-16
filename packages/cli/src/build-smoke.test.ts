@@ -104,7 +104,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ok: true,
       data: {
         version: "0.1.0",
-        tools: { count: 27 },
+        tools: { count: 28 },
       },
     });
 
@@ -209,6 +209,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           { name: "epub.draft.discard" },
           { name: "epub.chapter.read" },
           { name: "epub.chapter.patch" },
+          { name: "epub.chapters.patch" },
           { name: "epub.metadata.patch" },
           { name: "epub.toc.rebuild" },
           { name: "epub.history" },
