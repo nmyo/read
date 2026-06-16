@@ -558,5 +558,100 @@ Module._load = function patchedLoad(request, parent, isMain) {
         }),
       ]),
     );
+
+    const validateEvidence = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--evidence",
+        evidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(validateEvidence.status, validateEvidence.stderr).toBe(0);
+    expect(JSON.parse(validateEvidence.stdout)).toMatchObject({
+      ok: true,
+      validated: { evidence: evidencePath },
+      errors: [],
+    });
+
+    const partialRecordPath = resolve(
+      cliRoot,
+      "../../docs/readany-cli/acceptance/2026-06-16-m3-m4-implementation.md",
+    );
+    const validatePartialRecord = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        partialRecordPath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(validatePartialRecord.status, validatePartialRecord.stderr).toBe(0);
+    expect(JSON.parse(validatePartialRecord.stdout)).toMatchObject({
+      ok: true,
+      warnings: expect.arrayContaining([
+        "Record is marked partial; use --strict-m5 only for final M5 acceptance.",
+      ]),
+    });
+
+    const validateViaPackageScript = spawnSync(
+      "pnpm",
+      [
+        "--filter",
+        "@readany/cli",
+        "acceptance:validate",
+        "--",
+        "--record",
+        "docs/readany-cli/acceptance/2026-06-16-m3-m4-implementation.md",
+        "--json",
+      ],
+      {
+        cwd: resolve(cliRoot, "../.."),
+        env,
+        encoding: "utf8",
+        shell: process.platform === "win32",
+      },
+    );
+    expect(validateViaPackageScript.status, validateViaPackageScript.stderr).toBe(0);
+    expect(JSON.parse(validateViaPackageScript.stdout.match(/\{[\s\S]*\}\s*$/)?.[0] ?? "{}")).toMatchObject({
+      ok: true,
+    });
+
+    const strictPartialRecord = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        partialRecordPath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(strictPartialRecord.status).toBe(1);
+    expect(JSON.parse(strictPartialRecord.stdout)).toMatchObject({
+      ok: false,
+      strictM5: true,
+      errors: expect.arrayContaining([
+        "Strict M5 record still has unchecked scope items.",
+        "Strict M5 record result is not a full pass.",
+      ]),
+    });
   });
 });

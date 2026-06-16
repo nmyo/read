@@ -674,6 +674,17 @@ pnpm cli:preflight
 
 这条命令顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`。后续 macOS / Windows / Linux release matrix 应在打包前复用它；它不能替代安装后真实客户端、真实外部 agent 和真实样本验收。
 
+最终验收记录结构闸门：
+
+```bash
+pnpm --filter @readany/cli acceptance:validate -- \
+  --record docs/readany-cli/acceptance/<m5-record>.md \
+  --evidence docs/readany-cli/acceptance/evidence/real-sample.json \
+  --strict-m5
+```
+
+`--strict-m5` 会拒绝仍有未勾选验收范围、验收结果为“部分通过”或仍列出“当前不能对外宣称”能力的记录；它不能替代人工验收，但能防止 partial evidence 被误标为 M5 完成。
+
 ```bash
 pnpm cli:preflight:full
 ```

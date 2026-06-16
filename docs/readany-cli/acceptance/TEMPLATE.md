@@ -108,9 +108,15 @@ pnpm --filter @readany/cli acceptance:real -- \
   --draft-export \
   --export-dir <tmp-export-dir> \
   --evidence <evidence-json>
+pnpm --filter @readany/cli acceptance:validate -- \
+  --record <acceptance-record.md> \
+  --evidence <evidence-json> \
+  --strict-m5
 ```
 
 `acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本会在 stdout 输出脱敏摘要，并写入完整 JSON 证据；证据会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256 和 `manualAcceptanceRequired` 清单。每个 `manualAcceptanceRequired` 项都带 `evidence` 和 `commands`，用于指导后续人工补证，但不能替代样本来源、真实外部 agent 和打包产物记录。
+
+`acceptance:validate` 用来检查验收记录和 `acceptance:real` evidence 的结构。最终 M5 记录必须使用 `--strict-m5`，确保没有未勾选验收范围、结果不是“部分通过”，并且没有仍不能对外宣称的能力。
 
 ## 验收结果
 
