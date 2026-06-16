@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -390,5 +390,40 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "audit.list bounded metadata",
       ]),
     });
+
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as {
+      sampleFiles: Array<{
+        label: string;
+        bookId: string;
+        format: string;
+        filePath: string;
+        absoluteFilePath: string;
+        bytes: number;
+        sha256: string;
+      }>;
+    };
+    expect(evidence.sampleFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "primary",
+          bookId: "agent-smoke-book",
+          format: "epub",
+          filePath: "books/agent-smoke.epub",
+          absoluteFilePath: join(dataRoot, "books", "agent-smoke.epub"),
+          bytes: expect.any(Number),
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        expect.objectContaining({
+          label: "pdf",
+          bookId: "agent-smoke-pdf",
+          format: "pdf",
+          filePath: "books/agent-smoke.pdf",
+          absoluteFilePath: join(dataRoot, "books", "agent-smoke.pdf"),
+          bytes: expect.any(Number),
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      ]),
+    );
+    expect(evidence.sampleFiles.every((sample) => sample.bytes > 0)).toBe(true);
   });
 });

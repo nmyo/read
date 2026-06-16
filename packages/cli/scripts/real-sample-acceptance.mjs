@@ -93,6 +93,23 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+async function createSampleFileEvidence(label, book, readanyHome) {
+  assert(book?.id, `${label} sample did not include a book id`);
+  assert(book?.filePath, `${label} sample did not include a book file path`);
+  const absoluteFilePath = resolve(readanyHome, book.filePath);
+  const bytes = await readFile(absoluteFilePath);
+  return {
+    label,
+    bookId: book.id,
+    format: book.format,
+    title: book.meta?.title,
+    filePath: book.filePath,
+    absoluteFilePath,
+    bytes: bytes.byteLength,
+    sha256: sha256(bytes),
+  };
+}
+
 function decodeXmlText(value) {
   return value
     .replace(/&lt;/g, "<")
@@ -271,6 +288,7 @@ async function main() {
   };
   const checks = [];
   const commands = [];
+  const sampleFilesByBookId = new Map();
 
   const record = (name, step, details = {}) => {
     commands.push({
@@ -295,6 +313,10 @@ async function main() {
   const book = runCli(["book", "get", options.bookId], env);
   const bookData = requireOk(book);
   assert(bookData.book?.id === options.bookId, "book.get did not return the primary book");
+  sampleFilesByBookId.set(
+    options.bookId,
+    await createSampleFileEvidence("primary", bookData.book, options.readanyHome),
+  );
   record("book.get primary sample", book, {
     bookId: options.bookId,
     format: bookData.book?.format,
@@ -359,6 +381,14 @@ async function main() {
 
   const epubBookId = options.epubBookId ?? (bookData.book?.format === "epub" ? options.bookId : undefined);
   if (epubBookId) {
+    if (!sampleFilesByBookId.has(epubBookId)) {
+      const epubBook = runCli(["book", "get", epubBookId], env);
+      const epubBookData = requireOk(epubBook);
+      sampleFilesByBookId.set(
+        epubBookId,
+        await createSampleFileEvidence("epub", epubBookData.book, options.readanyHome),
+      );
+    }
     const inspect = runCli(["epub", "inspect", epubBookId, "--profile", "editor"], env);
     const inspectData = requireOk(inspect);
     assert(inspectData.epub?.spine?.items?.length > 0, "epub.inspect returned no spine items");
@@ -436,6 +466,14 @@ async function main() {
   }
 
   if (options.pdfBookId) {
+    if (!sampleFilesByBookId.has(options.pdfBookId)) {
+      const pdfBook = runCli(["book", "get", options.pdfBookId], env);
+      const pdfBookData = requireOk(pdfBook);
+      sampleFilesByBookId.set(
+        options.pdfBookId,
+        await createSampleFileEvidence("pdf", pdfBookData.book, options.readanyHome),
+      );
+    }
     const pdfChapters = runCli(["chapters", "list", options.pdfBookId], env);
     const pdfChaptersData = requireOk(pdfChapters);
     const pdfPage = pdfChaptersData.chapters.find((item) => item.source === "pdf");
@@ -470,6 +508,7 @@ async function main() {
     bookId: options.bookId,
     epubBookId: options.epubBookId,
     pdfBookId: options.pdfBookId,
+    sampleFiles: Array.from(sampleFilesByBookId.values()),
     draftExport: options.draftExport,
     keepDraft: options.keepDraft,
     checks,
