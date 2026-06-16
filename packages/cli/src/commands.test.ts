@@ -998,53 +998,72 @@ describe("commands", () => {
     const historyPath = join(workspace.dataRoot, draft.historyPath);
     const draftBefore = await readFile(draftPath);
     const historyBefore = await readFile(historyPath, "utf8");
+    const cases = [
+      {
+        name: "invalid-xhtml",
+        patches: [
+          {
+            chapterId: "chapter-1",
+            xhtml:
+              '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Should Not Apply</h1><p>First patch is valid.</p></body></html>',
+          },
+          {
+            chapterId: "chapter-2",
+            xhtml:
+              '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>No body</title></head></html>',
+          },
+        ],
+      },
+      {
+        name: "missing-chapter",
+        patches: [
+          {
+            chapterId: "chapter-1",
+            xhtml:
+              '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Should Not Apply</h1><p>First patch is valid.</p></body></html>',
+          },
+          {
+            chapterId: "missing-chapter",
+            xhtml:
+              '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Missing Chapter</h1><p>This target does not exist.</p></body></html>',
+          },
+        ],
+      },
+    ];
 
-    const patchPath = join(workspace.root, "invalid-batch.patch.json");
-    await writeFile(
-      patchPath,
-      JSON.stringify(
-        {
-          patches: [
-            {
-              chapterId: "chapter-1",
-              xhtml:
-                '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Should Not Apply</h1><p>First patch is valid.</p></body></html>',
-            },
-            {
-              chapterId: "chapter-2",
-              xhtml:
-                '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>No body</title></head></html>',
-            },
-          ],
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
+    for (const item of cases) {
+      const patchPath = join(workspace.root, `${item.name}.patch.json`);
+      await writeFile(patchPath, JSON.stringify({ patches: item.patches }, null, 2), "utf8");
 
-    const failedBatch = await runCommand(
-      ["epub", "chapters", "patch", draft.draftId, "--patch", patchPath, "--profile", "editor"],
-      workspace.env,
-    );
-    expect(failedBatch).toMatchObject({
-      ok: false,
-      error: { code: "command_failed" },
-    });
+      const failedBatch = await runCommand(
+        ["epub", "chapters", "patch", draft.draftId, "--patch", patchPath, "--profile", "editor"],
+        workspace.env,
+      );
+      expect(failedBatch, item.name).toMatchObject({
+        ok: false,
+        error: { code: "command_failed" },
+      });
 
-    expect(await readFile(sourcePath)).toEqual(sourceBefore);
-    expect(await readFile(draftPath)).toEqual(draftBefore);
-    expect(await readFile(historyPath, "utf8")).toBe(historyBefore);
-    const firstRead = await runCommand(
-      ["epub", "chapter", "read", draft.draftId, "chapter-1", "--profile", "editor"],
-      workspace.env,
-    );
-    const secondRead = await runCommand(
-      ["epub", "chapter", "read", draft.draftId, "chapter-2", "--profile", "editor"],
-      workspace.env,
-    );
-    expect(firstRead).toMatchObject({ ok: true, data: { chapter: { content: "Tools" } } });
-    expect(secondRead).toMatchObject({ ok: true, data: { chapter: { content: "Drafts" } } });
+      expect(await readFile(sourcePath), item.name).toEqual(sourceBefore);
+      expect(await readFile(draftPath), item.name).toEqual(draftBefore);
+      expect(await readFile(historyPath, "utf8"), item.name).toBe(historyBefore);
+      const firstRead = await runCommand(
+        ["epub", "chapter", "read", draft.draftId, "chapter-1", "--profile", "editor"],
+        workspace.env,
+      );
+      const secondRead = await runCommand(
+        ["epub", "chapter", "read", draft.draftId, "chapter-2", "--profile", "editor"],
+        workspace.env,
+      );
+      expect(firstRead, item.name).toMatchObject({
+        ok: true,
+        data: { chapter: { content: "Tools" } },
+      });
+      expect(secondRead, item.name).toMatchObject({
+        ok: true,
+        data: { chapter: { content: "Drafts" } },
+      });
+    }
   });
 
   it("patches EPUB draft metadata with editor profile", async () => {

@@ -42,6 +42,22 @@ export type EpubChapterPatchResult = {
   historyPath: string;
 };
 
+export async function assertPatchableEpubChapterInDraft(
+  draftId: string,
+  chapterId: string,
+  xhtml: string,
+): Promise<void> {
+  const platform = getPlatformService();
+  const { dataDir, manifest } = await readActiveEpubDraftManifest(draftId);
+  const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
+  if (!(await platform.exists(draftPath))) {
+    throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);
+  }
+
+  assertReadableEpubChapterXhtml(xhtml);
+  await findChapterResource(await platform.readFile(draftPath), chapterId);
+}
+
 export async function readEpubChapterFromDraft(
   draftId: string,
   chapterId: string,
