@@ -76,9 +76,11 @@ function buildSimplePdf(pages: string[]): Uint8Array {
 async function createWorkspace() {
   const root = await mkdtemp(join(tmpdir(), "readany-cli-workspace-"));
   const dataRoot = join(root, "library");
+  const appRoot = join(root, "app-data");
   const skillsDir = join(root, "agent", "skills", "readany");
   const cliHome = join(root, "readany-home");
   await mkdir(dataRoot, { recursive: true });
+  await mkdir(appRoot, { recursive: true });
   await mkdir(join(dataRoot, "books"), { recursive: true });
   await mkdir(skillsDir, { recursive: true });
   await mkdir(cliHome, { recursive: true });
@@ -86,6 +88,7 @@ async function createWorkspace() {
   return {
     root,
     dataRoot,
+    appRoot,
     env: {
       ...process.env,
       AGENT_HOME: join(root, "agent"),
@@ -195,13 +198,13 @@ async function seedVectorLibrary(dataRoot: string): Promise<void> {
   localDb.close();
 }
 
-async function writeReaderContextSnapshot(dataRoot: string): Promise<void> {
+async function writeReaderContextSnapshot(dataRoot: string, bookTitle = "Agent Systems"): Promise<void> {
   await mkdir(join(dataRoot, "readany-store"), { recursive: true });
   await writeFile(
     join(dataRoot, "readany-store", "reader-context.json"),
     JSON.stringify({
       bookId: "book-1",
-      bookTitle: "Agent Systems",
+      bookTitle,
       currentChapter: {
         index: 1,
         title: "Tools",
@@ -302,7 +305,7 @@ describe("commands", () => {
 
   it("creates an EPUB draft with editor profile without changing the source EPUB", async () => {
     const workspace = await createWorkspace();
-    await seedLibrary(workspace.dataRoot);
+    await seedLibrary(workspace.dataRoot, workspace.env);
     const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
     const sourceBefore = await readFile(sourcePath);
 

@@ -59,8 +59,8 @@ class ReadingContextService {
   private async writeSnapshot(snapshot: ReadingContext | null): Promise<void> {
     try {
       const platform = getPlatformService();
-      const appData = await platform.getAppDataDir();
-      const dir = await platform.joinPath(appData, STORE_DIR);
+      const dataDir = await platform.getDataDir();
+      const dir = await platform.joinPath(dataDir, STORE_DIR);
       await platform.mkdir(dir);
       const filePath = await platform.joinPath(dir, SNAPSHOT_FILE);
       if (!snapshot) {

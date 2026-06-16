@@ -210,8 +210,8 @@ export async function getReaderContextSnapshot(
   } = options;
   await ensureCoreInitialized(env);
   const platform = getPlatformService();
-  const appData = await platform.getAppDataDir();
-  const filePath = await platform.joinPath(appData, "readany-store", "reader-context.json");
+  const dataDir = await platform.getDataDir();
+  const filePath = await platform.joinPath(dataDir, "readany-store", "reader-context.json");
 
   try {
     const parsed = JSON.parse(await platform.readTextFile(filePath)) as ReadingContext;
