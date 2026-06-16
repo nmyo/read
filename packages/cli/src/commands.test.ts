@@ -35,6 +35,20 @@ function buildInspectableEpub(): Uint8Array {
   ]);
 }
 
+function buildInvalidMissingResourceEpub(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Invalid Draft</dc:title><dc:language>en</dc:language></metadata><manifest><item id="chapter-1" href="missing.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+    ),
+  ]);
+}
+
 function buildSimplePdf(pages: string[]): Uint8Array {
   const objects: string[] = [];
   const addObject = (body: string) => {
@@ -1568,6 +1582,54 @@ describe("commands", () => {
     });
     expect(JSON.stringify(audit.data)).not.toContain(outputPath);
     expect(JSON.stringify(audit.data)).not.toContain(draftId);
+  });
+
+  it("refuses to export an invalid EPUB draft without writing output", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draft = (draftResult.data as { draft: { draftId: string; draftFilePath: string } }).draft;
+    await writeFile(join(workspace.dataRoot, draft.draftFilePath), buildInvalidMissingResourceEpub());
+
+    const validation = await runCommand(
+      ["epub", "validate", draft.draftId, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(validation).toMatchObject({
+      ok: true,
+      data: {
+        validation: {
+          valid: false,
+          errorCount: 1,
+          issues: [
+            {
+              code: "manifest_resource_missing",
+              path: "OPS/missing.xhtml",
+            },
+          ],
+        },
+      },
+    });
+
+    const outputPath = join(workspace.root, "exports", "invalid-export.epub");
+    const exported = await runCommand(
+      ["epub", "export", draft.draftId, "--output", outputPath, "--profile", "publisher"],
+      workspace.env,
+    );
+    expect(exported).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+    if (!exported.ok) {
+      expect(exported.error.message).toMatch(/validation failed/i);
+    }
+    await expect(readFile(outputPath)).rejects.toThrow();
   });
 
   it("reads seeded books, notes, and highlights through core queries", async () => {
