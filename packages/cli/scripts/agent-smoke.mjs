@@ -187,6 +187,30 @@ function parseToolContent(response) {
   return JSON.parse(text);
 }
 
+function assertToolSafetyMetadata(tool, expected) {
+  assert(tool, `tools/list did not expose ${expected.name}`);
+  assert(
+    tool._meta?.["readany/risk"] === expected.risk,
+    `${expected.name} did not expose expected risk metadata`,
+  );
+  assert(
+    tool._meta?.["readany/minimumProfile"] === expected.minimumProfile,
+    `${expected.name} did not expose expected minimumProfile metadata`,
+  );
+  for (const scope of expected.scopes) {
+    assert(
+      Array.isArray(tool._meta?.["readany/scopes"]) &&
+        tool._meta["readany/scopes"].includes(scope),
+      `${expected.name} did not expose expected scope metadata: ${scope}`,
+    );
+  }
+  assert(
+    typeof tool.description === "string" &&
+      tool.description.includes(`Minimum profile: ${expected.minimumProfile}`),
+    `${expected.name} description did not include minimum profile summary`,
+  );
+}
+
 function callMcp(profile, requests, env) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [binPath, "mcp", "serve", "--profile", profile], {
@@ -362,9 +386,19 @@ async function main() {
   );
 
   assert(readonlyResponses[0]?.result?.serverInfo?.name === "readany", "initialize failed");
-  assert(
-    readonlyResponses[1]?.result?.tools?.some((tool) => tool.name === "epub.chapters.patch"),
-    "tools/list did not expose epub.chapters.patch",
+  const tools = readonlyResponses[1]?.result?.tools ?? [];
+  assert(tools.some((tool) => tool.name === "epub.chapters.patch"), "tools/list did not expose epub.chapters.patch");
+  assertToolSafetyMetadata(
+    tools.find((tool) => tool.name === "books.search"),
+    { name: "books.search", risk: "low", minimumProfile: "readonly", scopes: ["book.read"] },
+  );
+  assertToolSafetyMetadata(
+    tools.find((tool) => tool.name === "epub.chapters.patch"),
+    { name: "epub.chapters.patch", risk: "high", minimumProfile: "editor", scopes: ["epub.draft"] },
+  );
+  assertToolSafetyMetadata(
+    tools.find((tool) => tool.name === "epub.export"),
+    { name: "epub.export", risk: "high", minimumProfile: "publisher", scopes: ["epub.export"] },
   );
   const books = parseToolContent(readonlyResponses[2]);
   assert(books.ok && books.data.books.some((book) => book.id === "agent-smoke-book"), "books.search failed");
@@ -593,6 +627,7 @@ async function main() {
     exportHash: exportedHash,
     checks: [
       "readonly MCP initialize/tools/list/books.search/rag.search",
+      "tools/list safety metadata",
       "readonly PDF fallback chapters.list/chapters.get",
       "readonly write denial",
       "editor draft create, batch chapter patch, and toc rebuild",
