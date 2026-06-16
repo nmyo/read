@@ -263,6 +263,7 @@ AGENT_HOME="$(mktemp -d)" node packages/cli/dist/bin/readany.js skill uninstall
 当前工程状态：
 
 - Tauri 已配置把 `packages/cli/dist/` 打包到 `readany-cli/` 资源目录。
+- Tauri `beforeBuildCommand` 已配置先构建 `@readany/cli` 再构建 app，避免打包资源缺少 CLI dist；Rust preflight 测试会校验这个命令、资源映射和 `readany-cli/bin/readany.js` resolver 路径。
 - 受限 Tauri command 会优先解析 `READANY_DESKTOP_CLI_BIN`、bundle resource、开发仓库 CLI，然后才使用 PATH 中的 `readany`。
 - CLI 仍是 Node bundle。管理命令已经懒加载数据层，不需要 `better-sqlite3`；书库读取和 MCP 数据工具仍需要 Node / native module 运行时，完整无 Node 依赖的用户体验需要后续 native binary 化。
 

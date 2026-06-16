@@ -8,6 +8,8 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 
+const BUNDLED_CLI_RESOURCE_PATH: &str = "readany-cli/bin/readany.js";
+
 #[derive(Serialize)]
 pub struct ReadAnyCliRunResult {
     ok: bool,
@@ -450,7 +452,7 @@ fn node_cli_command(script_path: PathBuf, source: &str) -> Option<CliCommand> {
 
 fn bundled_cli_command(resource_dir: Option<PathBuf>) -> Option<CliCommand> {
     let resource_dir = resource_dir?;
-    node_cli_command(resource_dir.join("readany-cli/bin/readany.js"), "bundle")
+    node_cli_command(resource_dir.join(BUNDLED_CLI_RESOURCE_PATH), "bundle")
 }
 
 fn dev_cli_command() -> Option<CliCommand> {
@@ -575,7 +577,10 @@ pub async fn readany_cli_run(
 
 #[cfg(test)]
 mod tests {
-    use super::{args_for_action, bundled_cli_command, resolve_cli_command, ReadAnyCliRunOptions};
+    use super::{
+        args_for_action, bundled_cli_command, resolve_cli_command, ReadAnyCliRunOptions,
+        BUNDLED_CLI_RESOURCE_PATH,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1062,5 +1067,43 @@ mod tests {
         let root = temp_test_dir("missing-bundle");
         assert_eq!(bundled_cli_command(Some(PathBuf::from(&root))), None);
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn tauri_bundle_prebuilds_and_embeds_cli_dist() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let config_path = manifest_dir.join("tauri.conf.json");
+        let config = fs::read_to_string(&config_path).expect("read tauri.conf.json");
+        let config: serde_json::Value =
+            serde_json::from_str(&config).expect("parse tauri.conf.json");
+
+        let before_build = config
+            .pointer("/build/beforeBuildCommand")
+            .and_then(serde_json::Value::as_str)
+            .expect("beforeBuildCommand");
+        assert!(
+            before_build.contains("pnpm --filter @readany/cli build"),
+            "Tauri beforeBuildCommand must build the bundled CLI before packaging",
+        );
+        assert!(
+            before_build.contains("pnpm build"),
+            "Tauri beforeBuildCommand must still build the app frontend",
+        );
+
+        let resources = config
+            .pointer("/bundle/resources")
+            .and_then(serde_json::Value::as_object)
+            .expect("bundle resources");
+        assert_eq!(
+            resources
+                .get("../../cli/dist/")
+                .and_then(serde_json::Value::as_str),
+            Some("readany-cli/"),
+            "Tauri bundle resources must embed packages/cli/dist as readany-cli/",
+        );
+        assert_eq!(
+            BUNDLED_CLI_RESOURCE_PATH, "readany-cli/bin/readany.js",
+            "Bundled CLI resolver must match the packaged resource layout",
+        );
     }
 }

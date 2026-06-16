@@ -63,6 +63,7 @@
 - 已支持可复现外部 agent smoke：`pnpm --filter @readany/cli build && pnpm --filter @readany/cli smoke:agent` 会通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、editor draft 批量章节修改、toc rebuild、publisher validate/export、audit、原 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.chapters.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、通过受限 `mcp_config` action 复制 CLI 生成的 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
+- Tauri 打包前置命令已改为先构建 `@readany/cli`，再构建 app；`packages/cli/dist/` 会作为 `readany-cli/` 资源进入桌面包，Rust preflight 测试会校验前置命令、资源映射和 bundle resolver 路径一致。
 - 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；工作区也可通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export；设置页只负责接入和权限管理。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
