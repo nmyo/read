@@ -61,6 +61,7 @@
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - 已支持 MCP 配置生成：`readany mcp config --profile readonly --json` 可输出外部 agent 可复制的 `mcpServers.readany` 片段；它不启动服务、不改变授权、不出现在 MCP `tools/list`。
 - 已支持可复现外部 agent smoke：`pnpm --filter @readany/cli build && pnpm --filter @readany/cli smoke:agent` 会通过 built CLI 的 stdio MCP 跑 readonly 发现/搜索、PDF fallback 章节读取、editor draft 批量章节修改、toc rebuild、publisher validate/export、audit、原 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查。
+- 已支持真实样本验收辅助脚本：`pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <file>` 会使用 built CLI 对指定真实书库样本执行 books/chapter/RAG/knowledge/context/audit 检查；默认只读，只有显式 `--draft-export --export-dir <dir>` 才会创建 EPUB draft 并导出证据文件。
 - 已支持本地 release preflight：`pnpm cli:preflight` 会顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`；后续 release CI 可以复用这个入口。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.chapters.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、通过受限 `mcp_config` action 复制 CLI 生成的 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
@@ -72,7 +73,7 @@
 - `notes.export` 只导出单本书的 notes/highlights；`knowledge.export` 只导出全库知识文件；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 默认读取 draft 可读文本，`xhtml` 模式才返回完整章节 XHTML；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.chapters.patch` 只接受 1-50 个章节替换计划并逐章写入普通 `epub.chapter.patch` history；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.undo` 只撤销已记录且未被后续改动覆盖的 patch；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。
 - native binary / runtime bundle 安装体验。
-- 真实 EPUB/PDF/RAG 样本的端到端验收记录。
+- 真实 EPUB/PDF/RAG 样本的端到端验收记录；`acceptance:real` 只能辅助采证，不能替代真实样本来源、SHA-256、外部 agent 和打包矩阵记录。
 - Codex / Claude Desktop / Cursor 等真实外部 agent 手工验收。
 - macOS / Windows / Linux 打包后安装、Skill、MCP、draft export 的完整矩阵验收。
 

@@ -152,6 +152,7 @@ pnpm --filter @readany/cli smoke:agent
 - 新增 MCP tool 必须有 schema、权限拒绝、成功调用三类测试。
 - MCP stdio 入口必须通过构建后 CLI smoke：`dist/bin/readany.js mcp serve --profile readonly` 能响应 `initialize`、`tools/list`、`tools/call`。
 - 外部 agent 自动 smoke 必须通过：`pnpm --filter @readany/cli smoke:agent` 会使用 built CLI 的 stdio MCP 验证 readonly 发现/搜索、PDF fallback 章节读取、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit、源 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read。该 smoke 使用 fixture 数据，只能作为 M5 真实外部 agent 验收的前置证据。
+- 真实样本验收可以使用 `pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <file>` 采证；该脚本默认只读，只有显式 `--draft-export --export-dir <dir>` 才会创建 EPUB draft 并导出，不替代真实外部 agent 和打包产物验收。
 - 发布前本地 preflight 必须通过：`pnpm cli:preflight` 会顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`；后续 release CI 应复用这个入口。
 
 如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：

@@ -95,6 +95,23 @@ readany rag search "<query>" --book <book-id> --mode hybrid --json
 readany audit list --source mcp --json
 ```
 
+可选采证脚本：
+
+```bash
+pnpm --filter @readany/cli build
+pnpm --filter @readany/cli acceptance:real -- \
+  --readany-home <real-readany-home> \
+  --book <book-id> \
+  --epub-book <epub-book-id> \
+  --pdf-book <pdf-book-id> \
+  --rag-query "<query>" \
+  --draft-export \
+  --export-dir <tmp-export-dir> \
+  --evidence <evidence-json>
+```
+
+`acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft 并导出。该脚本输出 JSON 证据，但不能替代样本来源、SHA-256、真实外部 agent 和打包产物记录。
+
 ## 验收结果
 
 ```text

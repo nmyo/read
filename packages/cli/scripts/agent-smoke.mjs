@@ -220,7 +220,7 @@ function callMcp(profile, requests, env) {
   });
 }
 
-async function seedLibrary(dataRoot) {
+export async function seedLibrary(dataRoot) {
   await mkdir(join(dataRoot, "books"), { recursive: true });
   const epubPath = join(dataRoot, "books", "agent-smoke.epub");
   await writeFile(epubPath, buildInspectableEpub());
@@ -605,7 +605,9 @@ async function main() {
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
-  process.exitCode = 1;
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

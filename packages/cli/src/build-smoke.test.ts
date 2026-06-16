@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { beforeAll, describe, expect, it } from "vitest";
+import { seedLibrary } from "../scripts/agent-smoke.mjs";
 
 const cliRoot = resolve(import.meta.dirname, "..");
 const binPath = resolve(cliRoot, "dist/bin/readany.js");
@@ -295,6 +296,64 @@ Module._load = function patchedLoad(request, parent, isMain) {
       exportPath: expect.stringMatching(/agent-smoke-export\.epub$/),
       sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       exportHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+  });
+
+  it("runs real-sample acceptance helper against fixture data", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-real-acceptance-"));
+    const dataRoot = join(root, "library");
+    const env = {
+      ...process.env,
+      READANY_HOME: dataRoot,
+      AGENT_HOME: join(root, "agent"),
+    };
+    expect(runBuiltCli(["doctor", "--json"], env).status).toBe(0);
+    expect(runBuiltCli(["books", "list", "--json"], env).status).toBe(0);
+    await seedLibrary(dataRoot);
+
+    const evidencePath = join(root, "evidence", "real-sample.json");
+    const exportDir = join(root, "exports");
+    const result = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/real-sample-acceptance.mjs"),
+        "--readany-home",
+        dataRoot,
+        "--book",
+        "agent-smoke-book",
+        "--epub-book",
+        "agent-smoke-book",
+        "--pdf-book",
+        "agent-smoke-pdf",
+        "--rag-query",
+        "bounded MCP",
+        "--draft-export",
+        "--export-dir",
+        exportDir,
+        "--evidence",
+        evidencePath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout) as { ok: boolean; checks: string[]; evidencePath: string };
+    expect(summary).toMatchObject({
+      ok: true,
+      evidencePath,
+      checks: expect.arrayContaining([
+        "books.list contains primary real sample",
+        "chapter.get primary sample",
+        "rag.search primary sample",
+        "epub.inspect real sample",
+        "epub.export real sample draft",
+        "pdf chapter.get real sample",
+        "audit.list bounded metadata",
+      ]),
     });
   });
 });

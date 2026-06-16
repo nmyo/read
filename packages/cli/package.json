@@ -9,6 +9,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "smoke:agent": "node scripts/agent-smoke.mjs",
+    "acceptance:real": "pnpm build && node scripts/real-sample-acceptance.mjs",
     "preflight:release": "node scripts/release-preflight.mjs",
     "dev": "tsx src/bin/readany.ts",
     "test": "vitest run",

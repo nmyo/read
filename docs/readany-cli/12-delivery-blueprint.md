@@ -652,6 +652,20 @@ pnpm --filter @readany/cli smoke:agent
 
 这条自动 smoke 使用 built CLI 的 stdio MCP 模拟外部 agent，覆盖 readonly 发现/搜索、PDF fallback 章节读取、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit 摘要、原 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查。它只能作为可复现前置证据，不能替代 Codex / Claude Desktop / Cursor 的真实客户端手工验收。
 
+真实样本验收辅助：
+
+```bash
+pnpm --filter @readany/cli acceptance:real -- \
+  --readany-home <real-readany-home> \
+  --book <book-id> \
+  --epub-book <epub-book-id> \
+  --pdf-book <pdf-book-id> \
+  --rag-query "<query>" \
+  --evidence docs/readany-cli/acceptance/evidence/real-sample.json
+```
+
+该脚本使用 built CLI 对真实书库样本执行 books/chapter/RAG/knowledge/context/audit 检查，默认只读；显式加 `--draft-export --export-dir <dir>` 时才创建 EPUB draft、validate 并 export。它只负责生成可复现 JSON 证据，不替代样本来源/SHA-256、真实外部 agent 和打包矩阵验收。
+
 Release preflight：
 
 ```bash
