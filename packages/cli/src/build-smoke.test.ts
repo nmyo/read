@@ -386,6 +386,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ok: true,
       evidencePath,
       checks: expect.arrayContaining([
+        "doctor runtime and MCP diagnostics",
         "books.list contains primary real sample",
         "chapter.get primary sample",
         "rag.search primary sample",
@@ -407,6 +408,29 @@ Module._load = function patchedLoad(request, parent, isMain) {
         cliVersion: string;
         gitCommit: string;
         gitBranch: string;
+      };
+      doctor: {
+        version: string;
+        runtime: {
+          node: string;
+          executable: string;
+          nativeSqliteAvailable: boolean;
+        };
+        tools: {
+          count: number;
+        };
+        mcp: {
+          defaultProfile: string;
+          serveArgs: string[];
+          supportedProfiles: string[];
+          supportedClients: string[];
+          toolCount: number;
+        };
+        checks: Array<{
+          name: string;
+          ok: boolean;
+          message: string;
+        }>;
       };
       sampleFiles: Array<{
         labels: string[];
@@ -430,6 +454,26 @@ Module._load = function patchedLoad(request, parent, isMain) {
       gitCommit: expect.stringMatching(/^unavailable|[a-f0-9]{40}$/),
       gitBranch: expect.any(String),
       pnpm: expect.any(String),
+    });
+    expect(evidence.doctor).toMatchObject({
+      version: "0.1.0",
+      runtime: {
+        node: process.version,
+        executable: process.execPath,
+        nativeSqliteAvailable: true,
+      },
+      tools: { count: 28 },
+      mcp: {
+        defaultProfile: "readonly",
+        serveArgs: ["mcp", "serve", "--profile", "readonly"],
+        supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
+        supportedClients: ["generic", "claude", "cursor", "codex"],
+        toolCount: 28,
+      },
+      checks: expect.arrayContaining([
+        expect.objectContaining({ name: "node-runtime", ok: true }),
+        expect.objectContaining({ name: "native-sqlite", ok: true }),
+      ]),
     });
     expect(evidence.sampleFiles).toEqual(
       expect.arrayContaining([

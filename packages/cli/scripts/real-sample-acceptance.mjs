@@ -364,6 +364,23 @@ async function main() {
     checks.push(name);
   };
 
+  const doctor = runCli(["doctor"], env);
+  const doctorData = requireOk(doctor);
+  record("doctor runtime and MCP diagnostics", doctor, {
+    version: doctorData.version,
+    profile: doctorData.profile,
+    node: doctorData.runtime?.node,
+    executable: doctorData.runtime?.executable,
+    nativeSqliteAvailable: doctorData.runtime?.nativeSqliteAvailable,
+    toolCount: doctorData.tools?.count,
+    mcpDefaultProfile: doctorData.mcp?.defaultProfile,
+    mcpServeArgs: doctorData.mcp?.serveArgs,
+    mcpToolCount: doctorData.mcp?.toolCount,
+    failedChecks: doctorData.checks
+      ?.filter((check) => check.ok !== true)
+      .map((check) => check.name),
+  });
+
   const books = runCli(["books", "list", "--limit", "50"], env);
   const booksData = requireOk(books);
   assert(
@@ -554,6 +571,7 @@ async function main() {
     ok: true,
     generatedAt: new Date().toISOString(),
     environment: createEnvironmentEvidence(),
+    doctor: doctorData,
     readanyHome: options.readanyHome,
     bookId: options.bookId,
     epubBookId: options.epubBookId,

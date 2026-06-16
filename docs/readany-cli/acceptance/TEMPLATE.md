@@ -110,7 +110,7 @@ pnpm --filter @readany/cli acceptance:real -- \
   --evidence <evidence-json>
 ```
 
-`acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本输出 JSON 证据，并会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、样本书文件路径、字节数、SHA-256 和 `manualAcceptanceRequired` 清单，但不能替代样本来源、真实外部 agent 和打包产物记录。
+`acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本输出 JSON 证据，并会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256 和 `manualAcceptanceRequired` 清单，但不能替代样本来源、真实外部 agent 和打包产物记录。
 
 ## 验收结果
 
