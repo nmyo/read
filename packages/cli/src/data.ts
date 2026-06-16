@@ -27,6 +27,7 @@ import {
   initDatabase,
 } from "@readany/core/db";
 import {
+  assertReadableEpubChapterXhtml,
   patchEpubChapterInDraft,
   readEpubChapterFromBookFile,
   readEpubChapterFromDraft,
@@ -347,6 +348,9 @@ export async function patchEpubChapters(
 ): Promise<EpubChaptersPatchResult> {
   const { draftId, patches, env = process.env } = options;
   const patchPlan = assertEpubChapterPatchPlan(patches);
+  for (const patch of patchPlan) {
+    assertReadableEpubChapterXhtml(patch.xhtml);
+  }
   await ensureCoreInitialized(env);
 
   const results: EpubChapterPatchResult[] = [];

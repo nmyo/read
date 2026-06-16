@@ -80,7 +80,7 @@ export async function patchEpubChapterInDraft(
     throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);
   }
 
-  assertReadableXhtml(xhtml);
+  assertReadableEpubChapterXhtml(xhtml);
   const draftBytes = await platform.readFile(draftPath);
   const chapterResource = await findChapterResource(draftBytes, chapterId);
   const beforeXml = chapterResource.content;
@@ -258,7 +258,7 @@ function extractReadableText(xml: string): string {
   return chunks.join(" ").replace(/\s+/g, " ").trim();
 }
 
-function assertReadableXhtml(xml: string): void {
+export function assertReadableEpubChapterXhtml(xml: string): void {
   const doc = new DOMParser().parseFromString(xml, "application/xml") as unknown as Document;
   const parserError = Array.from(doc.getElementsByTagName("*")).find(
     (element) => element.localName === "parsererror",

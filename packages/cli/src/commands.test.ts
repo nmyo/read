@@ -979,6 +979,74 @@ describe("commands", () => {
     ]);
   });
 
+  it("validates a batch chapter patch before changing draft state", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const sourcePath = join(workspace.dataRoot, "books", "agent.epub");
+    const sourceBefore = await readFile(sourcePath);
+
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draft = (draftResult.data as {
+      draft: { draftId: string; draftFilePath: string; historyPath: string };
+    }).draft;
+    const draftPath = join(workspace.dataRoot, draft.draftFilePath);
+    const historyPath = join(workspace.dataRoot, draft.historyPath);
+    const draftBefore = await readFile(draftPath);
+    const historyBefore = await readFile(historyPath, "utf8");
+
+    const patchPath = join(workspace.root, "invalid-batch.patch.json");
+    await writeFile(
+      patchPath,
+      JSON.stringify(
+        {
+          patches: [
+            {
+              chapterId: "chapter-1",
+              xhtml:
+                '<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Should Not Apply</h1><p>First patch is valid.</p></body></html>',
+            },
+            {
+              chapterId: "chapter-2",
+              xhtml:
+                '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>No body</title></head></html>',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const failedBatch = await runCommand(
+      ["epub", "chapters", "patch", draft.draftId, "--patch", patchPath, "--profile", "editor"],
+      workspace.env,
+    );
+    expect(failedBatch).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+
+    expect(await readFile(sourcePath)).toEqual(sourceBefore);
+    expect(await readFile(draftPath)).toEqual(draftBefore);
+    expect(await readFile(historyPath, "utf8")).toBe(historyBefore);
+    const firstRead = await runCommand(
+      ["epub", "chapter", "read", draft.draftId, "chapter-1", "--profile", "editor"],
+      workspace.env,
+    );
+    const secondRead = await runCommand(
+      ["epub", "chapter", "read", draft.draftId, "chapter-2", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(firstRead).toMatchObject({ ok: true, data: { chapter: { content: "Tools" } } });
+    expect(secondRead).toMatchObject({ ok: true, data: { chapter: { content: "Drafts" } } });
+  });
+
   it("patches EPUB draft metadata with editor profile", async () => {
     const workspace = await createWorkspace();
     await seedLibrary(workspace.dataRoot);
