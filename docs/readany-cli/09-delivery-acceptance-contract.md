@@ -349,6 +349,14 @@ pnpm cli:preflight
 
 该入口顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`。它适合本地发布前检查，也适合后续接入 release CI；只想验证 JS/CLI 层时可以运行 `pnpm --filter @readany/cli preflight:release -- --skip-rust`。
 
+触碰桌面设置页、draft 工作区或 app 前端时，使用 full preflight：
+
+```bash
+pnpm cli:preflight:full
+```
+
+它会在 release preflight 基础上额外执行 `pnpm --filter app build`，用于提前发现 Tauri bridge 类型变化和设置页 UI 编译问题。
+
 触碰桌面客户端或 Tauri bridge 时还要跑：
 
 ```bash
@@ -364,7 +372,7 @@ pnpm --filter @readany/cli build
 pnpm --filter app tauri info
 ```
 
-Release workflow 后续应在 macOS / Windows / Linux Tauri matrix 的 `tauri-action` 打包前执行 `pnpm cli:preflight`，用于防止发布包绕过 CLI/MCP 和 Tauri bridge preflight。当前 Codex OAuth token 没有 GitHub `workflow` scope，无法直接推送 `.github/workflows/release.yml` 改动；该 CI preflight 仍需由具备 workflow 权限的提交者补上，且不能替代安装后的真实客户端手工验收。
+Release workflow 后续应在 macOS / Windows / Linux Tauri matrix 的 `tauri-action` 打包前执行 `pnpm cli:preflight:full`，用于防止发布包绕过 CLI/MCP、Tauri bridge preflight 和桌面前端构建。当前 Codex OAuth token 没有 GitHub `workflow` scope，无法直接推送 `.github/workflows/release.yml` 改动；该 CI preflight 仍需由具备 workflow 权限的提交者补上，且不能替代安装后的真实客户端手工验收。
 
 所有测试必须显式使用临时：
 

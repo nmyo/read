@@ -674,6 +674,12 @@ pnpm cli:preflight
 
 这条命令顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`。后续 macOS / Windows / Linux release matrix 应在打包前复用它；它不能替代安装后真实客户端、真实外部 agent 和真实样本验收。
 
+```bash
+pnpm cli:preflight:full
+```
+
+full preflight 在上述基础上额外执行 `pnpm --filter app build`，适合触碰设置页、draft 工作区、Tauri bridge 类型或 release matrix 打包前使用。
+
 ```text
 复制 MCP 配置
   -> agent 启动 readany mcp serve --profile readonly

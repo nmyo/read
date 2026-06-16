@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../../..");
 const skipRust = process.argv.includes("--skip-rust");
+const includeAppBuild = process.argv.includes("--include-app-build");
 
 const steps = [
   {
@@ -44,6 +45,14 @@ if (!skipRust) {
       cwd: resolve(repoRoot, "packages/app/src-tauri"),
     },
   );
+}
+
+if (includeAppBuild) {
+  steps.push({
+    name: "Desktop app build",
+    command: "pnpm",
+    args: ["--filter", "app", "build"],
+  });
 }
 
 for (const step of steps) {
