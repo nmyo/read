@@ -392,6 +392,15 @@ Module._load = function patchedLoad(request, parent, isMain) {
     });
 
     const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as {
+      environment: {
+        platform: string;
+        arch: string;
+        node: string;
+        pnpm: string;
+        cliVersion: string;
+        gitCommit: string;
+        gitBranch: string;
+      };
       sampleFiles: Array<{
         labels: string[];
         bookId: string;
@@ -402,6 +411,15 @@ Module._load = function patchedLoad(request, parent, isMain) {
         sha256: string;
       }>;
     };
+    expect(evidence.environment).toMatchObject({
+      platform: process.platform,
+      arch: process.arch,
+      node: process.version,
+      cliVersion: "0.1.0",
+      gitCommit: expect.stringMatching(/^unavailable|[a-f0-9]{40}$/),
+      gitBranch: expect.any(String),
+      pnpm: expect.any(String),
+    });
     expect(evidence.sampleFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

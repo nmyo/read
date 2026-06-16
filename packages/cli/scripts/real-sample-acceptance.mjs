@@ -10,6 +10,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(cliRoot, "../..");
 const binPath = resolve(cliRoot, "dist/bin/readany.js");
+const cliPackageJson = JSON.parse(await readFile(resolve(cliRoot, "package.json"), "utf8"));
 
 function parseArgs(argv) {
   const options = {
@@ -91,6 +92,29 @@ Explicit write/export mode:
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function runMetadataCommand(command, args, cwd = repoRoot) {
+  const result = spawnSync(command, args, {
+    cwd,
+    env: process.env,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  if (result.status !== 0) return undefined;
+  return result.stdout.trim() || undefined;
+}
+
+function createEnvironmentEvidence() {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    pnpm: runMetadataCommand("pnpm", ["--version"]) ?? "unavailable",
+    cliVersion: cliPackageJson.version,
+    gitCommit: runMetadataCommand("git", ["rev-parse", "HEAD"]) ?? "unavailable",
+    gitBranch: runMetadataCommand("git", ["branch", "--show-current"]) ?? "unavailable",
+  };
 }
 
 async function createSampleFileEvidence(label, book, readanyHome) {
@@ -500,6 +524,7 @@ async function main() {
   const evidence = {
     ok: true,
     generatedAt: new Date().toISOString(),
+    environment: createEnvironmentEvidence(),
     readanyHome: options.readanyHome,
     bookId: options.bookId,
     epubBookId: options.epubBookId,
