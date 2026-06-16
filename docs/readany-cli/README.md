@@ -36,7 +36,7 @@
 
 - `packages/cli` 是独立 package。
 - CLI 可构建、可测试，并提供 `readany` bin。
-- 已支持 `doctor`、`install`、`uninstall`、`skill install/update/uninstall/status`；`doctor --json` 会报告 Node runtime 和 `better-sqlite3` 可解析性，便于区分“管理命令可用”和“书库/MCP 数据命令可用”。
+- 已支持 `doctor`、`install`、`uninstall`、`skill install/update/uninstall/status`；`doctor --json` 会报告 Node runtime、`better-sqlite3` 可解析性和 CLI distribution（Node script、built bundle、桌面资源包、native binary 标记），便于区分“管理命令可用”、“书库/MCP 数据命令可用”和“当前分发形态是否满足 runtime/bundle 验收”。
 - 已支持只读库查询：书籍、笔记、高亮、书签、skills。
 - 已支持 chapter view：`readany chapters list`、`readany chapter get` 和 MCP `chapters.*` 会优先返回 indexed chunks；没有 chunks 且书籍是 EPUB/PDF 时，会 fallback 到真实 EPUB spine/manifest 或 PDF page text 读取章节目录和正文。
 - 已支持 reader context snapshot：`readany context get` 和 MCP `context.get` 可只读返回桌面端写入的当前书、当前章、位置、选区、可见正文和最近高亮快照，并带内容长度限制。

@@ -1,5 +1,7 @@
 import { access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
+import { dirname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CLI_VERSION } from "./version.js";
 import type { AccessProfile } from "./profiles.js";
 import type { CliPaths } from "./paths.js";
@@ -21,6 +23,16 @@ export type DoctorReport = {
     executable: string;
     nativeSqliteAvailable: boolean;
     nativeSqlitePath?: string;
+  };
+  distribution: {
+    kind: "node-script";
+    usesNodeRuntime: boolean;
+    nativeBinary: boolean;
+    entrypoint?: string;
+    modulePath: string;
+    bundleRoot?: string;
+    builtBundle: boolean;
+    desktopResourceBundle: boolean;
   };
   tools: {
     count: number;
@@ -52,6 +64,34 @@ function resolveNativeSqlite() {
   }
 }
 
+function normalizePath(path: string): string {
+  return path.split(/[\\/]+/).join(sep);
+}
+
+function createDistributionEvidence(): DoctorReport["distribution"] {
+  const modulePath = fileURLToPath(import.meta.url);
+  const entrypoint = process.argv[1] ? resolve(process.argv[1]) : undefined;
+  const normalizedModulePath = normalizePath(modulePath);
+  const normalizedEntrypoint = entrypoint ? normalizePath(entrypoint) : undefined;
+  const builtBundle =
+    normalizedModulePath.includes(`${sep}dist${sep}`) ||
+    normalizedEntrypoint?.endsWith(`${sep}dist${sep}bin${sep}readany.js`) === true ||
+    normalizedEntrypoint?.endsWith(`${sep}readany-cli${sep}bin${sep}readany.js`) === true;
+  const desktopResourceBundle =
+    normalizedEntrypoint?.endsWith(`${sep}readany-cli${sep}bin${sep}readany.js`) === true;
+
+  return {
+    kind: "node-script",
+    usesNodeRuntime: true,
+    nativeBinary: false,
+    entrypoint,
+    modulePath,
+    bundleRoot: entrypoint ? dirname(dirname(entrypoint)) : undefined,
+    builtBundle,
+    desktopResourceBundle,
+  };
+}
+
 export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promise<DoctorReport> {
   await mkdir(paths.auditLogDir, { recursive: true });
 
@@ -71,6 +111,7 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
       nativeSqliteAvailable: Boolean(nativeSqlitePath),
       nativeSqlitePath,
     },
+    distribution: createDistributionEvidence(),
     tools: {
       count: toolCount,
     },

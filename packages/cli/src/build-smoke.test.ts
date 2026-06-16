@@ -111,6 +111,16 @@ Module._load = function patchedLoad(request, parent, isMain) {
           nativeSqliteAvailable: true,
           nativeSqlitePath: expect.stringContaining("better-sqlite3"),
         },
+        distribution: {
+          kind: "node-script",
+          usesNodeRuntime: true,
+          nativeBinary: false,
+          entrypoint: binPath,
+          modulePath: binPath,
+          bundleRoot: resolve(cliRoot, "dist"),
+          builtBundle: true,
+          desktopResourceBundle: false,
+        },
         tools: { count: 28 },
         mcp: {
           defaultProfile: "readonly",
@@ -446,6 +456,16 @@ Module._load = function patchedLoad(request, parent, isMain) {
           executable: string;
           nativeSqliteAvailable: boolean;
         };
+        distribution: {
+          kind: string;
+          usesNodeRuntime: boolean;
+          nativeBinary: boolean;
+          entrypoint?: string;
+          modulePath: string;
+          bundleRoot?: string;
+          builtBundle: boolean;
+          desktopResourceBundle: boolean;
+        };
         tools: {
           count: number;
         };
@@ -494,6 +514,16 @@ Module._load = function patchedLoad(request, parent, isMain) {
         node: process.version,
         executable: process.execPath,
         nativeSqliteAvailable: true,
+      },
+      distribution: {
+        kind: "node-script",
+        usesNodeRuntime: true,
+        nativeBinary: false,
+        entrypoint: binPath,
+        modulePath: binPath,
+        bundleRoot: resolve(cliRoot, "dist"),
+        builtBundle: true,
+        desktopResourceBundle: false,
       },
       tools: { count: 28 },
       mcp: {

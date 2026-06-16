@@ -664,7 +664,7 @@ pnpm --filter @readany/cli acceptance:real -- \
   --evidence docs/readany-cli/acceptance/evidence/real-sample.json
 ```
 
-该脚本使用 built CLI 对真实书库样本执行 doctor、books/chapter/RAG/knowledge/context/audit 检查，默认只读，stdout 只输出脱敏摘要，完整 evidence 会记录 `doctor --json` 诊断、样本书文件路径、字节数和 SHA-256；`manualAcceptanceRequired` 会列出还需要人工补齐的证据和建议命令。显式加 `--draft-export --export-dir <dir>` 时才创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。它只负责生成可复现 JSON 证据，不替代样本来源说明、真实外部 agent 和打包矩阵验收。
+该脚本使用 built CLI 对真实书库样本执行 doctor、books/chapter/RAG/knowledge/context/audit 检查，默认只读，stdout 只输出脱敏摘要，完整 evidence 会记录 `doctor --json` 诊断、CLI distribution、样本书文件路径、字节数和 SHA-256；`manualAcceptanceRequired` 会列出还需要人工补齐的证据和建议命令。显式加 `--draft-export --export-dir <dir>` 时才创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。它只负责生成可复现 JSON 证据，不替代样本来源说明、真实外部 agent 和打包矩阵验收。
 
 Release preflight：
 

@@ -347,6 +347,14 @@ describe("commands", () => {
           nativeSqliteAvailable: true,
           nativeSqlitePath: expect.stringContaining("better-sqlite3"),
         },
+        distribution: {
+          kind: "node-script",
+          usesNodeRuntime: true,
+          nativeBinary: false,
+          modulePath: expect.any(String),
+          builtBundle: false,
+          desktopResourceBundle: false,
+        },
         tools: { count: 28 },
         mcp: {
           defaultProfile: "readonly",

@@ -163,6 +163,27 @@ function validateEvidence(evidence) {
     errors,
     "Doctor runtime.nativeSqliteAvailable is required.",
   );
+  assertCondition(evidence?.doctor?.distribution?.kind === "node-script", errors, "Doctor distribution.kind is required.");
+  assertCondition(
+    evidence?.doctor?.distribution?.usesNodeRuntime === true,
+    errors,
+    "Doctor distribution.usesNodeRuntime must be recorded.",
+  );
+  assertCondition(
+    typeof evidence?.doctor?.distribution?.nativeBinary === "boolean",
+    errors,
+    "Doctor distribution.nativeBinary is required.",
+  );
+  assertCondition(
+    typeof evidence?.doctor?.distribution?.builtBundle === "boolean",
+    errors,
+    "Doctor distribution.builtBundle is required.",
+  );
+  assertCondition(
+    typeof evidence?.doctor?.distribution?.desktopResourceBundle === "boolean",
+    errors,
+    "Doctor distribution.desktopResourceBundle is required.",
+  );
   assertCondition(evidence?.doctor?.mcp?.defaultProfile === "readonly", errors, "Doctor MCP default profile must be readonly.");
   assertCondition(Array.isArray(evidence?.doctor?.mcp?.serveArgs), errors, "Doctor MCP serveArgs are required.");
   assertCondition(typeof evidence?.doctor?.mcp?.toolCount === "number", errors, "Doctor MCP toolCount is required.");
