@@ -199,25 +199,25 @@ M3 / M4 验收：
 ```bash
 readany epub draft create <book-id> --profile editor --json
 readany epub inspect <book-id> --profile editor --json
-readany epub chapter read <draft-id> <chapter-id> --profile editor --json
-readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --json
+readany epub chapter read <draft-id> <chapter-id> --profile editor --format xhtml --json
+readany epub chapter patch <draft-id> <chapter-id> --xhtml <file> --profile editor --json
 readany epub metadata patch <draft-id> --patch <file> --json
 readany epub history <draft-id> --profile editor --json
 readany epub diff <draft-id> --profile editor --json
-readany epub validate <draft-id> --json
-readany epub export <draft-id> --json
+readany epub validate <draft-id> --profile publisher --json
+readany epub export <draft-id> --output <tmp-output.epub> --profile publisher --json
 ```
 
-## 验收边界
+## 阶段验收边界
 
-第一阶段结束时，不要求：
+M1 结束时，不要求：
 
 - 支持 EPUB 精排写入。
 - 支持导出 EPUB。
 - 支持同步和备份。
 - 支持移动端安装 CLI。
 
-第一阶段必须做到：
+M1 必须做到：
 
 - CLI package 存在。
 - CLI 能安装和卸载 skill。
@@ -226,6 +226,8 @@ readany epub export <draft-id> --json
 - 只读查询链路跑通。
 - MCP 不展示规划中但未实现的工具；已实现的 `rag.search` bm25/hybrid/vector、`knowledge.export` 和 `knowledge.search` 必须有对应测试和文档。
 - 测试不依赖真实用户数据。
+
+当前 `feat/readany-cli` 已推进到 M3/M4 能力实现：EPUB draft 章节编辑、metadata、toc rebuild、history、diff、undo、discard、validate 和 export 都已接线。后续不能再用 M1 的“不要求精排写入/导出”作为当前完成线；当前完成线应转为真实样本端到端验收、多平台打包验收和 native/runtime 安装体验。
 
 ## 功能验收清单
 

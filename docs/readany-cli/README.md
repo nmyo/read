@@ -60,13 +60,15 @@
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`bookmarks.list`、`skills.list`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 MCP 配置；默认 readonly，editor / publisher 需要用户显式选择并确认风险后才可复制。设置页也可查看最近 CLI/MCP 审计元数据，支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
-- 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；工作区也可通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo 和 discard；后续完整 draft 工作区继续承接 export；设置页只负责接入和权限管理。
+- 用户精排入口不放在设置页；书籍详情页已接入创建精排草稿，并可打开 EPUB draft 工作区查看 history、entry-level diff 和 validate 结果；工作区也可通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export；设置页只负责接入和权限管理。
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
 - `notes.export` 只导出单本书的 notes/highlights；`knowledge.export` 只导出全库知识文件；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 默认读取 draft 可读文本，`xhtml` 模式才返回完整章节 XHTML；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.undo` 只撤销已记录且未被后续改动覆盖的 patch；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。
 - native binary / runtime bundle 安装体验。
+- 真实 EPUB/PDF/RAG 样本的端到端验收记录。
+- macOS / Windows / Linux 打包后安装、Skill、MCP、draft export 的完整矩阵验收。
 
 ## 设计原则
 

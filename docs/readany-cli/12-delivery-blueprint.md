@@ -823,7 +823,7 @@ M5 停止线：
 - `notes.export` 只导出单本书 notes/highlights，不是全知识库导出。
 - `knowledge.export` 已完成文件级全库导出；默认不覆盖已有文件，MCP/CLI 响应只返回输出路径、hash、大小和数量元数据，不返回完整导出正文。
 - `epub.undo` 当前只撤销已记录且资源未被后续改动覆盖的 draft patch；不做任意历史分支合并。
-- 用户 draft 工作区完整 UI 仍需后续验收。
+- 用户 draft 工作区 UI 已接入章节编辑、metadata、history、diff、validate、undo、discard 和 export；完整验收仍需真实样本和打包产物证据。
 
 ## 7. 不通过条件
 

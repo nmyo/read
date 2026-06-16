@@ -40,6 +40,7 @@ pub struct ReadAnyCliRunOptions {
     chapter_id: Option<String>,
     xhtml: Option<String>,
     metadata: Option<EpubMetadataPatchOptions>,
+    output_path: Option<String>,
     operation_id: Option<String>,
     reason: Option<String>,
 }
@@ -74,6 +75,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "epub_history" => epub_draft_read_args(options, "history", "editor"),
         "epub_diff" => epub_draft_read_args(options, "diff", "editor"),
         "epub_validate" => epub_draft_read_args(options, "validate", "publisher"),
+        "epub_export" => epub_export_args(options),
         "epub_toc_rebuild" => epub_toc_rebuild_args(options),
         "epub_undo" => epub_undo_args(options),
         "epub_draft_discard" => epub_draft_discard_args(options),
@@ -235,6 +237,21 @@ fn epub_draft_read_args(
     ])
 }
 
+fn epub_export_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let output_path = normalized_export_path(options.output_path.as_deref())?;
+    Ok(vec![
+        "epub".to_string(),
+        "export".to_string(),
+        draft_id,
+        "--output".to_string(),
+        output_path,
+        "--profile".to_string(),
+        "publisher".to_string(),
+        "--json".to_string(),
+    ])
+}
+
 fn epub_toc_rebuild_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
     let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
     Ok(vec![
@@ -300,6 +317,22 @@ fn normalized_reason(value: Option<&str>) -> Option<String> {
         return None;
     }
     Some(value.chars().take(240).collect())
+}
+
+fn normalized_export_path(value: Option<&str>) -> Result<String, String> {
+    let value = value
+        .ok_or_else(|| "Missing export output path.".to_string())?
+        .trim();
+    if value.is_empty() {
+        return Err("Missing export output path.".to_string());
+    }
+    if value.len() > 4096 {
+        return Err("Export output path is too long.".to_string());
+    }
+    if !value.to_ascii_lowercase().ends_with(".epub") {
+        return Err("EPUB export output path must end with .epub.".to_string());
+    }
+    Ok(value.to_string())
 }
 
 fn normalized_xhtml(value: Option<&str>) -> Result<String, String> {
@@ -723,6 +756,26 @@ mod tests {
         );
         assert_eq!(
             args_for_action(
+                "epub_export",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    output_path: Some("/tmp/readany-out.epub".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "export".to_string(),
+                "draft-1".to_string(),
+                "--output".to_string(),
+                "/tmp/readany-out.epub".to_string(),
+                "--profile".to_string(),
+                "publisher".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
                 "epub_toc_rebuild",
                 &ReadAnyCliRunOptions {
                     draft_id: Some("draft-1".to_string()),
@@ -808,6 +861,7 @@ mod tests {
         assert!(args_for_action("epub_metadata_patch", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_diff", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_validate", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_export", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_toc_rebuild", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_undo", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_draft_discard", &ReadAnyCliRunOptions::default()).is_err());
@@ -822,8 +876,29 @@ mod tests {
         assert!(args_for_action("epub_metadata_patch", &invalid).is_err());
         assert!(args_for_action("epub_diff", &invalid).is_err());
         assert!(args_for_action("epub_validate", &invalid).is_err());
+        assert!(args_for_action("epub_export", &invalid).is_err());
         assert!(args_for_action("epub_toc_rebuild", &invalid).is_err());
         assert!(args_for_action("epub_draft_discard", &invalid).is_err());
+
+        assert!(args_for_action(
+            "epub_export",
+            &ReadAnyCliRunOptions {
+                draft_id: Some("draft-1".to_string()),
+                output_path: None,
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
+
+        assert!(args_for_action(
+            "epub_export",
+            &ReadAnyCliRunOptions {
+                draft_id: Some("draft-1".to_string()),
+                output_path: Some("/tmp/readany-out.txt".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
 
         assert!(args_for_action(
             "epub_undo",

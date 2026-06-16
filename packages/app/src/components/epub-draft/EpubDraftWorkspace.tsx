@@ -14,6 +14,7 @@ import {
   AlertCircle,
   BookOpen,
   CheckCircle2,
+  Download,
   FileDiff,
   History,
   ListTree,
@@ -225,6 +226,16 @@ type EpubDiscardResult = {
   discardedAt: string;
 };
 
+type EpubExportResult = {
+  draftId: string;
+  bookId: string;
+  outputPath: string;
+  outputHash: string;
+  outputSize: number;
+  exportedAt: string;
+  validation: EpubValidationResult;
+};
+
 type DraftWorkspaceSnapshot = {
   history?: EpubDraftHistoryResult;
   diff?: EpubDiffResult;
@@ -361,6 +372,11 @@ function metadataDraftToPatch(draft: EpubMetadataDraft): EpubMetadataPatch {
       .map((item) => item.trim())
       .filter(Boolean),
   };
+}
+
+function defaultExportName(snapshot: DraftWorkspaceSnapshot) {
+  const title = snapshot.inspect?.metadata.title?.trim() || snapshot.history?.bookId || "readany-draft";
+  return `${title.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80) || "readany-draft"}.epub`;
 }
 
 export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
@@ -665,6 +681,57 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
     }
   };
 
+  const handleExportDraft = async () => {
+    if (snapshot.validation && !snapshot.validation.valid) {
+      toast.error(t("epubDraft.exportBlockedInvalid", "Fix validation errors before export."));
+      return;
+    }
+    if (
+      !window.confirm(
+        t(
+          "epubDraft.exportConfirm",
+          "Export this draft as a new EPUB? ReadAny will validate first and will not overwrite the source EPUB.",
+        ),
+      )
+    ) {
+      return;
+    }
+
+    setActionBusy("epub_export");
+    setLastError(null);
+    try {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const outputPath = await save({
+        defaultPath: defaultExportName(snapshot),
+        filters: [{ name: "EPUB", extensions: ["epub"] }],
+      });
+      if (!outputPath) {
+        setActionBusy(null);
+        return;
+      }
+      const safeOutputPath = outputPath.toLowerCase().endsWith(".epub")
+        ? outputPath
+        : `${outputPath}.epub`;
+
+      const result = unwrapCommand<EpubExportResult>(
+        await runDraftAction("epub_export", activeDraftId, { outputPath: safeOutputPath }),
+        "export",
+      );
+      await loadWorkspace(activeDraftId);
+      toast.success(
+        t("epubDraft.exported", "EPUB exported: {{path}}", {
+          path: result.outputPath,
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLastError(message);
+      toast.error(message);
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
@@ -742,7 +809,7 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
                 "These actions write only to the controlled draft workspace and append history entries.",
               )}
             />
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+            <div className="mt-3 grid gap-3 lg:grid-cols-4">
               <div className="rounded-md border bg-card p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <ListTree className="size-4 text-muted-foreground" />
@@ -817,6 +884,41 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
                   {actionBusy === "epub_draft_discard"
                     ? t("common.loading", "Loading")
                     : t("epubDraft.discard", "Discard")}
+                </Button>
+              </div>
+
+              <div className="rounded-md border bg-card p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Download className="size-4 text-muted-foreground" />
+                  {t("epubDraft.export", "Export")}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {t(
+                    "epubDraft.exportDesc",
+                    "Validate and write this draft to a new EPUB chosen in the save dialog.",
+                  )}
+                </p>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  {snapshot.validation?.valid === false
+                    ? t("epubDraft.exportInvalid", "Export is blocked until validation passes.")
+                    : t("epubDraft.exportReady", "Source EPUB is not overwritten.")}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  disabled={
+                    loading ||
+                    !!actionBusy ||
+                    snapshot.history?.status === "discarded" ||
+                    snapshot.validation?.valid === false
+                  }
+                  onClick={() => void handleExportDraft()}
+                >
+                  <Download className="size-3.5" />
+                  {actionBusy === "epub_export"
+                    ? t("common.loading", "Loading")
+                    : t("epubDraft.export", "Export")}
                 </Button>
               </div>
             </div>
