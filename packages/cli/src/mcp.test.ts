@@ -36,6 +36,20 @@ function buildInspectableEpub(): Uint8Array {
   ]);
 }
 
+function buildInvalidMissingResourceEpub(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Invalid MCP Draft</dc:title><dc:language>en</dc:language></metadata><manifest><item id="chapter-1" href="missing.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+    ),
+  ]);
+}
+
 function buildSimplePdf(pages: string[]): Uint8Array {
   const objects: string[] = [];
   const addObject = (body: string) => {
@@ -1669,6 +1683,67 @@ describe("mcp", () => {
     });
     expect(auditText).not.toContain(outputPath);
     expect(auditText).not.toContain(draftId);
+  });
+
+  it("refuses to export invalid drafts through MCP without writing output", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draft = (JSON.parse(createText) as {
+      data: { draft: { draftId: string; draftFilePath: string } };
+    }).data.draft;
+    await writeFile(join(env.READANY_HOME!, draft.draftFilePath), buildInvalidMissingResourceEpub());
+
+    const validateResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.validate", arguments: { draftId: draft.draftId } },
+      },
+      "publisher",
+      env,
+    );
+    const validateText = (validateResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(validateText)).toMatchObject({
+      ok: true,
+      data: {
+        validation: {
+          valid: false,
+          errorCount: 1,
+          issues: [
+            {
+              code: "manifest_resource_missing",
+              path: "OPS/missing.xhtml",
+            },
+          ],
+        },
+      },
+    });
+
+    const outputPath = join(env.READANY_HOME!, "..", "exports", "invalid-mcp-export.epub");
+    const exportResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.export", arguments: { draftId: draft.draftId, outputPath } },
+      },
+      "publisher",
+      env,
+    );
+    expect(exportResponse).toMatchObject({ isError: true });
+    const exportText = (exportResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(exportText)).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+    expect(exportText).toMatch(/validation failed/i);
+    await expect(readFile(outputPath)).rejects.toThrow();
   });
 
   it("blocks draft reads after discard", async () => {
