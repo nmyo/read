@@ -239,10 +239,11 @@ AI 编辑能力必须覆盖：
 readany epub validate <draft-id> --profile publisher --json
 readany epub export <draft-id> --profile publisher --output <path> --json
 readany notes export <book-id> --output <path> --profile publisher --format markdown --json
-readany knowledge export --format obsidian --json
+readany knowledge export --output <path> --profile publisher --format obsidian --json
+readany knowledge search "keyword" --json
 ```
 
-当前已实现 `epub.validate`、`epub.export`、`notes.export` 和 `knowledge.export`；knowledge export 只做文件级全库知识导出，默认不覆盖已有文件，不进入 MCP 未实现清单。
+当前已实现 `epub.validate`、`epub.export`、`notes.export`、`knowledge.export` 和 `knowledge.search`；knowledge export 只做文件级全库知识导出，默认不覆盖已有文件，不进入 MCP 未实现清单；knowledge search 只返回有界 snippet 和来源引用。
 
 完成标准：
 

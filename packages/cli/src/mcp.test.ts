@@ -168,6 +168,7 @@ describe("mcp", () => {
         { name: "notes.search" },
         { name: "notes.export" },
         { name: "knowledge.export" },
+        { name: "knowledge.search" },
         { name: "highlights.search" },
         { name: "rag.search" },
         { name: "audit.list" },
@@ -208,6 +209,47 @@ describe("mcp", () => {
       ok: true,
       data: {
         books: [{ id: "mcp-book", meta: { title: "MCP for Readers" } }],
+      },
+    });
+  });
+
+  it("searches library knowledge with bounded snippets", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "knowledge.search",
+          arguments: {
+            query: "export",
+            limit: 5,
+            contentLimit: 40,
+          },
+        },
+      },
+      "readonly",
+      env,
+    );
+
+    expect(response).toMatchObject({ isError: false });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: true,
+      data: {
+        knowledge: {
+          query: "export",
+          returned: expect.any(Number),
+          results: expect.arrayContaining([
+            expect.objectContaining({
+              source: expect.stringMatching(/book|note|highlight/),
+              reference: expect.objectContaining({
+                bookId: "mcp-book",
+              }),
+            }),
+          ]),
+        },
       },
     });
   });

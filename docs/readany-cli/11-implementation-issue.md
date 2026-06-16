@@ -58,8 +58,11 @@ books.search
 books.get
 chapters.list
 chapters.get
+context.get
 notes.search
 notes.export
+knowledge.export
+knowledge.search
 highlights.search
 rag.search
 audit.list
@@ -72,6 +75,7 @@ epub.metadata.patch
 epub.toc.rebuild
 epub.history
 epub.diff
+epub.undo
 epub.validate
 epub.export
 ```
@@ -79,7 +83,6 @@ epub.export
 当前还不能对外宣称：
 
 - 当前书、当前章、选区上下文资源已经完整完成。`context.get` 已可用，但桌面端写入链路和 UI 侧验收仍需继续。
-- knowledge export 已经完成。
 - 用户 draft 工作区完整 UI 已经完成。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
 
@@ -149,6 +152,7 @@ printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
 - 书籍列表、搜索、详情。
 - 章节目录和范围读取。
 - 笔记、高亮、书签、skills 查询。
+- 全库 knowledge search，聚合搜索书籍 metadata、notes 和 highlights，返回有限 snippet 和引用。
 - BM25 / vector / hybrid RAG。
 - 当前书、当前章、选区上下文资源。
 
@@ -168,6 +172,7 @@ node packages/cli/dist/bin/readany.js chapters list <book-id> --json
 node packages/cli/dist/bin/readany.js chapter get <book-id> <chapter-id> --chunk-start 1 --chunk-count 20 --json
 node packages/cli/dist/bin/readany.js notes search "keyword" --json
 node packages/cli/dist/bin/readany.js highlights search "keyword" --json
+node packages/cli/dist/bin/readany.js knowledge search "keyword" --json
 node packages/cli/dist/bin/readany.js rag search "keyword" --book <book-id> --json
 ```
 
@@ -228,6 +233,7 @@ test "$ORIGINAL_HASH" = "$(shasum -a 256 sample.epub | awk '{print $1}')"
 - `epub.export` 已实现为 validate 后导出新 EPUB，默认不覆盖已有文件、不覆盖原书。
 - `notes.export` 已实现为单本书 notes/highlights 文件导出，默认不覆盖已有文件。
 - `knowledge.export` 已实现为全库知识文件导出，默认不覆盖已有文件，CLI/MCP 响应只返回输出元数据。
+- `knowledge.search` 已实现为全库聚合搜索，默认只返回有界 snippet 和 book/note/highlight/cfi 引用，不返回完整导出正文或任意文件内容。
 
 验收：
 

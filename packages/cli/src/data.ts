@@ -46,6 +46,7 @@ import {
   exportKnowledgeLibrary,
   type KnowledgeExportFormat,
 } from "@readany/core/export/knowledge-export";
+import { searchKnowledge, type KnowledgeSearchResult } from "@readany/core/knowledge/search";
 import { createNodePlatformService } from "./platform/node-platform.js";
 import { configureRagSearchForCli } from "./rag-config.js";
 
@@ -457,6 +458,41 @@ export async function exportKnowledgeWorkspace(options: {
     includeNotes,
     includeHighlights,
     limit,
+  });
+}
+
+export async function searchKnowledgeWorkspace(options: {
+  query: string;
+  bookId?: string;
+  limit?: number;
+  contentLimit?: number;
+  scanLimit?: number;
+  includeBooks?: boolean;
+  includeNotes?: boolean;
+  includeHighlights?: boolean;
+  env?: NodeJS.ProcessEnv;
+}): Promise<KnowledgeSearchResult> {
+  const {
+    query,
+    bookId,
+    limit,
+    contentLimit,
+    scanLimit,
+    includeBooks,
+    includeNotes,
+    includeHighlights,
+    env = process.env,
+  } = options;
+  await ensureCoreInitialized(env);
+  return searchKnowledge({
+    query,
+    bookId,
+    limit,
+    contentLimit,
+    scanLimit,
+    includeBooks,
+    includeNotes,
+    includeHighlights,
   });
 }
 

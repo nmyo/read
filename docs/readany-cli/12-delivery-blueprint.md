@@ -195,12 +195,8 @@ AI 必须能做：
 readany epub validate <draft-id> --profile publisher --json
 readany epub export <draft-id> --profile publisher --output <path> --json
 readany notes export <book-id> --output <path> --profile publisher --format markdown --json
-```
-
-后续提供：
-
-```bash
-readany knowledge export --format obsidian --json
+readany knowledge export --output <path> --profile publisher --format obsidian --json
+readany knowledge search "keyword" --json
 ```
 
 完成线：

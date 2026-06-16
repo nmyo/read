@@ -34,6 +34,7 @@
 - 已支持 chapter view：`readany chapters list`、`readany chapter get` 和 MCP `chapters.*` 会优先返回 indexed chunks；没有 chunks 且书籍是 EPUB/PDF 时，会 fallback 到真实 EPUB spine/manifest 或 PDF page text 读取章节目录和正文。
 - 已支持 reader context snapshot：`readany context get` 和 MCP `context.get` 可只读返回桌面端写入的当前书、当前章、位置、选区、可见正文和最近高亮快照，并带内容长度限制。
 - 已支持 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id> --mode bm25|hybrid|vector` 和 MCP `rag.search`。BM25 总是可用；hybrid 在没有 embedding 配置时会安全回退到 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
+- 已支持 knowledge search：`readany knowledge search <query>` 和 MCP `knowledge.search` 可聚合搜索书籍 metadata、notes 和 highlights，返回有限 snippet 和 book/note/highlight/cfi 引用。
 - 已支持 EPUB inspect：`readany epub inspect <book-id> --profile editor` 和 MCP `epub.inspect` 可读取 EPUB package、metadata、manifest、spine、toc 结构。
 - 已支持 EPUB draft create：`readany epub draft create <book-id> --profile editor` 和 MCP `epub.draft.create` 会复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改原文件。
 - 已支持 EPUB draft chapter read：`readany epub chapter read <draft-id> <chapter-id> --profile editor` 和 MCP `epub.chapter.read` 可从 draft 读取 XHTML 章节文本，带内容长度限制。
@@ -49,7 +50,7 @@
 - 已支持 knowledge export：`readany knowledge export --output <path> --profile publisher` 和 MCP `knowledge.export` 可导出全库书籍 metadata、notes、highlights 到 Markdown、JSON 或 Obsidian 文件，默认不覆盖已有文件，响应只返回输出元数据。
 - 已支持审计日志读取：`readany audit list --json` 和 MCP `audit.list` 可查看最近 CLI/MCP 调用记录，不返回工具参数正文。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
-- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`notes.search`、`notes.export`、`knowledge.export`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
+- MCP 当前只暴露真实实现的工具：`books.list`、`books.search`、`books.get`、`chapters.list`、`chapters.get`、`context.get`、`notes.search`、`notes.export`、`knowledge.export`、`knowledge.search`、`highlights.search`、`rag.search`、`audit.list`、`epub.inspect`、`epub.draft.create`、`epub.draft.discard`、`epub.chapter.read`、`epub.chapter.patch`、`epub.metadata.patch`、`epub.toc.rebuild`、`epub.history`、`epub.diff`、`epub.undo`、`epub.validate`、`epub.export`。
 - 桌面客户端已增加 `设置 -> 外部 AI 访问`，可检测 CLI、运行 doctor、管理 Skill、复制 readonly MCP 配置。
 - 用户精排入口不放在设置页，放在书籍详情 / draft 工作区中；设置页只负责接入和权限管理。
 

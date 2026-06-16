@@ -271,6 +271,59 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "knowledge.search",
+    description: "Search ReadAny book metadata, notes, and highlights with bounded snippets and source references.",
+    scopes: ["knowledge.read"],
+    risk: "low",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          minLength: 1,
+          description: "Search query.",
+        },
+        bookId: {
+          type: "string",
+          minLength: 1,
+          description: "Optional ReadAny book id filter.",
+        },
+        limit: {
+          type: "number",
+          minimum: 1,
+          maximum: 100,
+          description: "Maximum number of results to return.",
+        },
+        contentLimit: {
+          type: "number",
+          minimum: 40,
+          maximum: 1000,
+          description: "Maximum characters in each returned snippet.",
+        },
+        scanLimit: {
+          type: "number",
+          minimum: 1,
+          maximum: 10000,
+          description: "Maximum notes and highlights to scan from each collection.",
+        },
+        includeBooks: {
+          type: "boolean",
+          description: "Include book metadata matches. Defaults to true.",
+        },
+        includeNotes: {
+          type: "boolean",
+          description: "Include notes. Defaults to true.",
+        },
+        includeHighlights: {
+          type: "boolean",
+          description: "Include highlights. Defaults to true.",
+        },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "highlights.search",
     description: "Search highlights in the ReadAny library.",
     scopes: ["note.read"],

@@ -34,6 +34,7 @@ import {
   rebuildEpubTocWorkspace,
   searchRag,
   searchBooks,
+  searchKnowledgeWorkspace,
   undoEpubDraftWorkspace,
   validateEpubDraftWorkspace,
 } from "./data.js";
@@ -354,6 +355,25 @@ async function callReadAnyTool(
       env,
     });
     return success({ export: exported });
+  }
+
+  if (toolName === "knowledge.search") {
+    const query = getString(args, "query");
+    if (!query) return failure("missing_query", "knowledge.search requires query");
+    return success({
+      knowledge: await searchKnowledgeWorkspace({
+        query,
+        bookId: getString(args, "bookId"),
+        limit: getLimit(args, 20),
+        contentLimit: getNumber(args, "contentLimit", 240),
+        scanLimit: getNumber(args, "scanLimit", 1000),
+        includeBooks: typeof args.includeBooks === "boolean" ? args.includeBooks : undefined,
+        includeNotes: typeof args.includeNotes === "boolean" ? args.includeNotes : undefined,
+        includeHighlights:
+          typeof args.includeHighlights === "boolean" ? args.includeHighlights : undefined,
+        env,
+      }),
+    });
   }
 
   if (toolName === "highlights.search") {

@@ -224,7 +224,7 @@ readany epub export <draft-id> --json
 - CLI 能启动 readonly MCP。
 - 外部 AI 可以发现 ReadAny 工具。
 - 只读查询链路跑通。
-- MCP 不展示 vector/hybrid RAG、knowledge export 等未实现工具；未索引 EPUB/PDF fallback 只作为 `chapters.*` 的已测行为存在，不新增伪工具。
+- MCP 不展示规划中但未实现的工具；已实现的 `rag.search` bm25/hybrid/vector、`knowledge.export` 和 `knowledge.search` 必须有对应测试和文档。
 - 测试不依赖真实用户数据。
 
 ## 功能验收清单
@@ -277,7 +277,7 @@ readany epub export <draft-id> --json
 - 外部 AI 能发现 ReadAny。
 - 外部 AI 能列书、搜书、读书籍元数据、搜笔记、搜高亮。
 - 桌面端能安装/卸载 Skill，复制 readonly MCP 配置。
-- `tools/list` 没有 vector/hybrid RAG、knowledge export。
+- `tools/list` 只包含真实实现、测试通过、文档同步的工具。
 - 所有测试通过。
 
 ### M2 停止线

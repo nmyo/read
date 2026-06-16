@@ -109,7 +109,7 @@ async function seedLibrary(dataRoot: string): Promise<void> {
       is_vectorized, vectorize_progress, tags, file_hash, sync_status
     ) VALUES (
       'book-1', 'books/agent.epub', 'epub', 'Agent Systems', 'Ada Reader', NULL, 'en',
-      NULL, 'A book about agent architecture', NULL, NULL, NULL, NULL, '["AI"]',
+      NULL, 'A book about safe agent architecture', NULL, NULL, NULL, NULL, '["AI"]',
       100, 8, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 1, 1,
       '["ai","agent"]', 'hash-1', 'local'
     );
@@ -275,7 +275,7 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
-        tools: { count: 24 },
+        tools: { count: 25 },
       });
     }
   });
@@ -1386,6 +1386,54 @@ describe("commands", () => {
       ok: false,
       error: { code: "command_failed" },
     });
+  });
+
+  it("searches library knowledge with bounded snippets", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const result = await runCommand(
+      ["knowledge", "search", "safe", "--limit", "5", "--content-limit", "40"],
+      workspace.env,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({
+      knowledge: {
+        query: "safe",
+        returned: 3,
+        results: [
+          {
+            source: "note",
+            id: "note-1",
+            bookId: "book-1",
+            bookTitle: "Agent Systems",
+            reference: {
+              bookId: "book-1",
+              noteId: "note-1",
+              cfi: "epubcfi(/6/4)",
+              chapterTitle: "Tools",
+            },
+          },
+          {
+            source: "highlight",
+            id: "highlight-1",
+            reference: {
+              bookId: "book-1",
+              highlightId: "highlight-1",
+              cfi: "epubcfi(/6/8)",
+            },
+          },
+          {
+            source: "book",
+            id: "book-1",
+          },
+        ],
+      },
+    });
+    const payload = result.data as { knowledge: { results: Array<{ snippet: string }> } };
+    expect(payload.knowledge.results.every((item) => item.snippet.length <= 40)).toBe(true);
   });
 
   it("requires a book id for rag search", async () => {

@@ -60,6 +60,7 @@ readany chapter get <book-id> <chapter-id> [--chunk-start 1] [--chunk-count 20] 
 readany context get [--json] [--limit 12000] [--include-selection true|false] [--include-surrounding-text true|false] [--include-highlights true|false]
 readany notes search <query> [--book <book-id>] [--json]
 readany highlights search <query> [--book <book-id>] [--json]
+readany knowledge search <query> [--book <book-id>] [--limit 20] [--json]
 readany bookmarks list <book-id> [--json]
 readany skills list [--json]
 readany rag search <query> --book <book-id> [--mode bm25|hybrid|vector] [--limit 5] [--json]
@@ -146,6 +147,7 @@ chapters.get
 notes.search
 notes.export
 knowledge.export
+knowledge.search
 highlights.search
 rag.search
 audit.list
@@ -259,7 +261,7 @@ epub.validate
 epub.export
 ```
 
-M2 再做：
+当前已实现：
 
 ```text
 knowledge.search

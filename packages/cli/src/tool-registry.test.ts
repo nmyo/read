@@ -14,6 +14,7 @@ describe("tool registry", () => {
       "notes.search",
       "notes.export",
       "knowledge.export",
+      "knowledge.search",
       "highlights.search",
       "rag.search",
       "audit.list",

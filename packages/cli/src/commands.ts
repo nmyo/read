@@ -153,6 +153,7 @@ Usage:
   readany notes search <query> [--json] [--book <book-id>]
   readany notes export <book-id> --output <path> [--json] [--profile publisher] [--format markdown] [--overwrite]
   readany highlights search <query> [--json] [--book <book-id>]
+  readany knowledge search <query> [--json] [--book <book-id>] [--limit 20] [--content-limit 240]
   readany knowledge export --output <path> [--json] [--profile publisher] [--format markdown|json|obsidian] [--limit 1000] [--overwrite]
   readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
@@ -396,7 +397,26 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
 
     if (command.name === "knowledge") {
       const data = await getDataApi();
-      const subcommand = command.args[0] ?? "export";
+      const subcommand = command.args[0] ?? "search";
+      if (subcommand === "search") {
+        const query = command.args.slice(1).join(" ");
+        if (!query) {
+          return failure("missing_query", "knowledge search requires a query");
+        }
+        return success({
+          knowledge: await data.searchKnowledgeWorkspace({
+            query,
+            bookId: getStringOption(command, "book"),
+            limit: getLimit(command, 20),
+            contentLimit: getNumberOption(command, "content-limit", 240),
+            scanLimit: getNumberOption(command, "scan-limit", 1000),
+            includeBooks: command.options["no-books"] === true ? false : undefined,
+            includeNotes: command.options["no-notes"] === true ? false : undefined,
+            includeHighlights: command.options["no-highlights"] === true ? false : undefined,
+            env,
+          }),
+        });
+      }
       if (subcommand === "export") {
         const profile = parseAccessProfile(command.profile);
         if (!profileHasScope(profile, "epub.export")) {
