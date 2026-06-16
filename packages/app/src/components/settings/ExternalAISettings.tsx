@@ -69,6 +69,13 @@ type DoctorReport = {
   version: string;
   profile: string;
   tools: { count: number };
+  mcp?: {
+    defaultProfile: string;
+    serveArgs: string[];
+    supportedProfiles: string[];
+    supportedClients: string[];
+    toolCount: number;
+  };
   checks: Array<{ name: string; ok: boolean; message: string }>;
 };
 

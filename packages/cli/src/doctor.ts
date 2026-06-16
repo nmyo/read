@@ -25,6 +25,13 @@ export type DoctorReport = {
   tools: {
     count: number;
   };
+  mcp: {
+    defaultProfile: AccessProfile;
+    serveArgs: string[];
+    supportedProfiles: AccessProfile[];
+    supportedClients: string[];
+    toolCount: number;
+  };
   checks: DoctorCheck[];
 };
 
@@ -52,6 +59,7 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
   const readanyHomeWritable = await canAccess(paths.readanyHome, constants.W_OK);
   const auditLogWritable = await canAccess(paths.auditLogDir, constants.W_OK);
   const nativeSqlitePath = resolveNativeSqlite();
+  const toolCount = listTools().length;
 
   return {
     version: CLI_VERSION,
@@ -64,7 +72,14 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
       nativeSqlitePath,
     },
     tools: {
-      count: listTools().length,
+      count: toolCount,
+    },
+    mcp: {
+      defaultProfile: "readonly",
+      serveArgs: ["mcp", "serve", "--profile", "readonly"],
+      supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
+      supportedClients: ["generic", "claude", "cursor", "codex"],
+      toolCount,
     },
     checks: [
       {

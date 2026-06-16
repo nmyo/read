@@ -19,6 +19,8 @@ readany uninstall [--global | --user]
 
 `install` 和 `uninstall` 用于安装或卸载全局 CLI shim。客户端随包携带 CLI binary，但全局命令由 CLI 自己管理。
 
+`doctor --json` 输出机器可读诊断，包含路径、profile、Node / native sqlite runtime、工具数量、MCP 默认启动参数、支持的 profile/client、Skill 状态和检查项。
+
 ### MCP 命令
 
 ```bash

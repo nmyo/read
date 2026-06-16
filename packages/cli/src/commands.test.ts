@@ -348,6 +348,13 @@ describe("commands", () => {
           nativeSqlitePath: expect.stringContaining("better-sqlite3"),
         },
         tools: { count: 28 },
+        mcp: {
+          defaultProfile: "readonly",
+          serveArgs: ["mcp", "serve", "--profile", "readonly"],
+          supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
+          supportedClients: ["generic", "claude", "cursor", "codex"],
+          toolCount: 28,
+        },
       });
     }
   });
