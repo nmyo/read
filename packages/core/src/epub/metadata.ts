@@ -1,7 +1,11 @@
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { getPlatformService } from "../services";
 import { generateId } from "../utils/generate-id";
-import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
+import {
+  readActiveEpubDraftManifest,
+  writeEpubDraftUndoSnapshot,
+  type EpubDraftManifest,
+} from "./draft";
 import { inspectEpubBytes, withEpubPackageResourceReader } from "./inspect";
 import { replaceZipTextEntry, sha256Hex } from "./zip";
 
@@ -59,6 +63,15 @@ export async function patchEpubMetadataInDraft(
   if (changed) {
     const patchedBytes = await replaceZipTextEntry(draftBytes, packageResource.packagePath, nextOpf);
     await platform.writeFile(draftPath, patchedBytes);
+    await writeEpubDraftUndoSnapshot(draftId, {
+      version: 1,
+      operationId,
+      action: "epub.metadata.patch",
+      resourcePath: packageResource.packagePath,
+      beforeContent: packageResource.content,
+      beforeHash,
+      afterHash,
+    });
   }
 
   const inspected = changed ? await inspectEpubBytes(await platform.readFile(draftPath)) : manifest.inspect;

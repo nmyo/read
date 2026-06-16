@@ -1,6 +1,10 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { getPlatformService } from "../services";
-import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
+import {
+  readActiveEpubDraftManifest,
+  writeEpubDraftUndoSnapshot,
+  type EpubDraftManifest,
+} from "./draft";
 import { generateId } from "../utils/generate-id";
 import { inspectEpubBytes } from "./inspect";
 import { withEpubPackageResourceReader } from "./inspect";
@@ -88,6 +92,15 @@ export async function patchEpubChapterInDraft(
   if (changed) {
     const patchedBytes = await replaceZipTextEntry(draftBytes, chapterResource.resourcePath, xhtml);
     await platform.writeFile(draftPath, patchedBytes);
+    await writeEpubDraftUndoSnapshot(draftId, {
+      version: 1,
+      operationId,
+      action: "epub.chapter.patch",
+      resourcePath: chapterResource.resourcePath,
+      beforeContent: beforeXml,
+      beforeHash,
+      afterHash,
+    });
   }
 
   const nextManifest: EpubDraftManifest = {

@@ -297,7 +297,7 @@ readany epub export <draft-id> --json
 
 - AI 能创建 draft。
 - AI 能修改当前章或元数据。
-- 用户能查看 operation history 和 source/draft EPUB entry diff；undo 完成后再进入完整 M3 验收。
+- 用户能查看 operation history、source/draft EPUB entry diff，并撤销可回滚的 patch。
 - 原始 EPUB 不被修改。
 
 ### M4 停止线

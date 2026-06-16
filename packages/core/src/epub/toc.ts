@@ -1,7 +1,11 @@
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { getPlatformService } from "../services";
 import { generateId } from "../utils/generate-id";
-import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
+import {
+  readActiveEpubDraftManifest,
+  writeEpubDraftUndoSnapshot,
+  type EpubDraftManifest,
+} from "./draft";
 import { inspectEpubBytes, resolvePackagePath, withEpubPackageResourceReader } from "./inspect";
 import { readZipTextEntry, replaceZipTextEntry, sha256Hex } from "./zip";
 
@@ -70,6 +74,15 @@ export async function rebuildEpubTocInDraft(
   if (changed) {
     const patchedBytes = await replaceZipTextEntry(draftBytes, plan.navPath, afterNav);
     await platform.writeFile(draftPath, patchedBytes);
+    await writeEpubDraftUndoSnapshot(draftId, {
+      version: 1,
+      operationId,
+      action: "epub.toc.rebuild",
+      resourcePath: plan.navPath,
+      beforeContent: beforeNav,
+      beforeHash,
+      afterHash,
+    });
   }
 
   const nextManifest: EpubDraftManifest = {

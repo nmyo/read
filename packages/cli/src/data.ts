@@ -7,6 +7,7 @@ import {
   createEpubDraft,
   discardEpubDraft,
   readEpubDraftHistory,
+  undoEpubDraftOperation,
   type EpubDraftCreateResult,
 } from "@readany/core/epub/draft";
 import { diffEpubDraft } from "@readany/core/epub/diff";
@@ -341,6 +342,18 @@ export async function discardEpubDraftWorkspace(
   const { draftId, reason, env = process.env } = options;
   await ensureCoreInitialized(env);
   return discardEpubDraft(draftId, { reason });
+}
+
+export async function undoEpubDraftWorkspace(
+  options: {
+    draftId: string;
+    operationId: string;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<import("@readany/core/epub/draft").EpubDraftUndoResult> {
+  const { draftId, operationId, env = process.env } = options;
+  await ensureCoreInitialized(env);
+  return undoEpubDraftOperation(draftId, operationId);
 }
 
 export async function diffEpubDraftWorkspace(

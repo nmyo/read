@@ -184,7 +184,8 @@ node packages/cli/dist/bin/readany.js rag search "keyword" --book <book-id> --js
 - `epub.toc.rebuild`
 - `epub.history`
 - `epub.diff`
-- `epub.undo` 或等价可回滚能力。
+- `epub.draft.discard` 作为当前可回滚路径。
+- `epub.undo` 作为单操作撤销路径。
 - AI 可以修本章、指定章节范围或全书。
 - Reader AI 可以生成封面、见解、元数据、目录、全书修复建议。
 - 用户可以在 draft 工作区手动编辑，并继续交给 AI 修改。
@@ -194,6 +195,7 @@ node packages/cli/dist/bin/readany.js rag search "keyword" --book <book-id> --js
 - `epub.toc.rebuild` 只重建 EPUB3 nav 目录，不重建 NCX，也不生成内容级 diff。
 - `epub.chapter.patch` 当前只替换 draft 内单个 XHTML 章节资源。
 - `epub.diff` 当前只比较 EPUB entry 的 hash 和 size，不返回完整正文。
+- `epub.undo` 当前只撤销已记录且资源未被后续改动覆盖的 chapter / metadata / toc patch。
 
 验收：
 

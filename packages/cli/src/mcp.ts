@@ -33,6 +33,7 @@ import {
   rebuildEpubTocWorkspace,
   searchRag,
   searchBooks,
+  undoEpubDraftWorkspace,
   validateEpubDraftWorkspace,
 } from "./data.js";
 
@@ -474,6 +475,19 @@ async function callReadAnyTool(
     if (!draftId) return failure("missing_draft_id", "epub.diff requires draftId");
     const diff = await diffEpubDraftWorkspace(draftId, env);
     return success({ diff });
+  }
+
+  if (toolName === "epub.undo") {
+    const draftId = getString(args, "draftId");
+    if (!draftId) return failure("missing_draft_id", "epub.undo requires draftId");
+    const operationId = getString(args, "operationId");
+    if (!operationId) return failure("missing_operation_id", "epub.undo requires operationId");
+    const undo = await undoEpubDraftWorkspace({
+      draftId,
+      operationId,
+      env,
+    });
+    return success({ undo });
   }
 
   if (toolName === "epub.validate") {

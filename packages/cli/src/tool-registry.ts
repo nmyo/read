@@ -520,6 +520,29 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
     },
   },
   {
+    name: "epub.undo",
+    description: "Undo one EPUB draft patch operation when no later edit changed the same resource.",
+    scopes: ["epub.draft"],
+    risk: "medium",
+    inputSchema: {
+      type: "object",
+      properties: {
+        draftId: {
+          type: "string",
+          minLength: 1,
+          description: "ReadAny EPUB draft id.",
+        },
+        operationId: {
+          type: "string",
+          minLength: 1,
+          description: "Operation id from epub.history to undo.",
+        },
+      },
+      required: ["draftId", "operationId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "epub.validate",
     description: "Validate an active EPUB draft before export without modifying files.",
     scopes: ["epub.export"],

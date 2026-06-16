@@ -59,6 +59,8 @@ readany mcp serve --profile readonly
 - MCP tools/list：
 - reader context snapshot：
 - readonly 权限拒绝：
+- draft discard / rollback：
+- 原始 EPUB hash：
 - audit log：
 - 外部 agent：
 - 桌面设置页：

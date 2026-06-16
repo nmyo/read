@@ -25,6 +25,7 @@ describe("tool registry", () => {
       "epub.toc.rebuild",
       "epub.history",
       "epub.diff",
+      "epub.undo",
       "epub.validate",
       "epub.export",
     ]);
@@ -46,6 +47,7 @@ describe("tool registry", () => {
     expect(tools.find((tool) => tool.name === "epub.toc.rebuild")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.history")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "epub.diff")?.risk).toBe("medium");
+    expect(tools.find((tool) => tool.name === "epub.undo")?.risk).toBe("medium");
     expect(tools.find((tool) => tool.name === "notes.export")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.validate")?.risk).toBe("high");
     expect(tools.find((tool) => tool.name === "epub.export")?.risk).toBe("high");

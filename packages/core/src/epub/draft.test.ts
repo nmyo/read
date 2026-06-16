@@ -6,7 +6,13 @@ import type { Book } from "../types";
 import type { IPlatformService } from "../services";
 import { buildStoreOnlyZip, type ZipEntry } from "../utils/store-only-zip";
 import { setPlatformService } from "../services";
-import { createEpubDraft, discardEpubDraft, readEpubDraftHistory } from "./draft";
+import {
+  createEpubDraft,
+  discardEpubDraft,
+  readEpubDraftHistory,
+  undoEpubDraftOperation,
+} from "./draft";
+import { patchEpubChapterInDraft, readEpubChapterFromDraft } from "./chapter";
 
 const encoder = new TextEncoder();
 
@@ -251,5 +257,64 @@ describe("createEpubDraft", () => {
         readEpubChapterFromDraft("draft-1", "chapter-1"),
       ),
     ).rejects.toThrow(/discarded/i);
+  });
+
+  it("undoes a draft patch operation without modifying the source EPUB", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-draft-undo-"));
+    const { dataDir } = await createPlatform(root);
+    const sourcePath = join(dataDir, "books", "sample.epub");
+    const sourceBytes = buildMinimalEpub();
+    await writeFile(sourcePath, sourceBytes);
+    const book = {
+      id: "book-1",
+      filePath: "books/sample.epub",
+      format: "epub",
+      meta: { title: "Draftable EPUB" },
+    } as Book;
+    await createEpubDraft(book, { draftId: "draft-1" });
+    const patched = await patchEpubChapterInDraft(
+      "draft-1",
+      "chapter-1",
+      "<html><body><h1>Changed</h1><p>Edited chapter.</p></body></html>",
+      { now: new Date("2026-06-16T00:00:00Z") },
+    );
+
+    const changedChapter = await readEpubChapterFromDraft("draft-1", "chapter-1");
+    expect(changedChapter.content).toBe("Changed Edited chapter.");
+
+    const undone = await undoEpubDraftOperation("draft-1", patched.operationId, {
+      now: new Date("2026-06-16T00:01:00Z"),
+    });
+
+    expect(undone).toMatchObject({
+      draftId: "draft-1",
+      bookId: "book-1",
+      operationId: patched.operationId,
+      undoneAction: "epub.chapter.patch",
+      resourcePath: "OPS/chapter-1.xhtml",
+      beforeHash: patched.afterHash,
+      afterHash: patched.beforeHash,
+      updatedAt: "2026-06-16T00:01:00.000Z",
+      changed: true,
+      manifestPath: "drafts/epub/draft-1/manifest.json",
+      historyPath: "drafts/epub/draft-1/history.jsonl",
+    });
+
+    const restoredChapter = await readEpubChapterFromDraft("draft-1", "chapter-1");
+    expect(restoredChapter.content).toBe("Start");
+    expect(Array.from(await readFile(sourcePath))).toEqual(Array.from(sourceBytes));
+
+    const history = await readEpubDraftHistory("draft-1");
+    expect(history.entries).toHaveLength(3);
+    expect(history.entries.at(-1)).toMatchObject({
+      action: "epub.undo",
+      operationId: patched.operationId,
+      undoneAction: "epub.chapter.patch",
+      resourcePath: "OPS/chapter-1.xhtml",
+    });
+
+    await expect(undoEpubDraftOperation("draft-1", patched.operationId)).rejects.toThrow(
+      /already been undone/i,
+    );
   });
 });

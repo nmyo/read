@@ -2,6 +2,7 @@ import type { Book } from "../types";
 import { generateId } from "../utils/generate-id";
 import { getPlatformService } from "../services";
 import { inspectEpubBytes, type EpubInspectResult } from "./inspect";
+import { readZipTextEntry, replaceZipTextEntry } from "./zip";
 
 export type EpubDraftManifest = {
   version: 1;
@@ -39,6 +40,19 @@ export type EpubDraftPatchHistoryEntry = {
   itemCount?: number;
 };
 
+export type EpubDraftUndoHistoryEntry = {
+  id: string;
+  timestamp: string;
+  action: "epub.undo";
+  bookId: string;
+  draftId: string;
+  operationId: string;
+  undoneAction: EpubDraftPatchHistoryEntry["action"];
+  resourcePath: string;
+  beforeHash: string;
+  afterHash: string;
+};
+
 export type EpubDraftDiscardHistoryEntry = {
   id: string;
   timestamp: string;
@@ -51,7 +65,18 @@ export type EpubDraftDiscardHistoryEntry = {
 export type EpubDraftHistoryEntry =
   | EpubDraftCreateHistoryEntry
   | EpubDraftPatchHistoryEntry
+  | EpubDraftUndoHistoryEntry
   | EpubDraftDiscardHistoryEntry;
+
+export type EpubDraftUndoSnapshot = {
+  version: 1;
+  operationId: string;
+  action: EpubDraftPatchHistoryEntry["action"];
+  resourcePath: string;
+  beforeContent: string;
+  beforeHash: string;
+  afterHash: string;
+};
 
 export type EpubDraftCreateResult = {
   draftId: string;
@@ -79,6 +104,21 @@ export type EpubDraftDiscardResult = {
   status: "discarded";
   discardedAt: string;
   operationId: string;
+  manifestPath: string;
+  historyPath: string;
+};
+
+export type EpubDraftUndoResult = {
+  draftId: string;
+  bookId: string;
+  operationId: string;
+  undoneAction: EpubDraftPatchHistoryEntry["action"];
+  resourcePath: string;
+  beforeHash: string;
+  afterHash: string;
+  undoOperationId: string;
+  updatedAt: string;
+  changed: boolean;
   manifestPath: string;
   historyPath: string;
 };
@@ -231,6 +271,128 @@ export async function discardEpubDraft(
     status: "discarded",
     discardedAt,
     operationId,
+    manifestPath: `drafts/epub/${draftId}/manifest.json`,
+    historyPath: `drafts/epub/${draftId}/history.jsonl`,
+  };
+}
+
+export async function writeEpubDraftUndoSnapshot(
+  draftId: string,
+  snapshot: EpubDraftUndoSnapshot,
+): Promise<string> {
+  const platform = getPlatformService();
+  const dataDir = await platform.getDataDir();
+  const snapshotDir = await platform.joinPath(dataDir, "drafts", "epub", draftId, "undo");
+  await platform.mkdir(snapshotDir);
+  const snapshotPath = await platform.joinPath(snapshotDir, `${snapshot.operationId}.json`);
+  await platform.writeTextFile(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`);
+  return `drafts/epub/${draftId}/undo/${snapshot.operationId}.json`;
+}
+
+export async function undoEpubDraftOperation(
+  draftId: string,
+  operationId: string,
+  options: { now?: Date } = {},
+): Promise<EpubDraftUndoResult> {
+  const trimmedOperationId = operationId.trim();
+  if (!trimmedOperationId) {
+    throw new Error("EPUB undo requires an operation id.");
+  }
+
+  const platform = getPlatformService();
+  const { dataDir, manifestPath, historyPath, manifest } = await readActiveEpubDraftManifest(draftId);
+  const history = await readEpubDraftHistory(draftId);
+  const target = history.entries.find(
+    (entry): entry is EpubDraftPatchHistoryEntry =>
+      entry.id === trimmedOperationId &&
+      (entry.action === "epub.chapter.patch" ||
+        entry.action === "epub.metadata.patch" ||
+        entry.action === "epub.toc.rebuild"),
+  );
+  if (!target) {
+    throw new Error(`Undoable EPUB operation was not found: ${trimmedOperationId}`);
+  }
+  const alreadyUndone = history.entries.some(
+    (entry) => entry.action === "epub.undo" && entry.operationId === trimmedOperationId,
+  );
+  if (alreadyUndone) {
+    throw new Error(`EPUB operation has already been undone: ${trimmedOperationId}`);
+  }
+
+  const snapshotPath = await platform.joinPath(
+    dataDir,
+    "drafts",
+    "epub",
+    draftId,
+    "undo",
+    `${trimmedOperationId}.json`,
+  );
+  if (!(await platform.exists(snapshotPath))) {
+    throw new Error(`EPUB undo snapshot was not found: ${trimmedOperationId}`);
+  }
+  const snapshot = JSON.parse(await platform.readTextFile(snapshotPath)) as EpubDraftUndoSnapshot;
+  if (
+    snapshot.version !== 1 ||
+    snapshot.operationId !== target.id ||
+    snapshot.action !== target.action ||
+    snapshot.beforeHash !== target.beforeHash ||
+    snapshot.afterHash !== target.afterHash
+  ) {
+    throw new Error(`EPUB undo snapshot does not match operation: ${trimmedOperationId}`);
+  }
+
+  const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
+  if (!(await platform.exists(draftPath))) {
+    throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);
+  }
+  const draftBytes = await platform.readFile(draftPath);
+  const currentContent = await readZipTextEntry(draftBytes, snapshot.resourcePath);
+  if (currentContent === null) {
+    throw new Error(`EPUB entry was not found: ${snapshot.resourcePath}`);
+  }
+  const currentHash = await sha256Hex(new TextEncoder().encode(currentContent));
+  if (currentHash !== snapshot.afterHash) {
+    throw new Error(
+      `EPUB operation cannot be undone because ${snapshot.resourcePath} changed after ${trimmedOperationId}.`,
+    );
+  }
+
+  const undoOperationId = generateId();
+  const updatedAt = (options.now ?? new Date()).toISOString();
+  const patchedBytes = await replaceZipTextEntry(draftBytes, snapshot.resourcePath, snapshot.beforeContent);
+  await platform.writeFile(draftPath, patchedBytes);
+
+  const nextManifest: EpubDraftManifest = {
+    ...manifest,
+    updatedAt,
+    inspect: await inspectEpubBytes(await platform.readFile(draftPath)),
+  };
+  await platform.writeTextFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
+
+  await appendHistoryLine(historyPath, {
+    id: undoOperationId,
+    timestamp: updatedAt,
+    action: "epub.undo",
+    bookId: manifest.bookId,
+    draftId,
+    operationId: trimmedOperationId,
+    undoneAction: target.action,
+    resourcePath: snapshot.resourcePath,
+    beforeHash: snapshot.afterHash,
+    afterHash: snapshot.beforeHash,
+  } satisfies EpubDraftUndoHistoryEntry);
+
+  return {
+    draftId,
+    bookId: manifest.bookId,
+    operationId: trimmedOperationId,
+    undoneAction: target.action,
+    resourcePath: snapshot.resourcePath,
+    beforeHash: snapshot.afterHash,
+    afterHash: snapshot.beforeHash,
+    undoOperationId,
+    updatedAt,
+    changed: snapshot.beforeHash !== snapshot.afterHash,
     manifestPath: `drafts/epub/${draftId}/manifest.json`,
     historyPath: `drafts/epub/${draftId}/history.jsonl`,
   };

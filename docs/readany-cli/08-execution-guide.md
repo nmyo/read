@@ -403,9 +403,10 @@ M5：普通用户能通过桌面端完成接入，高级用户能通过 CLI/MCP 
 - `readany epub metadata patch ... --json`
 - `readany epub history <draft-id> --profile editor --json`
 - `readany epub diff <draft-id> --profile editor --json`
+- `readany epub undo <draft-id> <operation-id> --profile editor --json`
 - `readany epub toc rebuild ... --json`
 - AI 能修本章，也能修全书
-- 用户能查看 operation history 和 source/draft EPUB entry diff，undo 完成后再进入完整 M3 验收
+- 用户能查看 operation history、source/draft EPUB entry diff，并撤销可回滚的 patch
 - 原始 EPUB hash 不变
 
 ### M4 验收

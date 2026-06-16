@@ -143,6 +143,7 @@ Usage:
   readany epub toc rebuild <draft-id> [--json] [--profile editor]
   readany epub history <draft-id> [--json] [--profile editor]
   readany epub diff <draft-id> [--json] [--profile editor]
+  readany epub undo <draft-id> <operation-id> [--json] [--profile editor]
   readany epub validate <draft-id> [--json] [--profile publisher]
   readany epub export <draft-id> --output <path> [--json] [--profile publisher] [--overwrite]
   readany notes search <query> [--json] [--book <book-id>]
@@ -608,6 +609,24 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (!draftId) return failure("missing_draft_id", "epub diff requires a draft id");
         const diff = await data.diffEpubDraftWorkspace(draftId, env);
         return success({ diff });
+      }
+      if (subcommand === "undo") {
+        const profile = parseAccessProfile(command.profile);
+        if (!profileHasScope(profile, "epub.draft")) {
+          return failure("permission_denied", "epub undo requires editor profile or higher");
+        }
+        const draftId = command.args[1];
+        const operationId = command.args[2];
+        if (!draftId) return failure("missing_draft_id", "epub undo requires a draft id");
+        if (!operationId) {
+          return failure("missing_operation_id", "epub undo requires an operation id");
+        }
+        const undo = await data.undoEpubDraftWorkspace({
+          draftId,
+          operationId,
+          env,
+        });
+        return success({ undo });
       }
       if (subcommand === "validate") {
         const profile = parseAccessProfile(command.profile);

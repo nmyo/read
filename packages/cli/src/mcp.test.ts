@@ -179,6 +179,7 @@ describe("mcp", () => {
         { name: "epub.toc.rebuild" },
         { name: "epub.history" },
         { name: "epub.diff" },
+        { name: "epub.undo" },
         { name: "epub.validate" },
         { name: "epub.export" },
       ],
@@ -343,11 +344,11 @@ describe("mcp", () => {
     expect(exported).toContain("External agents should receive export metadata");
   });
 
-  it("rejects unknown tools", async () => {
+  it("rejects missing arguments for unknown tools", async () => {
     const response = await handleMcpRequest(
       {
         method: "tools/call",
-        params: { name: "epub.undo", arguments: {} },
+        params: { name: "epub.nope", arguments: {} },
       },
       "readonly",
       await createEnv(),
@@ -358,6 +359,112 @@ describe("mcp", () => {
     expect(JSON.parse(text)).toMatchObject({
       ok: false,
       error: { code: "unknown_tool" },
+    });
+  });
+
+  it("gates epub.undo by editor profile and restores a prior patch", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const patchResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "epub.chapter.patch",
+          arguments: {
+            draftId,
+            chapterId: "chapter-1",
+            xhtml:
+              `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>MCP Undo</h1><p>Undo this chapter patch.</p></body></html>`,
+          },
+        },
+      },
+      "editor",
+      env,
+    );
+    expect(patchResponse).toMatchObject({ isError: false });
+    const patchText = (patchResponse as { content: Array<{ text: string }> }).content[0].text;
+    const operationId = (JSON.parse(patchText) as { data: { patch: { operationId: string } } }).data
+      .patch.operationId;
+
+    const readonlyResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.undo", arguments: { draftId, operationId } },
+      },
+      "readonly",
+      env,
+    );
+    expect(readonlyResponse).toMatchObject({ isError: true });
+    const readonlyText = (readonlyResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(readonlyText)).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
+    });
+
+    const editorResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.undo", arguments: { draftId, operationId } },
+      },
+      "editor",
+      env,
+    );
+    expect(editorResponse).toMatchObject({ isError: false });
+    const editorText = (editorResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(editorText)).toMatchObject({
+      ok: true,
+      data: {
+        undo: {
+          draftId,
+          bookId: "mcp-book",
+          operationId,
+          undoneAction: "epub.chapter.patch",
+          resourcePath: "OPS/chapter-1.xhtml",
+        },
+      },
+    });
+  });
+
+  it("rejects epub.undo without an operation id", async () => {
+    const env = await createEnv();
+    await seedBook(env);
+    const createResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.draft.create", arguments: { bookId: "mcp-book" } },
+      },
+      "editor",
+      env,
+    );
+    const createText = (createResponse as { content: Array<{ text: string }> }).content[0].text;
+    const draftId = (JSON.parse(createText) as { data: { draft: { draftId: string } } }).data.draft
+      .draftId;
+
+    const response = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: { name: "epub.undo", arguments: { draftId } },
+      },
+      "editor",
+      env,
+    );
+    expect(response).toMatchObject({ isError: true });
+    const text = (response as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(text)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_tool_arguments" },
     });
   });
 
