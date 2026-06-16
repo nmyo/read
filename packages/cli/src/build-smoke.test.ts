@@ -779,6 +779,16 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
 | Windows | release msi | pass | pass | pass | pass | pass | pass |
 | Linux | release appimage | pass | pass | pass | pass | pass | pass |
 
+## Manual Acceptance Closure
+| id | status | evidence | owner |
+| --- | --- | --- | --- |
+| sample-source | resolved | sample source recorded | QA |
+| external-agent-clients | resolved | Codex and Claude Desktop rows complete | QA |
+| desktop-settings | resolved | settings page evidence attached | QA |
+| packaged-app-matrix | resolved | macOS Windows Linux matrix complete | QA |
+| reader-jumpback | resolved | citation target evidence attached | QA |
+| runtime-bundle | resolved | doctor distribution evidence attached | QA |
+
 ## 当前可对外说明
 - M5 complete.
 

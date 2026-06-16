@@ -32,6 +32,7 @@ const STRICT_M5_HEADINGS = [
   "## 真实样本证据",
   "## 外部 Agent 证据",
   "## 打包 / 安装矩阵",
+  "## Manual Acceptance Closure",
 ];
 
 function parseArgs(argv) {
@@ -159,6 +160,24 @@ function validateStrictM5Tables(text, errors) {
         row.length >= 8 && row.slice(0, 8).every(hasValue),
         errors,
         `Strict M5 packaged app matrix row for ${platform} has empty required cells.`,
+      );
+    }
+  }
+
+  const closureRows = parseMarkdownTableRows(section(text, "## Manual Acceptance Closure"));
+  for (const id of KNOWN_MANUAL_REQUIREMENTS) {
+    const row = closureRows.find((item) => item[0] === id);
+    assertCondition(Boolean(row), errors, `Strict M5 record must close manual requirement: ${id}`);
+    if (row) {
+      assertCondition(
+        row.length >= 4 && row.slice(0, 4).every(hasValue),
+        errors,
+        `Strict M5 manual requirement row for ${id} has empty required cells.`,
+      );
+      assertCondition(
+        /resolved|pass|passed|done/i.test(row[1] ?? ""),
+        errors,
+        `Strict M5 manual requirement ${id} must be marked resolved/pass/done.`,
       );
     }
   }
@@ -349,6 +368,16 @@ function validateStrictM5RecordEvidenceLinks(recordText, evidence, errors) {
     errors,
     "Strict M5 record must reference doctor distribution flags from evidence.",
   );
+
+  const closureRows = parseMarkdownTableRows(section(recordText, "## Manual Acceptance Closure"));
+  for (const item of evidence?.manualAcceptanceRequired ?? []) {
+    const row = closureRows.find((entry) => entry[0] === item.id);
+    assertCondition(
+      Boolean(row) && /resolved|pass|passed|done/i.test(row?.[1] ?? ""),
+      errors,
+      `Strict M5 record must close evidence manual requirement: ${item.id}`,
+    );
+  }
 }
 
 async function main() {
