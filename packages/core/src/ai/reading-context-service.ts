@@ -9,6 +9,7 @@
  *
  * Provides real-time context for AI tools.
  */
+import { useEffect, useState } from "react";
 import { getHighlights } from "../db/database";
 import { getPlatformService } from "../services/platform";
 import type { ReadingContext } from "../types/chat";
@@ -202,7 +203,13 @@ class ReadingContextService {
 export const readingContextService = new ReadingContextService();
 
 export function useReadingContext(): ReadingContext | null {
-  return null;
+  const [context, setContext] = useState<ReadingContext | null>(() =>
+    readingContextService.getContext(),
+  );
+
+  useEffect(() => readingContextService.subscribe(setContext), []);
+
+  return context;
 }
 
 export function getReadingContextSnapshot(): ReadingContext | null {

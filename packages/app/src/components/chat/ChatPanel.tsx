@@ -2,6 +2,7 @@ import { ConfigGuideDialog, type ConfigGuideType } from "@/components/shared/Con
 /**
  * ChatPanel — book-scoped sidebar chat panel.
  */
+import { useReadingContext } from "@/lib/ai/reading-context-service";
 import { useStreamingChat } from "@/hooks/use-streaming-chat";
 import { useChatStore } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -26,6 +27,7 @@ import {
   FileText,
   History,
   MessageCirclePlus,
+  Quote,
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -70,6 +72,9 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const activeThreadId = bookId ? getActiveThreadId(bookId) : null;
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const bookThreads = bookId ? getThreadsForContext(bookId) : [];
+  const readerContext = useReadingContext();
+  const activeReaderContext =
+    readerContext && readerContext.bookId === bookId ? readerContext : null;
 
   const [showThreadList, setShowThreadList] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -121,6 +126,23 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const handleRemoveQuote = useCallback((id: string) => {
     setAttachedQuotes((prev) => prev.filter((q) => q.id !== id));
   }, []);
+
+  const attachCurrentSelection = useCallback(() => {
+    const context = activeReaderContext;
+    if (!context?.selection?.text) return;
+    const selection = context.selection;
+
+    const newQuote: AttachedQuote = {
+      id: crypto.randomUUID(),
+      text: selection.text,
+      source: selection.chapterTitle || context.currentChapter.title,
+    };
+
+    setAttachedQuotes((prev) => {
+      if (prev.some((quote) => quote.text === newQuote.text)) return prev;
+      return [...prev, newQuote];
+    });
+  }, [activeReaderContext]);
 
   // Check for pending quote when component mounts (from reader selection when panel was closed)
   useEffect(() => {
@@ -409,6 +431,32 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
           </div>
         )}
       </div>
+
+      {activeReaderContext ? (
+        <div className="mx-3 mb-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-medium text-foreground">
+                {activeReaderContext.currentChapter.title || book?.meta?.title || t("chat.aiAssistant")}
+              </p>
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                {Math.round(activeReaderContext.currentPosition.percentage * 100)}%
+                {activeReaderContext.selection?.text ? " · selected text ready" : ""}
+              </p>
+            </div>
+            {activeReaderContext.selection?.text ? (
+              <button
+                type="button"
+                onClick={attachCurrentSelection}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-[10px] text-primary hover:bg-primary/10"
+              >
+                <Quote className="size-3" />
+                <span>Attach</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* Messages or empty state */}
       <div className="flex-1 overflow-hidden">

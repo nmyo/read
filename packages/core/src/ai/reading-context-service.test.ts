@@ -146,6 +146,35 @@ describe("readingContextService", () => {
     });
   });
 
+  it("notifies subscribers with current and updated context", async () => {
+    const received: Array<string | null> = [];
+
+    const unsubscribe = readingContextService.subscribe((context) => {
+      received.push(context?.bookId ?? null);
+    });
+
+    await readingContextService.updateContext({
+      bookId: "book-1",
+      bookTitle: "Book One",
+      currentChapter: { index: 1, title: "Intro", href: "chapter-1.xhtml" },
+      currentPosition: { cfi: "epubcfi(/6/2)", percentage: 0.25 },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    unsubscribe();
+
+    await readingContextService.updateContext({
+      bookId: "book-2",
+      bookTitle: "Book Two",
+      currentChapter: { index: 1, title: "Intro", href: "chapter-1.xhtml" },
+      currentPosition: { cfi: "epubcfi(/6/2)", percentage: 0.25 },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 70));
+
+    expect(received).toEqual([null, "book-1"]);
+  });
+
   it("removes the snapshot when the context is cleared", async () => {
     await readingContextService.updateContext({
       bookId: "book-1",

@@ -82,7 +82,7 @@ epub.export
 
 当前还不能对外宣称：
 
-- 当前书、当前章、选区上下文资源已经完整完成。`context.get` 已可用，但桌面端写入链路和 UI 侧验收仍需继续。
+- 当前书、当前章、选区上下文资源已经完成完整引用回跳验收。`context.get` 已可用，桌面端会写入 reader context snapshot，Reader AI 侧栏也会显示当前上下文摘要；引用回跳完整验收仍需继续。
 - 用户 draft 工作区完整 UI 已经完成。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
 
