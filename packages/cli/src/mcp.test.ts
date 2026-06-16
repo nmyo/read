@@ -2027,6 +2027,31 @@ describe("mcp", () => {
     });
   });
 
+  it("rejects undeclared arguments for every registered tool", async () => {
+    const env = await createEnv();
+
+    for (const tool of READANY_TOOLS) {
+      const response = await handleMcpRequest(
+        {
+          method: "tools/call",
+          params: {
+            name: tool.name,
+            arguments: { __readanyUnexpected: true },
+          },
+        },
+        "admin",
+        env,
+      );
+
+      expect(response, tool.name).toMatchObject({ isError: true });
+      const text = (response as { content: Array<{ text: string }> }).content[0].text;
+      expect(JSON.parse(text), tool.name).toMatchObject({
+        ok: false,
+        error: { code: "invalid_tool_arguments" },
+      });
+    }
+  });
+
   it("rejects non-object MCP tool arguments", async () => {
     const response = await handleMcpRequest(
       {
