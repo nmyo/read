@@ -162,11 +162,23 @@ Module._load = function patchedLoad(request, parent, isMain) {
             arguments: { limit: 1 },
           },
         },
+        {
+          jsonrpc: "2.0",
+          id: 4,
+          method: "tools/call",
+          params: {
+            name: "epub.export",
+            arguments: {
+              draftId: "draft-smoke",
+              outputPath: join(root, "exports", "blocked.epub"),
+            },
+          },
+        },
       ],
       env,
     );
 
-    expect(responses).toHaveLength(3);
+    expect(responses).toHaveLength(4);
     expect(responses[0]).toMatchObject({
       jsonrpc: "2.0",
       id: 1,
@@ -221,6 +233,21 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(toolResult).toMatchObject({
       ok: true,
       data: { books: [] },
+    });
+
+    expect(responses[3]).toMatchObject({
+      jsonrpc: "2.0",
+      id: 4,
+      result: {
+        isError: true,
+      },
+    });
+    const deniedResult = JSON.parse(
+      (responses[3] as { result: { content: Array<{ text: string }> } }).result.content[0].text,
+    );
+    expect(deniedResult).toMatchObject({
+      ok: false,
+      error: { code: "permission_denied" },
     });
   });
 });
