@@ -375,7 +375,7 @@ pnpm --filter @readany/cli build
 pnpm --filter app tauri info
 ```
 
-Release workflow 后续应在 macOS / Windows / Linux Tauri matrix 的 `tauri-action` 打包前执行 `pnpm cli:preflight:full`，用于防止发布包绕过 CLI/MCP、Tauri bridge preflight 和桌面前端构建。当前 Codex OAuth token 没有 GitHub `workflow` scope，无法直接推送 `.github/workflows/release.yml` 改动；该 CI preflight 仍需由具备 workflow 权限的提交者补上，且不能替代安装后的真实客户端手工验收。
+Release workflow 后续应在 macOS / Windows / Linux Tauri matrix 的 `tauri-action` 打包前执行 `pnpm cli:preflight:full`，用于防止发布包绕过 CLI/MCP、Tauri bridge preflight 和桌面前端构建。当前 OAuth token 没有 GitHub `workflow` scope，推送 `.github/workflows/release.yml` 改动会被远端拒绝；该 CI preflight 仍需由具备 workflow 权限的提交者补上，且不能替代安装后的真实客户端手工验收。
 
 所有测试必须显式使用临时：
 
