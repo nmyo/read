@@ -201,12 +201,12 @@ draft 工作区至少要提供：
 客户端 M1 做到：
 
 - 用户能在桌面客户端安装 CLI。
-- 用户能安装或卸载 Skill。
+- 用户能安装、更新或卸载 Skill。
 - 用户能复制 readonly MCP 配置。
 - 用户能看到 doctor 检查项。
 - 用户知道 readonly 不允许写入和导出。
 
-当前代码已经完成 Skill、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮和 MCP 配置复制都已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果，也可执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export。完整验收还需要在实际打包产物中确认 Node / native module 运行时是否随包可用，并补齐真实样本端到端记录。
+当前代码已经完成 Skill 安装/更新/卸载、MCP 配置复制、doctor 展示和 readonly 边界说明。CLI 安装按钮和 MCP 配置复制都已接入受限 action，并已配置桌面包资源路径；书籍详情页可创建 EPUB draft 并打开 draft 工作区，工作区通过受限 action 查看 history、entry-level diff 和 validate 结果，也可执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard 和 export。完整验收还需要在实际打包产物中确认 Node / native module 运行时是否随包可用，并补齐真实样本端到端记录。
 
 客户端 M4 做到：
 

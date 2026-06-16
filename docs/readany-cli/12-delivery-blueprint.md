@@ -125,7 +125,7 @@ $AGENT_HOME/skills/readany
 - Skill 安装器只写入通用 agent home，不写项目 `.agents` 或当前 repo。
 - Skill 内容只作为外部 AI 的说明书和调用模板，不保存用户数据。
 - MCP 配置片段默认生成 readonly；editor / publisher 只在用户显式选择并确认风险后提供。
-- Skill 卸载必须检查 ReadAny 管理标记，不能删除非 ReadAny 创建的文件。
+- Skill update / uninstall 必须检查 ReadAny 管理标记，不能覆盖或删除非 ReadAny 创建的文件。
 
 Skill 必须说明：
 
@@ -139,7 +139,7 @@ Skill 必须说明：
 
 - 外部 agent 能通过 Skill 知道 ReadAny 的存在。
 - 外部 agent 能拿到 readonly MCP 配置。
-- Skill 卸载只删除 ReadAny 管理的文件。
+- Skill update 只刷新 ReadAny 管理的文件，Skill uninstall 只删除 ReadAny 管理的文件。
 
 测试和验收：
 
@@ -387,7 +387,7 @@ node packages/cli/dist/bin/readany.js audit list --json
 设置页负责：
 
 - CLI 安装 / 卸载 / 修复。
-- Skill 安装 / 卸载 / 状态。
+- Skill 安装 / 更新 / 卸载 / 状态。
 - readonly MCP 配置复制。
 - doctor 结果展示。
 - profile 状态展示。
@@ -414,7 +414,7 @@ Draft 工作区 -> 用户编辑 / diff / history / validate / export
 
 完成线：
 
-- 用户不用命令行也能安装 CLI 和 Skill。
+- 用户不用命令行也能安装 CLI，并安装、更新或卸载 Skill。
 - 用户能复制 readonly MCP 配置给外部 agent。
 - 用户知道安装 CLI 不等于授权写入。
 - 用户知道安装 Skill 不等于开放 editor / publisher。
@@ -429,7 +429,7 @@ cd packages/app/src-tauri && cargo check
 
 必须保留的证据：
 
-- 设置页安装、卸载、doctor、Skill status、MCP 配置复制的截图或操作记录。
+- 设置页安装、更新、卸载、doctor、Skill status、MCP 配置复制的截图或操作记录。
 - profile 文案明确 readonly / editor / publisher 风险差异。
 - 书籍详情能创建 draft 并打开 draft 工作区。
 - Reader AI 发起的修改和用户手动编辑落在同一个 draft / history。
