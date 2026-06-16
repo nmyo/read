@@ -110,6 +110,60 @@ function nonPlaceholderBullets(text) {
     .filter((line) => line !== "-" && line !== "-  " && line !== "- -");
 }
 
+function hasValue(value) {
+  const normalized = String(value ?? "")
+    .replace(/`/g, "")
+    .trim();
+  return normalized.length > 0 && normalized !== "-" && !/^n\/a$/i.test(normalized);
+}
+
+function parseMarkdownTableRows(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|") && line.endsWith("|"))
+    .filter((line) => !/^\|\s*-+/.test(line))
+    .slice(1)
+    .map((line) => line
+      .slice(1, -1)
+      .split("|")
+      .map((cell) => cell.trim()));
+}
+
+function validateStrictM5Tables(text, errors) {
+  const agentRows = parseMarkdownTableRows(section(text, "## 外部 Agent 证据"));
+  const completedAgentRows = agentRows.filter((row) => row.length >= 7 && row.slice(0, 7).every(hasValue));
+  assertCondition(
+    completedAgentRows.length >= 2,
+    errors,
+    "Strict M5 record must include at least two completed external agent rows.",
+  );
+  assertCondition(
+    completedAgentRows.some((row) => /codex/i.test(row[0])),
+    errors,
+    "Strict M5 record must include a completed Codex external agent row.",
+  );
+  assertCondition(
+    completedAgentRows.some((row) => /claude|cursor/i.test(row[0])),
+    errors,
+    "Strict M5 record must include a completed Claude Desktop or Cursor external agent row.",
+  );
+
+  const matrixRows = parseMarkdownTableRows(section(text, "## 打包 / 安装矩阵"));
+  const requiredPlatforms = ["macOS", "Windows", "Linux"];
+  for (const platform of requiredPlatforms) {
+    const row = matrixRows.find((item) => item[0]?.toLowerCase() === platform.toLowerCase());
+    assertCondition(Boolean(row), errors, `Strict M5 record must include ${platform} in the packaged app matrix.`);
+    if (row) {
+      assertCondition(
+        row.length >= 8 && row.slice(0, 8).every(hasValue),
+        errors,
+        `Strict M5 packaged app matrix row for ${platform} has empty required cells.`,
+      );
+    }
+  }
+}
+
 function validateRecord(text, { strictM5 }) {
   const errors = [];
   const warnings = [];
@@ -133,6 +187,7 @@ function validateRecord(text, { strictM5 }) {
       errors,
       "Strict M5 record still lists claims that cannot be made externally.",
     );
+    validateStrictM5Tables(text, errors);
   } else if (text.includes("部分通过")) {
     warnings.push("Record is marked partial; use --strict-m5 only for final M5 acceptance.");
   }

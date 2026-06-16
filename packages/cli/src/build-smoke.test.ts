@@ -726,7 +726,93 @@ Module._load = function patchedLoad(request, parent, isMain) {
       errors: expect.arrayContaining([
         "Strict M5 record still has unchecked scope items.",
         "Strict M5 record result is not a full pass.",
+        "Strict M5 record must include at least two completed external agent rows.",
+        "Strict M5 record must include macOS in the packaged app matrix.",
       ]),
+    });
+
+    const strictRecordPath = join(root, "evidence", "strict-m5-record.md");
+    await writeFile(
+      strictRecordPath,
+      `# ReadAny CLI M5 Acceptance
+
+## 基本信息
+- 日期：2026-06-16
+
+## 本次验收范围
+- [x] CLI 基础命令
+- [x] 外部 agent 接入
+- [x] macOS / Windows / Linux install matrix
+
+## 本次明确不验收
+-
+
+## 执行命令
+\`\`\`bash
+pnpm --filter @readany/cli acceptance:validate -- --strict-m5
+\`\`\`
+
+## 验收结果
+\`\`\`text
+通过
+\`\`\`
+
+## 证据摘要
+- CLI check：pass
+
+## 安全边界证据
+- readonly 写入拒绝：pass
+
+## 真实样本证据
+- RAG result 引用字段：pass
+
+## 外部 Agent 证据
+| 客户端 | 版本 | MCP 配置 profile | tools/list | read flow | draft/export flow | 结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Codex | 1.0.0 | readonly/editor/publisher | pass | pass | pass | pass |
+| Claude Desktop | 2.0.0 | readonly/editor/publisher | pass | pass | pass | pass |
+
+## 打包 / 安装矩阵
+| 平台 | 包来源 | 安装 | \`readany doctor --json\` | Skill install/status | MCP initialize/tools/list | Draft export | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| macOS | release dmg | pass | pass | pass | pass | pass | pass |
+| Windows | release msi | pass | pass | pass | pass | pass | pass |
+| Linux | release appimage | pass | pass | pass | pass | pass | pass |
+
+## 当前可对外说明
+- M5 complete.
+
+## 当前不能对外宣称
+-
+
+## 已知问题
+-
+
+## 是否允许进入下一阶段
+- [x] 是
+`,
+      "utf8",
+    );
+    const strictFullRecord = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        strictRecordPath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(strictFullRecord.status, strictFullRecord.stderr || strictFullRecord.stdout).toBe(0);
+    expect(JSON.parse(strictFullRecord.stdout)).toMatchObject({
+      ok: true,
+      strictM5: true,
+      errors: [],
     });
   });
 });
