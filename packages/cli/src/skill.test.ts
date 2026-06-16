@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -35,5 +35,37 @@ describe("skill management", () => {
       path: skillFile,
     });
     expect(await getSkillStatus(skillFile)).toMatchObject({ installed: false });
+  });
+
+  it("does not overwrite or remove unmanaged skill files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-unmanaged-skill-"));
+    const skillFile = join(root, "skills", "readany", "SKILL.md");
+    await mkdir(join(root, "skills", "readany"), { recursive: true });
+    await writeFile(skillFile, "# Custom Skill\n\nUser content\n", "utf8");
+
+    await expect(installSkill(skillFile)).rejects.toThrow(/not managed by ReadAny CLI/);
+    expect(await readFile(skillFile, "utf8")).toContain("User content");
+
+    expect(await uninstallSkill(skillFile)).toEqual({
+      removed: false,
+      path: skillFile,
+    });
+    expect(await readFile(skillFile, "utf8")).toContain("User content");
+  });
+
+  it("removes only managed skill file and preserves user files in the directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-skill-extra-"));
+    const skillFile = join(root, "skills", "readany", "SKILL.md");
+    const extraFile = join(root, "skills", "readany", "notes.md");
+
+    await installSkill(skillFile);
+    await writeFile(extraFile, "user notes", "utf8");
+
+    expect(await uninstallSkill(skillFile)).toEqual({
+      removed: true,
+      path: skillFile,
+    });
+    expect(await getSkillStatus(skillFile)).toMatchObject({ installed: false });
+    expect(await readFile(extraFile, "utf8")).toBe("user notes");
   });
 });

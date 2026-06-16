@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rmdir, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { CLI_VERSION } from "./version.js";
 
@@ -93,6 +93,18 @@ export async function getSkillStatus(skillFile: string): Promise<SkillStatus> {
 }
 
 export async function installSkill(skillFile: string): Promise<SkillInstallResult> {
+  const status = await getSkillStatus(skillFile);
+  if (status.version === undefined && status.installed === false) {
+    try {
+      await readFile(skillFile, "utf8");
+      throw new Error(`Skill file already exists and is not managed by ReadAny CLI: ${skillFile}`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
   await mkdir(dirname(skillFile), { recursive: true });
   await writeFile(skillFile, createSkillContent(), "utf8");
   return {
@@ -108,6 +120,17 @@ export async function uninstallSkill(skillFile: string): Promise<SkillUninstallR
     return { removed: false, path: skillFile };
   }
 
-  await rm(dirname(skillFile), { recursive: true, force: true });
+  await rm(skillFile, { force: true });
+  await removeDirIfEmpty(dirname(skillFile));
   return { removed: true, path: skillFile };
+}
+
+async function removeDirIfEmpty(path: string): Promise<void> {
+  try {
+    if ((await readdir(path)).length === 0) {
+      await rmdir(path);
+    }
+  } catch {
+    // Best-effort cleanup only; user files in the skill directory must be preserved.
+  }
 }
