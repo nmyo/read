@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { getPlatformService } from "@readany/core/services";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -53,6 +54,8 @@ type CliRunOptions = {
   auditLimit?: number;
 };
 
+type McpProfile = "readonly" | "editor" | "publisher";
+
 type CommandResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string; details?: unknown } };
@@ -84,18 +87,26 @@ type AuditList = {
   limit: number;
 };
 
-const MCP_CONFIG = JSON.stringify(
-  {
-    mcpServers: {
-      readany: {
-        command: "readany",
-        args: ["mcp", "serve", "--profile", "readonly"],
+const PROFILE_DESCRIPTIONS: Record<McpProfile, string> = {
+  readonly: "只读访问：书库、章节、笔记、高亮、RAG、审计读取。",
+  editor: "编辑访问：包含 readonly，并允许创建 EPUB draft 和修改 draft 内容。",
+  publisher: "发布访问：包含 editor，并允许 validate / export / notes export / knowledge export。",
+};
+
+function createMcpConfig(profile: McpProfile) {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        readany: {
+          command: "readany",
+          args: ["mcp", "serve", "--profile", profile],
+        },
       },
     },
-  },
-  null,
-  2,
-);
+    null,
+    2,
+  );
+}
 
 function parseCliJson<T>(result?: CliRunResult): CommandResult<T> | undefined {
   if (!result) return undefined;
@@ -142,6 +153,8 @@ export function ExternalAISettings() {
   const [auditActionPrefix, setAuditActionPrefix] = useState("");
   const [auditDate, setAuditDate] = useState("");
   const [auditLimit, setAuditLimit] = useState("8");
+  const [mcpProfile, setMcpProfile] = useState<McpProfile>("readonly");
+  const [profileRiskConfirmed, setProfileRiskConfirmed] = useState(false);
 
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
   const skill = useMemo(() => parseCliJson<SkillStatus>(skillResult), [skillResult]);
@@ -168,6 +181,9 @@ export function ExternalAISettings() {
   const failedAuditEntries = audit?.ok
     ? audit.data.audit.entries.filter((entry) => !entry.ok)
     : [];
+  const needsProfileConfirmation = mcpProfile !== "readonly";
+  const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
+  const mcpConfig = useMemo(() => createMcpConfig(mcpProfile), [mcpProfile]);
 
   async function runCli(action: CliAction, options?: CliRunOptions) {
     setLoadingAction(action);
@@ -236,9 +252,19 @@ export function ExternalAISettings() {
   }
 
   async function copyMcpConfig() {
-    await getPlatformService().copyToClipboard(MCP_CONFIG);
+    if (!canCopyMcpConfig) return;
+    await getPlatformService().copyToClipboard(mcpConfig);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  function handleMcpProfileChange(value: string) {
+    const nextProfile = value as McpProfile;
+    setMcpProfile(nextProfile);
+    setCopied(false);
+    if (nextProfile === "readonly") {
+      setProfileRiskConfirmed(false);
+    }
   }
 
   async function refreshAudit() {
@@ -378,21 +404,48 @@ export function ExternalAISettings() {
           <div>
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">MCP readonly access</h2>
-              {statusLabel(cliAvailable, "可配置", "等待 CLI")}
+              <h2 className="text-sm font-medium text-foreground">MCP access profile</h2>
+              {statusLabel(canCopyMcpConfig, "可配置", "等待确认")}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              第一版只提供 readonly 配置。安装 CLI 不等于授权写入，安装 Skill 也不等于开放导出。
+              默认 readonly。editor / publisher 需要用户显式确认，安装 CLI 或 Skill 不等于授权写入。
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={copyMcpConfig}>
+          <Button size="sm" variant="outline" onClick={copyMcpConfig} disabled={!canCopyMcpConfig}>
             <Clipboard className="mr-1.5 h-3.5 w-3.5" />
             {copied ? "已复制" : "复制配置"}
           </Button>
         </div>
 
+        <div className="mt-3 grid gap-3 rounded-md bg-background p-3 md:grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)]">
+          <Select value={mcpProfile} onValueChange={handleMcpProfileChange}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="readonly">readonly</SelectItem>
+              <SelectItem value="editor">editor</SelectItem>
+              <SelectItem value="publisher">publisher</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{PROFILE_DESCRIPTIONS[mcpProfile]}</p>
+            {needsProfileConfirmation ? (
+              <label className="mt-2 flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
+                <Switch
+                  checked={profileRiskConfirmed}
+                  onCheckedChange={setProfileRiskConfirmed}
+                />
+                <span className="text-xs text-muted-foreground">
+                  我确认该 profile 会允许外部 AI 调用 draft 写入或导出类工具；原书仍不会被覆盖，导出默认生成新文件。
+                </span>
+              </label>
+            ) : null}
+          </div>
+        </div>
+
         <pre className="mt-3 max-h-44 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
-          {MCP_CONFIG}
+          {mcpConfig}
         </pre>
 
         <div className="mt-3 rounded-md bg-background px-3 py-2">

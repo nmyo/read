@@ -99,7 +99,7 @@ readany skill status --json
 }
 ```
 
-第一版只提供 readonly 配置。更高 profile 需要用户在设置页明确开启。
+默认提供 readonly 配置。更高 profile 需要用户在设置页明确开启，并在复制配置前确认风险。
 
 ### 4. Activity Log
 
@@ -143,7 +143,7 @@ draft 工作区至少要提供：
 
 - 能检测 CLI。已落地：通过受限 Tauri command 调用 allowlist 中的 ReadAny CLI 动作。
 - 能安装 / 卸载 skill。已落地：设置页调用 `readany skill install/uninstall/status --json`。
-- 能展示 readonly MCP 启动命令。已落地。
+- 能展示 MCP 启动命令。已落地：默认 readonly，editor / publisher 需要用户显式确认后才可复制配置。
 - 能复制 MCP 配置。已落地。
 - 能跑 `doctor --json` 并展示结果。已落地。
 
@@ -159,7 +159,7 @@ draft 工作区至少要提供：
 - 桌面设置页当前通过受限 Tauri command 调用 ReadAny CLI allowlist 动作。
 - `install` / `uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。
 - 当前 CLI 是 Node bundle。管理命令已经拆成不加载 `better-sqlite3` 的路径，因此安装、卸载、Skill 管理和基础诊断不需要 SQLite 原生模块；书库读取、MCP 查询等数据能力仍依赖 Node 和 `better-sqlite3` 运行时。后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
-- 设置页只提供 readonly MCP 配置，不开放 editor / publisher profile。
+- 设置页默认提供 readonly MCP 配置；editor / publisher profile 需要用户显式选择并确认风险后才可复制。
 - 设置页已接入最近审计日志浏览，只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证；支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
 
 ## UI 验收细节

@@ -347,7 +347,7 @@ Phase 7 完成标准：
 - 桌面包资源配置：`packages/cli/dist/` 打包到 `readany-cli/`，install/uninstall 优先使用资源内 CLI，再回退到开发仓库 CLI 和 PATH。
 - CLI version / doctor / tools list / skill status 展示。
 - Skill install / uninstall。
-- readonly MCP 配置复制。
+- MCP profile 配置复制：默认 readonly，editor / publisher 需要用户显式选择并确认风险。
 - 最近审计日志浏览：只展示 timestamp、source、action、profile、结果和错误码，不展示工具参数、正文、密钥或同步凭证；支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
 
 当前缺口：
