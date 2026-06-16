@@ -85,7 +85,7 @@ epub.export
 当前还不能对外宣称：
 
 - 引用回跳完整验收已经完成。`context.get` 已可用，桌面端会写入 reader context snapshot，Reader AI 侧栏也会显示当前上下文摘要；桌面端 Chat 引用点击已可打开书籍并回跳 EPUB CFI、PDF `page:<n>` 或章节 fallback，但完整验收仍需真实 EPUB/PDF/RAG 样本证据。
-- 用户 draft 工作区完整 UI 已经完成。书籍详情页已经提供精排草稿入口并可通过受限 CLI bridge 创建 draft；工作区已能查看 history、entry-level diff 和 validate 结果，并能通过受限 action 执行章节 XHTML 读取/保存、toc rebuild、undo、discard，但完整元数据编辑 / export 工作区仍需继续。
+- 用户 draft 工作区完整 UI 已经完成。书籍详情页已经提供精排草稿入口并可通过受限 CLI bridge 创建 draft；工作区已能查看 history、entry-level diff 和 validate 结果，并能通过受限 action 执行章节 XHTML 读取/保存、元数据编辑、toc rebuild、undo、discard，但完整 export 工作区仍需继续。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
 
 ## 功能范围

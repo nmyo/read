@@ -23,7 +23,7 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import type { ElementType } from "react";
+import type { ElementType, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -127,6 +127,15 @@ type EpubInspectTocItem = {
 type EpubInspectResult = {
   bookId: string;
   packagePath: string;
+  metadata: {
+    title?: string;
+    creator?: string;
+    language?: string;
+    publisher?: string;
+    description?: string;
+    modified?: string;
+    subjects: string[];
+  };
   spine: {
     count: number;
     items: EpubInspectSpineItem[];
@@ -161,6 +170,35 @@ type EpubChapterPatchResult = {
   operationId: string;
   updatedAt: string;
   title?: string;
+};
+
+type EpubMetadataPatch = {
+  title?: string;
+  creator?: string;
+  language?: string;
+  publisher?: string;
+  description?: string;
+  subjects?: string[];
+};
+
+type EpubMetadataDraft = {
+  title: string;
+  creator: string;
+  language: string;
+  publisher: string;
+  description: string;
+  subjects: string;
+};
+
+type EpubMetadataPatchResult = {
+  draftId: string;
+  bookId: string;
+  packagePath: string;
+  changed: boolean;
+  operationId: string;
+  updatedAt: string;
+  fields: string[];
+  metadata: EpubInspectResult["metadata"];
 };
 
 type EpubTocRebuildResult = {
@@ -300,6 +338,31 @@ function chapterTitleForItem(
   return item.idref || `Chapter ${index + 1}`;
 }
 
+function metadataToDraft(metadata?: EpubInspectResult["metadata"]): EpubMetadataDraft {
+  return {
+    title: metadata?.title ?? "",
+    creator: metadata?.creator ?? "",
+    language: metadata?.language ?? "",
+    publisher: metadata?.publisher ?? "",
+    description: metadata?.description ?? "",
+    subjects: metadata?.subjects?.join("\n") ?? "",
+  };
+}
+
+function metadataDraftToPatch(draft: EpubMetadataDraft): EpubMetadataPatch {
+  return {
+    title: draft.title,
+    creator: draft.creator,
+    language: draft.language,
+    publisher: draft.publisher,
+    description: draft.description,
+    subjects: draft.subjects
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+  };
+}
+
 export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const { t, i18n } = useTranslation();
   const [draftIdInput, setDraftIdInput] = useState(draftId);
@@ -313,6 +376,8 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   const [chapterDraft, setChapterDraft] = useState<EpubChapterReadResult | null>(null);
   const [chapterContent, setChapterContent] = useState("");
   const [chapterDirty, setChapterDirty] = useState(false);
+  const [metadataDraft, setMetadataDraft] = useState<EpubMetadataDraft>(metadataToDraft());
+  const [metadataDirty, setMetadataDirty] = useState(false);
 
   useEffect(() => {
     setDraftIdInput(draftId);
@@ -378,6 +443,12 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
   useEffect(() => {
     void loadWorkspace(draftId);
   }, [draftId, loadWorkspace]);
+
+  useEffect(() => {
+    if (!metadataDirty) {
+      setMetadataDraft(metadataToDraft(snapshot.inspect?.metadata));
+    }
+  }, [metadataDirty, snapshot.inspect?.metadata]);
 
   const changedEntries = useMemo(
     () => snapshot.diff?.entries.filter((entry) => entry.status !== "unchanged").slice(0, 80) ?? [],
@@ -533,6 +604,40 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
         result.changed
           ? t("epubDraft.chapterSaved", "Chapter saved")
           : t("epubDraft.chapterUnchanged", "Chapter unchanged"),
+      );
+    }
+  };
+
+  const updateMetadataDraft = (field: keyof EpubMetadataDraft, value: string) => {
+    setMetadataDraft((current) => ({ ...current, [field]: value }));
+    setMetadataDirty(true);
+  };
+
+  const handleSaveMetadata = async () => {
+    if (
+      !window.confirm(
+        t(
+          "epubDraft.saveMetadataConfirm",
+          "Save metadata changes into the draft? The source EPUB will not be changed.",
+        ),
+      )
+    ) {
+      return;
+    }
+    const result = await runWorkspaceMutation<EpubMetadataPatchResult>(
+      "epub_metadata_patch",
+      "metadata",
+      {
+        metadata: metadataDraftToPatch(metadataDraft),
+      },
+    );
+    if (result) {
+      setMetadataDraft(metadataToDraft(result.metadata));
+      setMetadataDirty(false);
+      toast.success(
+        result.changed
+          ? t("epubDraft.metadataSaved", "Metadata saved")
+          : t("epubDraft.metadataUnchanged", "Metadata unchanged"),
       );
     }
   };
@@ -829,6 +934,90 @@ export function EpubDraftWorkspace({ draftId }: EpubDraftWorkspaceProps) {
 
           <section className="mt-5">
             <SectionTitle
+              title={t("epubDraft.metadataEditor", "Metadata editor")}
+              desc={t(
+                "epubDraft.metadataEditorDesc",
+                "Edit OPF metadata in the draft only. Metadata patches share the same history and undo flow.",
+              )}
+            />
+            <div className="mt-3 rounded-md border bg-card p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <FieldLabel label={t("epubDraft.metadataTitle", "Title")}>
+                  <Input
+                    value={metadataDraft.title}
+                    onChange={(event) => updateMetadataDraft("title", event.target.value)}
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+                <FieldLabel label={t("epubDraft.metadataCreator", "Creator")}>
+                  <Input
+                    value={metadataDraft.creator}
+                    onChange={(event) => updateMetadataDraft("creator", event.target.value)}
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+                <FieldLabel label={t("epubDraft.metadataLanguage", "Language")}>
+                  <Input
+                    value={metadataDraft.language}
+                    onChange={(event) => updateMetadataDraft("language", event.target.value)}
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+                <FieldLabel label={t("epubDraft.metadataPublisher", "Publisher")}>
+                  <Input
+                    value={metadataDraft.publisher}
+                    onChange={(event) => updateMetadataDraft("publisher", event.target.value)}
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <FieldLabel label={t("epubDraft.metadataDescription", "Description")}>
+                  <Textarea
+                    value={metadataDraft.description}
+                    onChange={(event) => updateMetadataDraft("description", event.target.value)}
+                    className="min-h-24 text-xs"
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+                <FieldLabel label={t("epubDraft.metadataSubjects", "Subjects")}>
+                  <Textarea
+                    value={metadataDraft.subjects}
+                    onChange={(event) => updateMetadataDraft("subjects", event.target.value)}
+                    placeholder={t("epubDraft.subjectsPlaceholder", "One per line or comma separated")}
+                    className="min-h-24 text-xs"
+                    disabled={snapshot.history?.status === "discarded"}
+                  />
+                </FieldLabel>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {metadataDirty
+                    ? t("epubDraft.metadataUnsaved", "Metadata has unsaved changes.")
+                    : t("epubDraft.metadataSynced", "Metadata matches the loaded draft snapshot.")}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={
+                    loading ||
+                    !!actionBusy ||
+                    !metadataDirty ||
+                    snapshot.history?.status === "discarded"
+                  }
+                  onClick={() => void handleSaveMetadata()}
+                >
+                  <Save className="size-3.5" />
+                  {actionBusy === "epub_metadata_patch"
+                    ? t("common.saving", "Saving")
+                    : t("common.save", "Save")}
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <SectionTitle
               title={t("epubDraft.changedFiles", "Changed files")}
               desc={t(
                 "epubDraft.changedFilesDesc",
@@ -989,4 +1178,13 @@ function SectionTitle({ title, desc }: { title: string; desc: string }) {
 
 function EmptyPanel({ text }: { text: string }) {
   return <div className="px-3 py-6 text-center text-xs text-muted-foreground">{text}</div>;
+}
+
+function FieldLabel({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
 }

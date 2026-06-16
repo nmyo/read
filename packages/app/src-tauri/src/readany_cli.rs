@@ -39,8 +39,20 @@ pub struct ReadAnyCliRunOptions {
     draft_id: Option<String>,
     chapter_id: Option<String>,
     xhtml: Option<String>,
+    metadata: Option<EpubMetadataPatchOptions>,
     operation_id: Option<String>,
     reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EpubMetadataPatchOptions {
+    title: Option<String>,
+    creator: Option<String>,
+    language: Option<String>,
+    publisher: Option<String>,
+    description: Option<String>,
+    subjects: Option<Vec<String>>,
 }
 
 fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
@@ -58,6 +70,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "epub_draft_create" => epub_draft_create_args(options),
         "epub_chapter_read" => epub_chapter_read_args(options),
         "epub_chapter_patch" => epub_chapter_patch_args(options, None),
+        "epub_metadata_patch" => epub_metadata_patch_args(options, None),
         "epub_history" => epub_draft_read_args(options, "history", "editor"),
         "epub_diff" => epub_draft_read_args(options, "diff", "editor"),
         "epub_validate" => epub_draft_read_args(options, "validate", "publisher"),
@@ -66,6 +79,18 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "epub_draft_discard" => epub_draft_discard_args(options),
         _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
+}
+
+fn write_temp_file(prefix: &str, extension: &str, content: &[u8]) -> Result<PathBuf, String> {
+    let path = temp_patch_path(prefix, extension);
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|error| format!("Failed to prepare temporary patch file: {}", error))?;
+    file.write_all(content)
+        .map_err(|error| format!("Failed to write temporary patch file: {}", error))?;
+    Ok(path)
 }
 
 fn strings(args: &[&str]) -> Vec<String> {
@@ -173,6 +198,27 @@ fn epub_chapter_patch_args(
     ])
 }
 
+fn epub_metadata_patch_args(
+    options: &ReadAnyCliRunOptions,
+    patch_path: Option<&Path>,
+) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    let patch_path = patch_path
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_else(|| "<controlled-temp-metadata>".to_string());
+    Ok(vec![
+        "epub".to_string(),
+        "metadata".to_string(),
+        "patch".to_string(),
+        draft_id,
+        "--patch".to_string(),
+        patch_path,
+        "--profile".to_string(),
+        "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
 fn epub_draft_read_args(
     options: &ReadAnyCliRunOptions,
     command: &str,
@@ -267,12 +313,55 @@ fn normalized_xhtml(value: Option<&str>) -> Result<String, String> {
     Ok(value.to_string())
 }
 
-fn temp_xhtml_path() -> PathBuf {
+fn normalized_metadata_patch(value: Option<&EpubMetadataPatchOptions>) -> Result<String, String> {
+    let value = value.ok_or_else(|| "Missing metadata patch.".to_string())?;
+    let mut patch = EpubMetadataPatchOptions::default();
+    patch.title = normalized_optional_text(value.title.as_deref(), 300);
+    patch.creator = normalized_optional_text(value.creator.as_deref(), 300);
+    patch.language = normalized_optional_text(value.language.as_deref(), 80);
+    patch.publisher = normalized_optional_text(value.publisher.as_deref(), 300);
+    patch.description = normalized_optional_text(value.description.as_deref(), 4000);
+    patch.subjects = normalized_subjects(value.subjects.as_deref());
+    if patch.title.is_none()
+        && patch.creator.is_none()
+        && patch.language.is_none()
+        && patch.publisher.is_none()
+        && patch.description.is_none()
+        && patch.subjects.is_none()
+    {
+        return Err("Metadata patch must include at least one field.".to_string());
+    }
+    serde_json::to_string(&patch)
+        .map_err(|error| format!("Failed to serialize metadata patch: {}", error))
+}
+
+fn normalized_optional_text(value: Option<&str>, max_chars: usize) -> Option<String> {
+    let value = value?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(value.chars().take(max_chars).collect())
+}
+
+fn normalized_subjects(value: Option<&[String]>) -> Option<Vec<String>> {
+    let subjects: Vec<String> = value?
+        .iter()
+        .filter_map(|item| normalized_optional_text(Some(item), 120))
+        .take(24)
+        .collect();
+    if subjects.is_empty() {
+        None
+    } else {
+        Some(subjects)
+    }
+}
+
+fn temp_patch_path(prefix: &str, extension: &str) -> PathBuf {
     let id = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    env::temp_dir().join(format!("readany-epub-chapter-{}.xhtml", id))
+    env::temp_dir().join(format!("readany-{}-{}.{}", prefix, id, extension))
 }
 
 fn normalized_audit_action_prefix(value: Option<&str>) -> Option<String> {
@@ -361,22 +450,26 @@ pub async fn readany_cli_run(
     options: Option<ReadAnyCliRunOptions>,
 ) -> Result<ReadAnyCliRunResult, String> {
     let options = options.unwrap_or_default();
-    let temp_xhtml = if action == "epub_chapter_patch" {
+    let temp_patch = if action == "epub_chapter_patch" {
         let xhtml = normalized_xhtml(options.xhtml.as_deref())?;
-        let path = temp_xhtml_path();
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .map_err(|error| format!("Failed to prepare temporary XHTML patch file: {}", error))?;
-        file.write_all(xhtml.as_bytes())
-            .map_err(|error| format!("Failed to write temporary XHTML patch file: {}", error))?;
-        Some(path)
+        Some(write_temp_file("epub-chapter", "xhtml", xhtml.as_bytes())?)
+    } else if action == "epub_metadata_patch" {
+        let metadata = normalized_metadata_patch(options.metadata.as_ref())?;
+        Some(write_temp_file(
+            "epub-metadata",
+            "json",
+            metadata.as_bytes(),
+        )?)
     } else {
         None
     };
-    let args = if let Some(path) = temp_xhtml.as_deref() {
-        match epub_chapter_patch_args(&options, Some(path)) {
+    let args = if let Some(path) = temp_patch.as_deref() {
+        let result = match action.as_str() {
+            "epub_chapter_patch" => epub_chapter_patch_args(&options, Some(path)),
+            "epub_metadata_patch" => epub_metadata_patch_args(&options, Some(path)),
+            _ => args_for_action(&action, &options),
+        };
+        match result {
             Ok(args) => args,
             Err(error) => {
                 let _ = fs::remove_file(path);
@@ -396,7 +489,7 @@ pub async fn readany_cli_run(
             .args(&args)
             .output()
             .map_err(|error| {
-                if let Some(path) = temp_xhtml.as_deref() {
+                if let Some(path) = temp_patch.as_deref() {
                     let _ = fs::remove_file(path);
                 }
                 format!(
@@ -404,7 +497,7 @@ pub async fn readany_cli_run(
                     cli_command.source, error
                 )
             })?;
-        if let Some(path) = temp_xhtml.as_deref() {
+        if let Some(path) = temp_patch.as_deref() {
             let _ = fs::remove_file(path);
         }
 
@@ -559,6 +652,26 @@ mod tests {
         );
         assert_eq!(
             args_for_action(
+                "epub_metadata_patch",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "metadata".to_string(),
+                "patch".to_string(),
+                "draft-1".to_string(),
+                "--patch".to_string(),
+                "<controlled-temp-metadata>".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
                 "epub_history",
                 &ReadAnyCliRunOptions {
                     draft_id: Some("draft-1".to_string()),
@@ -692,6 +805,7 @@ mod tests {
         assert!(args_for_action("epub_history", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_chapter_read", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_chapter_patch", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_metadata_patch", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_diff", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_validate", &ReadAnyCliRunOptions::default()).is_err());
         assert!(args_for_action("epub_toc_rebuild", &ReadAnyCliRunOptions::default()).is_err());
@@ -705,6 +819,7 @@ mod tests {
         assert!(args_for_action("epub_history", &invalid).is_err());
         assert!(args_for_action("epub_chapter_read", &invalid).is_err());
         assert!(args_for_action("epub_chapter_patch", &invalid).is_err());
+        assert!(args_for_action("epub_metadata_patch", &invalid).is_err());
         assert!(args_for_action("epub_diff", &invalid).is_err());
         assert!(args_for_action("epub_validate", &invalid).is_err());
         assert!(args_for_action("epub_toc_rebuild", &invalid).is_err());
@@ -740,6 +855,25 @@ mod tests {
             Ok("<html><body>ok</body></html>".to_string())
         );
         assert!(normalized_xhtml(Some(&"x".repeat(1_000_001))).is_err());
+    }
+
+    #[test]
+    fn validates_epub_metadata_patch() {
+        use super::{normalized_metadata_patch, EpubMetadataPatchOptions};
+
+        assert!(normalized_metadata_patch(None).is_err());
+        assert!(normalized_metadata_patch(Some(&EpubMetadataPatchOptions::default())).is_err());
+        assert_eq!(
+            normalized_metadata_patch(Some(&EpubMetadataPatchOptions {
+                title: Some("  A title  ".to_string()),
+                creator: Some("Ada".to_string()),
+                language: Some("en".to_string()),
+                publisher: None,
+                description: Some("  ".to_string()),
+                subjects: Some(vec!["AI".to_string(), "  ".to_string(), "EPUB".to_string()]),
+            })),
+            Ok("{\"title\":\"A title\",\"creator\":\"Ada\",\"language\":\"en\",\"publisher\":null,\"description\":null,\"subjects\":[\"AI\",\"EPUB\"]}".to_string())
+        );
     }
 
     #[test]
