@@ -48,6 +48,7 @@ ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受
 - EPUB draft 链路：`inspect`、`draft create`、`draft discard`、`chapter read`、`chapter patch`、`metadata patch`、`toc rebuild`、`history`、`diff`、`validate`、`export`。
 - notes export：单本书 notes/highlights 导出为 Markdown、JSON、Obsidian 或 Notion 文件。
 - 桌面端 `设置 -> 外部 AI 访问` 入口，可管理 CLI / Skill / readonly MCP 配置。
+- `context.get` 已可用，且只读桌面端写入的 reader context snapshot，不读裸 UI 内存。
 
 当前 MCP 可以暴露：
 
@@ -77,7 +78,7 @@ epub.export
 
 当前还不能对外宣称：
 
-- 当前书、当前章、选区上下文资源已经完整完成。
+- 当前书、当前章、选区上下文资源已经完整完成。`context.get` 已可用，但桌面端写入链路和 UI 侧验收仍需继续。
 - knowledge export 已经完成。
 - 用户 draft 工作区完整 UI 已经完成。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
@@ -154,8 +155,8 @@ printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
 当前边界：
 
 - `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB/PDF fallback。
+- `context.get` 当前只读取桌面端写入的 reader context snapshot，返回当前书、当前章、位置、选区、可见正文和最近高亮，不修改阅读状态、不读取裸 UI 内存。
 - `rag.search` 当前支持 BM25、hybrid 和 vector。BM25 总是可用；hybrid 在 embedding 未配置或失败时回退 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
-- 当前书、当前章、选区上下文资源是后续交付。
 
 验收：
 
@@ -399,7 +400,7 @@ MCP tool 额外要求：
 M1：
 
 ```text
-外部 AI 能发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节和 RAG。
+外部 AI 能发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节、当前 context 和 RAG。
 ```
 
 M2：

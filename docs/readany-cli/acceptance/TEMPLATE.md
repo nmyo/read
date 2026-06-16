@@ -19,6 +19,7 @@
 - [ ] readonly MCP
 - [ ] 只读书库查询
 - [ ] indexed chapters
+- [ ] reader context snapshot
 - [ ] RAG search
 - [ ] EPUB draft
 - [ ] EPUB export
@@ -56,6 +57,7 @@ readany mcp serve --profile readonly
 - CLI test：
 - CLI build：
 - MCP tools/list：
+- reader context snapshot：
 - readonly 权限拒绝：
 - audit log：
 - 外部 agent：

@@ -18,6 +18,7 @@
 - [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)
 - [10-feature-delivery-spec.md](10-feature-delivery-spec.md)
 - [11-implementation-issue.md](11-implementation-issue.md)
+- [12-delivery-blueprint.md](12-delivery-blueprint.md)
 - [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md)
 
 ## 当前状态
@@ -82,4 +83,4 @@
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
 
-如果只读一份执行文档，先读 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。如果要把这件事贴成一个工程 issue，读 [11-implementation-issue.md](11-implementation-issue.md)。
+如果只读一份执行文档，先读 [12-delivery-blueprint.md](12-delivery-blueprint.md)。如果要看总目标和阶段验收线，读 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。如果要把这件事贴成一个工程 issue，读 [11-implementation-issue.md](11-implementation-issue.md)。
