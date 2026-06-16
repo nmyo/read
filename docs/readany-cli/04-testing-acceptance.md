@@ -140,6 +140,7 @@ Linux    ✓      ✓      ✓        ✓     ✓      ✓       M3       M4
 pnpm --filter @readany/cli check
 pnpm --filter @readany/cli test
 pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
 ```
 
 同时需要检查：
@@ -150,6 +151,7 @@ pnpm --filter @readany/cli build
 - 新增命令必须有 text 和 JSON 输出的基础覆盖。
 - 新增 MCP tool 必须有 schema、权限拒绝、成功调用三类测试。
 - MCP stdio 入口必须通过构建后 CLI smoke：`dist/bin/readany.js mcp serve --profile readonly` 能响应 `initialize`、`tools/list`、`tools/call`。
+- 外部 agent 自动 smoke 必须通过：`pnpm --filter @readany/cli smoke:agent` 会使用 built CLI 的 stdio MCP 验证 readonly 发现/搜索、readonly 写入拒绝、editor draft 批量章节修改和 toc rebuild、publisher validate/export、audit、源 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read。该 smoke 使用 fixture 数据，只能作为 M5 真实外部 agent 验收的前置证据。
 
 如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：
 
@@ -269,6 +271,17 @@ M1 必须做到：
 ```
 
 每次 milestone 验收建议复制 [acceptance/TEMPLATE.md](acceptance/TEMPLATE.md) 到 `docs/readany-cli/acceptance/YYYY-MM-DD-Mx.md`，记录分支、commit、执行命令、结果摘要和已知问题。更完整的交付停止线见 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。
+
+M5 验收记录必须额外包含：
+
+- 真实 EPUB / PDF / RAG 样本的来源、SHA-256 和是否可公开。
+- EPUB inspect / draft edit / validate / export / exported EPUB reimport 或标准工具打开证据。
+- 未索引 PDF `chapters.list/get` fallback 和 `page:<n>` 引用证据。
+- RAG result 引用字段和桌面端点击回跳证据。
+- 至少两个真实外部 agent 客户端记录，其中一个通过 MCP。
+- macOS / Windows / Linux 安装包矩阵和 `doctor --json` 结果。
+
+自动 fixture smoke 通过不等于 M5 完成；没有上述真实样本、真实 agent 和打包产物证据时，验收记录必须继续标记为 partial。
 
 ## 每阶段停止线
 

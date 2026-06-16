@@ -11,6 +11,10 @@
 - Node 版本：
 - pnpm 版本：
 - ReadAny CLI 版本：
+- 样本数据位置：
+- 样本数据 hash：
+- 外部 agent 客户端：
+- 桌面包来源：
 
 ## 本次验收范围
 
@@ -23,8 +27,11 @@
 - [ ] RAG search
 - [ ] EPUB draft
 - [ ] EPUB export
+- [ ] exported EPUB reimport / open
 - [ ] 桌面设置页
 - [ ] 外部 agent 接入
+- [ ] macOS / Windows / Linux install matrix
+- [ ] native binary / runtime bundle
 
 ## 本次明确不验收
 
@@ -36,6 +43,7 @@
 pnpm --filter @readany/cli check
 pnpm --filter @readany/cli test
 pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
 git diff --check
 ```
 
@@ -74,6 +82,19 @@ readany epub export <draft-id> --profile publisher --output <tmp-output.epub> --
 readany epub draft discard <draft-id> --profile editor --reason "acceptance cleanup" --json
 ```
 
+真实样本端到端相关：
+
+```bash
+readany books search "<sample-title>" --json
+readany chapters list <epub-book-id> --json
+readany chapter get <epub-book-id> <chapter-id> --json
+readany chapters list <pdf-book-id> --json
+readany chapter get <pdf-book-id> page-1 --json
+readany rag search "<query>" --book <book-id> --mode bm25 --json
+readany rag search "<query>" --book <book-id> --mode hybrid --json
+readany audit list --source mcp --json
+```
+
 ## 验收结果
 
 ```text
@@ -93,6 +114,11 @@ readany epub draft discard <draft-id> --profile editor --reason "acceptance clea
 - audit log：
 - 外部 agent：
 - 桌面设置页：
+- exported EPUB reimport/open：
+- PDF fallback：
+- RAG 引用回跳：
+- packaged app install：
+- runtime / native bundle：
 
 ## 安全边界证据
 
@@ -103,6 +129,51 @@ readany epub draft discard <draft-id> --profile editor --reason "acceptance clea
 - Tauri allowlist：
 - MCP tools/list 与真实实现一致：
 - audit 不含完整正文 / 密钥 / 同步凭证：
+
+## 真实样本证据
+
+样本清单：
+
+| 类型 | 标题 / 文件 | 来源 | SHA-256 | 是否可公开 | 用途 |
+| --- | --- | --- | --- | --- | --- |
+| EPUB |  |  |  |  | inspect / draft / export |
+| PDF |  |  |  |  | page fallback / citation |
+| RAG index |  |  |  |  | bm25 / hybrid / vector |
+
+端到端结果：
+
+- EPUB inspect：
+- EPUB draft edit：
+- EPUB validate：
+- EPUB export：
+- 导出 EPUB 重新导入或标准 EPUB 工具打开：
+- PDF `chapters.list/get` fallback：
+- RAG result 引用字段：
+- 桌面端引用点击回跳：
+
+## 外部 Agent 证据
+
+| 客户端 | 版本 | MCP 配置 profile | tools/list | read flow | draft/export flow | 结果 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Codex |  |  |  |  |  |  |
+| Claude Desktop / Cursor |  |  |  |  |  |  |
+
+必须附：
+
+- MCP config 片段，不含密钥。
+- `tools/list` 是否只包含真实实现工具。
+- readonly 写入拒绝截图或日志摘要。
+- editor draft 修改摘要。
+- publisher validate/export 摘要。
+- audit 摘要。
+
+## 打包 / 安装矩阵
+
+| 平台 | 包来源 | 安装 | `readany doctor --json` | Skill install/status | MCP initialize/tools/list | Draft export | 结果 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| macOS |  |  |  |  |  |  |  |
+| Windows |  |  |  |  |  |  |  |
+| Linux |  |  |  |  |  |  |  |
 
 ## 当前可对外说明
 
