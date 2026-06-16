@@ -290,6 +290,12 @@ describe("commands", () => {
       expect(result.data).toMatchObject({
         version: "0.1.0",
         profile: "readonly",
+        runtime: {
+          node: expect.stringMatching(/^v/),
+          executable: expect.any(String),
+          nativeSqliteAvailable: true,
+          nativeSqlitePath: expect.stringContaining("better-sqlite3"),
+        },
         tools: { count: 28 },
       });
     }

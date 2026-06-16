@@ -16,6 +16,12 @@ export type DoctorReport = {
   version: string;
   profile: AccessProfile;
   paths: CliPaths;
+  runtime: {
+    node: string;
+    executable: string;
+    nativeSqliteAvailable: boolean;
+    nativeSqlitePath?: string;
+  };
   tools: {
     count: number;
   };
@@ -31,21 +37,48 @@ async function canAccess(path: string, mode: number): Promise<boolean> {
   }
 }
 
+function resolveNativeSqlite() {
+  try {
+    return import.meta.resolve("better-sqlite3");
+  } catch {
+    return undefined;
+  }
+}
+
 export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promise<DoctorReport> {
   await mkdir(paths.auditLogDir, { recursive: true });
 
   const skillStatus = await getSkillStatus(paths.skillFile);
   const readanyHomeWritable = await canAccess(paths.readanyHome, constants.W_OK);
   const auditLogWritable = await canAccess(paths.auditLogDir, constants.W_OK);
+  const nativeSqlitePath = resolveNativeSqlite();
 
   return {
     version: CLI_VERSION,
     profile,
     paths,
+    runtime: {
+      node: process.version,
+      executable: process.execPath,
+      nativeSqliteAvailable: Boolean(nativeSqlitePath),
+      nativeSqlitePath,
+    },
     tools: {
       count: listTools().length,
     },
     checks: [
+      {
+        name: "node-runtime",
+        ok: true,
+        message: `Node runtime is available at ${process.execPath} (${process.version}).`,
+      },
+      {
+        name: "native-sqlite",
+        ok: Boolean(nativeSqlitePath),
+        message: nativeSqlitePath
+          ? "better-sqlite3 is resolvable for library and MCP data commands."
+          : "better-sqlite3 is not resolvable; management commands may work, but library and MCP data commands will fail.",
+      },
       {
         name: "readany-home",
         ok: readanyHomeWritable,

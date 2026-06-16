@@ -105,6 +105,12 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ok: true,
       data: {
         version: "0.1.0",
+        runtime: {
+          node: expect.stringMatching(/^v/),
+          executable: process.execPath,
+          nativeSqliteAvailable: true,
+          nativeSqlitePath: expect.stringContaining("better-sqlite3"),
+        },
         tools: { count: 28 },
       },
     });
