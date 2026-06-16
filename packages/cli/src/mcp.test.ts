@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { getAuditLogFilePath } from "./audit-log.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
 import { handleMcpRequest } from "./mcp.js";
+import { getMinimumProfileForScopes } from "./profiles.js";
 import { READANY_TOOLS } from "./tool-registry.js";
 
 const encoder = new TextEncoder();
@@ -245,6 +246,40 @@ describe("mcp", () => {
         "readany/minimumProfile": "publisher",
       },
     });
+  });
+
+  it("exposes safety metadata for every registered MCP tool", async () => {
+    const response = await handleMcpRequest({ method: "tools/list" }, "readonly", await createEnv());
+    const exposedTools = new Map(
+      (response as { tools: Array<Record<string, unknown>> }).tools.map((tool) => [
+        tool.name,
+        tool,
+      ]),
+    );
+
+    expect(exposedTools.size).toBe(READANY_TOOLS.length);
+    for (const registeredTool of READANY_TOOLS) {
+      const exposedTool = exposedTools.get(registeredTool.name);
+      const minimumProfile = getMinimumProfileForScopes(registeredTool.scopes);
+      const destructiveHint =
+        registeredTool.name.includes(".patch") ||
+        registeredTool.name.endsWith(".discard") ||
+        registeredTool.name.endsWith(".undo") ||
+        registeredTool.name.endsWith(".export");
+
+      expect(exposedTool, registeredTool.name).toMatchObject({
+        description: expect.stringContaining(`Minimum profile: ${minimumProfile}`),
+        annotations: {
+          readOnlyHint: registeredTool.risk === "low",
+          destructiveHint,
+        },
+        _meta: {
+          "readany/risk": registeredTool.risk,
+          "readany/scopes": registeredTool.scopes,
+          "readany/minimumProfile": minimumProfile,
+        },
+      });
+    }
   });
 
   it("calls a readonly tool", async () => {
