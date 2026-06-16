@@ -337,6 +337,7 @@ CLI 相关改动每次提交前必须跑：
 pnpm --filter @readany/cli check
 pnpm --filter @readany/cli test
 pnpm --filter @readany/cli build
+pnpm --filter @readany/cli smoke:agent
 git diff --check
 ```
 
@@ -354,6 +355,8 @@ pnpm --filter app build
 pnpm --filter @readany/cli build
 pnpm --filter app tauri info
 ```
+
+Release workflow 后续应在 macOS / Windows / Linux Tauri matrix 的 `tauri-action` 打包前执行 CLI check/test/build、外部 agent smoke，以及 `cargo test readany_cli::tests -- --nocapture`，用于防止发布包绕过 CLI/MCP 和 Tauri bridge preflight。当前 Codex OAuth token 没有 GitHub `workflow` scope，无法直接推送 `.github/workflows/release.yml` 改动；该 CI preflight 仍需由具备 workflow 权限的提交者补上，且不能替代安装后的真实客户端手工验收。
 
 所有测试必须显式使用临时：
 
