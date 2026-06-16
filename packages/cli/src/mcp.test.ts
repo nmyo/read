@@ -724,12 +724,17 @@ describe("mcp", () => {
 
   it("lists recent audit entries without leaking tool arguments", async () => {
     const env = await createEnv();
+    const sensitiveValues = [
+      "secret-mcp-query",
+      "sk-readany-mcp-secret",
+      "s3://reader:sync-token@example.test/library",
+    ];
     await handleMcpRequest(
       {
         method: "tools/call",
         params: {
           name: "books.search",
-          arguments: { query: "secret-mcp-query" },
+          arguments: { query: sensitiveValues.join(" ") },
         },
       },
       "readonly",
@@ -764,7 +769,9 @@ describe("mcp", () => {
         },
       },
     });
-    expect(text).not.toContain("secret-mcp-query");
+    for (const value of sensitiveValues) {
+      expect(text).not.toContain(value);
+    }
   });
 
   it("gates epub.inspect by editor profile", async () => {
@@ -2202,12 +2209,17 @@ describe("mcp", () => {
 
   it("records MCP audit entries without leaking tool arguments", async () => {
     const env = await createEnv();
+    const sensitiveValues = [
+      "secret-search-text",
+      "sk-readany-audit-secret",
+      "webdav://reader:sync-token@example.test/books",
+    ];
     await handleMcpRequest(
       {
         method: "tools/call",
         params: {
           name: "books.search",
-          arguments: { query: "secret-search-text" },
+          arguments: { query: sensitiveValues.join(" ") },
         },
       },
       "readonly",
@@ -2221,7 +2233,9 @@ describe("mcp", () => {
     const auditContent = await readFile(auditPath, "utf8");
     expect(auditContent).toContain('"source":"mcp"');
     expect(auditContent).toContain('"action":"tools/call:books.search"');
-    expect(auditContent).not.toContain("secret-search-text");
+    for (const value of sensitiveValues) {
+      expect(auditContent).not.toContain(value);
+    }
   });
 
   it("rejects tools when the profile is missing required scopes", async () => {

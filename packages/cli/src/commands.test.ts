@@ -4,6 +4,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { buildStoreOnlyZip, type ZipEntry } from "@readany/core/utils/store-only-zip";
 import { describe, expect, it } from "vitest";
+import { getAuditLogFilePath } from "./audit-log.js";
 import { parseCommand, runCommand } from "./commands.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
 import { createSkillContent } from "./skill.js";
@@ -2047,7 +2048,12 @@ describe("commands", () => {
 
   it("lists audit entries without leaking command arguments", async () => {
     const workspace = await createWorkspace();
-    await runCommand(["books", "search", "secret-query"], workspace.env);
+    const sensitiveValues = [
+      "secret-query",
+      "sk-readany-cli-secret",
+      "webdav://reader:sync-token@example.test/books",
+    ];
+    await runCommand(["books", "search", sensitiveValues.join(" ")], workspace.env);
     await runCommand(["epub", "export", "draft-secret", "--output", "secret.epub"], workspace.env);
 
     const result = await runCommand(["audit", "list", "--json", "--limit", "5"], workspace.env);
@@ -2071,9 +2077,19 @@ describe("commands", () => {
         ],
       },
     });
-    expect(JSON.stringify(result.data)).not.toContain("secret-query");
-    expect(JSON.stringify(result.data)).not.toContain("draft-secret");
-    expect(JSON.stringify(result.data)).not.toContain("secret.epub");
+    const auditJson = JSON.stringify(result.data);
+    for (const value of [...sensitiveValues, "draft-secret", "secret.epub"]) {
+      expect(auditJson).not.toContain(value);
+    }
+
+    const auditPath = getAuditLogFilePath(
+      join(workspace.dataRoot, "logs", "cli"),
+      new Date().toISOString(),
+    );
+    const auditContent = await readFile(auditPath, "utf8");
+    for (const value of [...sensitiveValues, "draft-secret", "secret.epub"]) {
+      expect(auditContent).not.toContain(value);
+    }
 
     const failedOnly = await runCommand(["audit", "list", "--failed"], workspace.env);
     expect(failedOnly.ok).toBe(true);
