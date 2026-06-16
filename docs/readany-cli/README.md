@@ -6,6 +6,7 @@
 
 文档目录：
 
+- [00-overview-and-acceptance.md](00-overview-and-acceptance.md)
 - [08-execution-guide.md](08-execution-guide.md)
 - [01-product-scope.md](01-product-scope.md)
 - [02-architecture-security.md](02-architecture-security.md)
@@ -30,7 +31,7 @@
 - 已支持 `doctor`、`install`、`uninstall`、`skill install/uninstall/status`。
 - 已支持只读库查询：书籍、笔记、高亮、书签、skills。
 - 已支持 chapter view：`readany chapters list`、`readany chapter get` 和 MCP `chapters.*` 会优先返回 indexed chunks；没有 chunks 且书籍是 EPUB/PDF 时，会 fallback 到真实 EPUB spine/manifest 或 PDF page text 读取章节目录和正文。
-- 已支持 BM25 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id>` 和 MCP `rag.search`。
+- 已支持 RAG 检索：基于已有 chunks 索引的 `readany rag search --book <book-id> --mode bm25|hybrid|vector` 和 MCP `rag.search`。BM25 总是可用；hybrid 在没有 embedding 配置时会安全回退到 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
 - 已支持 EPUB inspect：`readany epub inspect <book-id> --profile editor` 和 MCP `epub.inspect` 可读取 EPUB package、metadata、manifest、spine、toc 结构。
 - 已支持 EPUB draft create：`readany epub draft create <book-id> --profile editor` 和 MCP `epub.draft.create` 会复制原 EPUB 到受控 draft workspace，写入 manifest/history，不修改原文件。
 - 已支持 EPUB draft chapter read：`readany epub chapter read <draft-id> <chapter-id> --profile editor` 和 MCP `epub.chapter.read` 可从 draft 读取 XHTML 章节文本，带内容长度限制。
@@ -50,7 +51,6 @@
 
 尚未落地的能力不能出现在 MCP `tools/list` 中：
 
-- Vector / hybrid RAG 检索。
 - knowledge export。`notes.export` 只导出单本书的 notes/highlights；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 只读取 draft 章节文本；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不执行 undo、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。
 - 审计日志浏览 UI。
@@ -81,4 +81,4 @@
 4. 每一阶段怎么测试。
 5. 到什么程度算验收通过。
 
-如果只读一份执行文档，先读 [08-execution-guide.md](08-execution-guide.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。如果要把这件事贴成一个工程 issue，读 [11-implementation-issue.md](11-implementation-issue.md)。
+如果只读一份执行文档，先读 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)。如果要开 issue、排期或判断“做到什么程度算完成”，读 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)。如果要直接拆任务、写测试和验收记录，读 [10-feature-delivery-spec.md](10-feature-delivery-spec.md)。如果要把这件事贴成一个工程 issue，读 [11-implementation-issue.md](11-implementation-issue.md)。

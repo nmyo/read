@@ -65,6 +65,15 @@ describe("tool registry", () => {
     expect(searchTools.every((tool) => tool.inputSchema.required?.includes("query"))).toBe(true);
   });
 
+  it("declares all implemented RAG search modes", () => {
+    const ragTool = listTools().find((tool) => tool.name === "rag.search");
+    expect(ragTool?.inputSchema.properties).toMatchObject({
+      mode: {
+        enum: ["bm25", "hybrid", "vector"],
+      },
+    });
+  });
+
   it("exposes range controls for chapter reads", () => {
     const chapterTool = listTools().find((tool) => tool.name === "chapters.get");
     expect(chapterTool?.inputSchema.properties).toMatchObject({

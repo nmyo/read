@@ -41,6 +41,7 @@ import { validateEpubDraft } from "@readany/core/epub/validate";
 import { exportBookNotes } from "@readany/core/export/notes-export";
 import type { ExportFormat } from "@readany/core/export/annotation-exporter";
 import { createNodePlatformService } from "./platform/node-platform.js";
+import { configureRagSearchForCli } from "./rag-config.js";
 
 let initialized = false;
 let initializedHome: string | undefined;
@@ -58,8 +59,9 @@ export async function ensureCoreInitialized(env: NodeJS.ProcessEnv = process.env
 }
 
 export async function resetCoreForTests(): Promise<void> {
-  const { clearChunkCache } = await import("@readany/core/rag");
+  const { clearChunkCache, clearSearchConfiguration } = await import("@readany/core/rag");
   clearChunkCache();
+  clearSearchConfiguration();
   await closeDB();
   initialized = false;
   initializedHome = undefined;
@@ -621,11 +623,8 @@ export async function searchRag(options: RagSearchOptions): Promise<RagSearchIte
     env = process.env,
   } = options;
 
-  if (mode !== "bm25") {
-    throw new Error("Only BM25 RAG search is currently available through ReadAny CLI.");
-  }
-
   await ensureCoreInitialized(env);
+  await configureRagSearchForCli(mode, env);
   const { search } = await import("@readany/core/rag");
   const results = await search({
     query,

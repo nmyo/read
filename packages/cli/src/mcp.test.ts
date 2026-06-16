@@ -1437,7 +1437,7 @@ describe("mcp", () => {
       },
       {
         name: "rag.search",
-        arguments: { query: "mcp", bookId: "mcp-book", mode: "hybrid" },
+        arguments: { query: "mcp", bookId: "mcp-book", mode: "semantic" },
         message: "enum value",
       },
       {

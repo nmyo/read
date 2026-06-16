@@ -9,6 +9,7 @@ import {
   isCliAuditSource,
   listCliAuditEntries,
 } from "./audit-log.js";
+import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
@@ -326,8 +327,8 @@ async function callReadAnyTool(
     const bookId = getString(args, "bookId");
     if (!bookId) return failure("missing_book_id", "rag.search requires bookId");
     const mode = getString(args, "mode") ?? "bm25";
-    if (mode !== "bm25") {
-      return failure("unsupported_rag_mode", "Only mode bm25 is currently supported");
+    if (!isRagSearchMode(mode)) {
+      return failure("unsupported_rag_mode", "mode must be bm25, hybrid, or vector");
     }
     return success({
       results: await searchRag({

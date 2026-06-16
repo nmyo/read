@@ -154,6 +154,47 @@ async function seedLibrary(dataRoot: string): Promise<void> {
   localDb.close();
 }
 
+async function seedVectorLibrary(dataRoot: string): Promise<void> {
+  await resetCoreForTests();
+  await ensureCoreInitialized({ ...process.env, READANY_HOME: dataRoot });
+  const db = new Database(join(dataRoot, "readany.db"));
+  db.exec(`
+    INSERT INTO books (
+      id, file_path, format, title, author, publisher, language, isbn, description,
+      cover_url, publish_date, rating, reviews, subjects, total_pages, total_chapters,
+      group_id, added_at, last_opened_at, updated_at, deleted_at, progress, current_cfi,
+      is_vectorized, vectorize_progress, tags, file_hash, sync_status
+    ) VALUES (
+      'vector-book', 'books/vector.epub', 'epub', 'Vector Search', 'Ada Reader', NULL, 'en',
+      NULL, 'A book with embeddings for semantic search', NULL, NULL, NULL, NULL, '["AI"]',
+      120, 6, NULL, 1000, 2000, 3000, NULL, 0.5, 'epubcfi(/6/2)', 1, 1,
+      '["vector"]', 'hash-vector', 'local'
+    );
+  `);
+  db.close();
+
+  const localDb = new Database(join(dataRoot, "readany_local.db"));
+  localDb.exec(`
+    INSERT INTO chunks (
+      id, book_id, chapter_index, chapter_title, content, token_count,
+      start_cfi, end_cfi, segment_cfis, embedding, updated_at
+    ) VALUES
+    (
+      'vector-chunk-1', 'vector-book', 1, 'Embeddings',
+      'Semantic search should match meaning rather than surface terms.',
+      9, 'epubcfi(/6/18)', 'epubcfi(/6/20)', '["epubcfi(/6/18)"]',
+      x'000000000000803f0000003f', 6000
+    ),
+    (
+      'vector-chunk-2', 'vector-book', 2, 'Fallback',
+      'Hybrid search can still fall back to BM25 when vectors are unavailable.',
+      10, 'epubcfi(/6/22)', 'epubcfi(/6/24)', '["epubcfi(/6/22)"]',
+      x'0000803f0000000000000000', 6000
+    );
+  `);
+  localDb.close();
+}
+
 describe("commands", () => {
   it("parses json and profile flags", () => {
     expect(parseCommand(["doctor", "--json", "--profile", "editor"])).toEqual({
@@ -1166,9 +1207,75 @@ describe("commands", () => {
     });
   });
 
-  it("rejects unsupported rag modes", async () => {
+  it("allows hybrid rag mode to fall back to BM25 without embeddings", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
     const result = await runCommand(
       ["rag", "search", "context", "--book", "book-1", "--mode", "hybrid"],
+      workspace.env,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.results[0]).toMatchObject({
+      matchType: "bm25",
+      chunk: {
+        id: "chunk-1",
+      },
+    });
+  });
+
+  it("requires embedding configuration for vector rag mode", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+
+    const result = await runCommand(
+      ["rag", "search", "context", "--book", "book-1", "--mode", "vector"],
+      workspace.env,
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+  });
+
+  it("runs vector rag mode with configured remote embeddings", async () => {
+    const workspace = await createWorkspace();
+    await seedVectorLibrary(workspace.dataRoot);
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          data: [{ index: 0, embedding: [0, 1, 0.5] }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )) as typeof fetch;
+
+    try {
+      const result = await runCommand(
+        ["rag", "search", "semantic meaning", "--book", "vector-book", "--mode", "vector"],
+        {
+          ...workspace.env,
+          READANY_EMBEDDING_MODEL: "test-embedding",
+          READANY_EMBEDDING_BASE_URL: "http://localhost:1234/v1",
+        },
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.results[0]).toMatchObject({
+        matchType: "vector",
+        chunk: {
+          id: "vector-chunk-1",
+        },
+      });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  it("rejects unknown rag modes", async () => {
+    const result = await runCommand(
+      ["rag", "search", "context", "--book", "book-1", "--mode", "semantic"],
       (await createWorkspace()).env,
     );
     expect(result).toMatchObject({

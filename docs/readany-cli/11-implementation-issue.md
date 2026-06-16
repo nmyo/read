@@ -77,7 +77,7 @@ epub.export
 
 当前还不能对外宣称：
 
-- vector / hybrid RAG 已经完成。
+- 当前书、当前章、选区上下文资源已经完整完成。
 - knowledge export 已经完成。
 - 用户 draft 工作区完整 UI 已经完成。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
@@ -153,9 +153,9 @@ printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
 
 当前边界：
 
-- `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB fallback。
-- `rag.search` 当前是 BM25 over chunks。
-- vector / hybrid 是后续交付。
+- `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB/PDF fallback。
+- `rag.search` 当前支持 BM25、hybrid 和 vector。BM25 总是可用；hybrid 在 embedding 未配置或失败时回退 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
+- 当前书、当前章、选区上下文资源是后续交付。
 
 验收：
 
@@ -399,7 +399,7 @@ MCP tool 额外要求：
 M1：
 
 ```text
-外部 AI 能发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节和 BM25 RAG。
+外部 AI 能发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节和 RAG。
 ```
 
 M2：

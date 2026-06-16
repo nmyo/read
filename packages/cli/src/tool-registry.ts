@@ -244,8 +244,9 @@ export const READANY_TOOLS: readonly ReadAnyTool[] = [
         },
         mode: {
           type: "string",
-          enum: ["bm25"],
-          description: "Search mode. Only bm25 is currently available through CLI/MCP.",
+          enum: ["bm25", "hybrid", "vector"],
+          description:
+            "Search mode. bm25 is always available; hybrid and vector require configured embedding support.",
         },
         limit: {
           type: "number",

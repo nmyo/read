@@ -10,6 +10,7 @@ import {
   isCliAuditSource,
   listCliAuditEntries,
 } from "./audit-log.js";
+import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 
 export type ParsedCommand = {
@@ -386,8 +387,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const bookId = getStringOption(command, "book");
         if (!bookId) return failure("missing_book_id", "rag search requires --book <book-id>");
         const mode = getStringOption(command, "mode") ?? "bm25";
-        if (mode !== "bm25") {
-          return failure("unsupported_rag_mode", "Only --mode bm25 is currently supported");
+        if (!isRagSearchMode(mode)) {
+          return failure("unsupported_rag_mode", "--mode must be bm25, hybrid, or vector");
         }
         return success({
           results: await data.searchRag({

@@ -114,6 +114,8 @@ readany highlights search <query> --json
 readany bookmarks list <book-id> --json
 readany skills list --json
 readany rag search <query> --book <book-id> --mode bm25 --json
+readany rag search <query> --book <book-id> --mode hybrid --json
+readany rag search <query> --book <book-id> --mode vector --json
 ```
 
 MCP tools：
@@ -139,9 +141,8 @@ audit.list
 
 当前边界：
 
-- `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB fallback。
-- `rag.search` 当前是 BM25 over chunks。
-- Vector / hybrid RAG 属于后续阶段。
+- `chapters.*` 当前是 indexed chunks 优先，未索引 EPUB/PDF fallback。
+- `rag.search` 当前支持 BM25、hybrid 和 vector。BM25 总是可用；hybrid 在 embedding 未配置或失败时回退 BM25；vector 需要桌面端远程向量模型配置或 `READANY_EMBEDDING_MODEL` 环境配置。
 
 ### 2.4 MCP 能力
 
@@ -516,7 +517,7 @@ MCP tool 额外要求：
 M1 完成：
 
 ```text
-外部 AI 可以发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节和 BM25 RAG。
+外部 AI 可以发现 ReadAny，并在 readonly 下读取书库、笔记、高亮、已索引章节和 RAG。
 ```
 
 验收证据：
@@ -594,14 +595,14 @@ M5 完成：
 
 - ReadAny 有独立 CLI package。
 - ReadAny 有 readonly MCP 入口。
-- 外部 AI 可以读书库、笔记、高亮、已索引章节和 BM25 chunks。
+- 外部 AI 可以读书库、笔记、高亮、已索引章节和 RAG chunks。
 - 外部 AI 可以在授权 profile 下操作 EPUB draft 的已实现工具。
 - 桌面端有外部 AI 访问设置入口。
 
 必须同时说明：
 
 - indexed chapters 和未索引 EPUB/PDF fallback 都已由 `chapters.*` 覆盖。
-- BM25 RAG 不是 vector / hybrid。
+- `rag.search` 支持 BM25、hybrid 和 vector；hybrid 可回退，vector 需要 embedding 配置。
 - draft patch 不等于 export。
 - inspect 不修改文件。
 - 已实现工具才会出现在 `tools/list`，后续规划工具不能提前注册。
