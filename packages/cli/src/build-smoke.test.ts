@@ -393,7 +393,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
 
     const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as {
       sampleFiles: Array<{
-        label: string;
+        labels: string[];
         bookId: string;
         format: string;
         filePath: string;
@@ -405,7 +405,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(evidence.sampleFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          label: "primary",
+          labels: expect.arrayContaining(["primary", "epub"]),
           bookId: "agent-smoke-book",
           format: "epub",
           filePath: "books/agent-smoke.epub",
@@ -414,7 +414,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
         }),
         expect.objectContaining({
-          label: "pdf",
+          labels: ["pdf"],
           bookId: "agent-smoke-pdf",
           format: "pdf",
           filePath: "books/agent-smoke.pdf",

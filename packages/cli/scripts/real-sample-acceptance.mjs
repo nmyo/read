@@ -99,7 +99,7 @@ async function createSampleFileEvidence(label, book, readanyHome) {
   const absoluteFilePath = resolve(readanyHome, book.filePath);
   const bytes = await readFile(absoluteFilePath);
   return {
-    label,
+    labels: [label],
     bookId: book.id,
     format: book.format,
     title: book.meta?.title,
@@ -108,6 +108,15 @@ async function createSampleFileEvidence(label, book, readanyHome) {
     bytes: bytes.byteLength,
     sha256: sha256(bytes),
   };
+}
+
+async function addSampleFileEvidence(sampleFilesByBookId, label, book, readanyHome) {
+  const existing = sampleFilesByBookId.get(book?.id);
+  if (existing) {
+    if (!existing.labels.includes(label)) existing.labels.push(label);
+    return;
+  }
+  sampleFilesByBookId.set(book.id, await createSampleFileEvidence(label, book, readanyHome));
 }
 
 function decodeXmlText(value) {
@@ -313,10 +322,7 @@ async function main() {
   const book = runCli(["book", "get", options.bookId], env);
   const bookData = requireOk(book);
   assert(bookData.book?.id === options.bookId, "book.get did not return the primary book");
-  sampleFilesByBookId.set(
-    options.bookId,
-    await createSampleFileEvidence("primary", bookData.book, options.readanyHome),
-  );
+  await addSampleFileEvidence(sampleFilesByBookId, "primary", bookData.book, options.readanyHome);
   record("book.get primary sample", book, {
     bookId: options.bookId,
     format: bookData.book?.format,
@@ -381,14 +387,9 @@ async function main() {
 
   const epubBookId = options.epubBookId ?? (bookData.book?.format === "epub" ? options.bookId : undefined);
   if (epubBookId) {
-    if (!sampleFilesByBookId.has(epubBookId)) {
-      const epubBook = runCli(["book", "get", epubBookId], env);
-      const epubBookData = requireOk(epubBook);
-      sampleFilesByBookId.set(
-        epubBookId,
-        await createSampleFileEvidence("epub", epubBookData.book, options.readanyHome),
-      );
-    }
+    const epubBook = runCli(["book", "get", epubBookId], env);
+    const epubBookData = requireOk(epubBook);
+    await addSampleFileEvidence(sampleFilesByBookId, "epub", epubBookData.book, options.readanyHome);
     const inspect = runCli(["epub", "inspect", epubBookId, "--profile", "editor"], env);
     const inspectData = requireOk(inspect);
     assert(inspectData.epub?.spine?.items?.length > 0, "epub.inspect returned no spine items");
@@ -466,14 +467,9 @@ async function main() {
   }
 
   if (options.pdfBookId) {
-    if (!sampleFilesByBookId.has(options.pdfBookId)) {
-      const pdfBook = runCli(["book", "get", options.pdfBookId], env);
-      const pdfBookData = requireOk(pdfBook);
-      sampleFilesByBookId.set(
-        options.pdfBookId,
-        await createSampleFileEvidence("pdf", pdfBookData.book, options.readanyHome),
-      );
-    }
+    const pdfBook = runCli(["book", "get", options.pdfBookId], env);
+    const pdfBookData = requireOk(pdfBook);
+    await addSampleFileEvidence(sampleFilesByBookId, "pdf", pdfBookData.book, options.readanyHome);
     const pdfChapters = runCli(["chapters", "list", options.pdfBookId], env);
     const pdfChaptersData = requireOk(pdfChapters);
     const pdfPage = pdfChaptersData.chapters.find((item) => item.source === "pdf");

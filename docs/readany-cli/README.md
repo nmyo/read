@@ -73,7 +73,7 @@
 - `notes.export` 只导出单本书的 notes/highlights；`knowledge.export` 只导出全库知识文件；`epub.toc.rebuild` 只重建 EPUB3 nav 目录；`epub.inspect` 只是只读结构检查；`epub.draft.create` 只创建受控 draft；`epub.draft.discard` 只标记 draft inactive；`epub.chapter.read` 默认读取 draft 可读文本，`xhtml` 模式才返回完整章节 XHTML；`epub.chapter.patch` 只替换 draft 内单章 XHTML；`epub.chapters.patch` 只接受 1-50 个章节替换计划并逐章写入普通 `epub.chapter.patch` history；`epub.metadata.patch` 只修改 draft OPF metadata；`epub.history` 只读取 operation history；`epub.diff` 只比较 source/draft EPUB entry 的 hash 和 size；`epub.undo` 只撤销已记录且未被后续改动覆盖的 patch；`epub.validate` 只做结构和引用校验；`epub.export` 只导出 active valid draft 为新 EPUB，不生成内容级 diff、不覆盖原书。
 - 随桌面安装包携带并注册 CLI binary。
 - native binary / runtime bundle 安装体验。
-- 真实 EPUB/PDF/RAG 样本的端到端验收记录；`acceptance:real` 只能辅助采证，不能替代真实样本来源、SHA-256、外部 agent 和打包矩阵记录。
+- 真实 EPUB/PDF/RAG 样本的端到端验收记录；`acceptance:real` 会记录样本文件 SHA-256，但不能替代真实样本来源说明、外部 agent 和打包矩阵记录。
 - Codex / Claude Desktop / Cursor 等真实外部 agent 手工验收。
 - macOS / Windows / Linux 打包后安装、Skill、MCP、draft export 的完整矩阵验收。
 
