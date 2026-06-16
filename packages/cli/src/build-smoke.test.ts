@@ -655,6 +655,88 @@ Module._load = function patchedLoad(request, parent, isMain) {
       errors: [],
     });
 
+    const scaffoldPath = join(root, "evidence", "scaffold-record.md");
+    const scaffold = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/scaffold-acceptance-record.mjs"),
+        "--evidence",
+        evidencePath,
+        "--output",
+        scaffoldPath,
+        "--milestone",
+        "M5 test scaffold",
+        "--reviewer",
+        "Vitest",
+        "--desktop-package",
+        "fixture package",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(scaffold.status, scaffold.stderr).toBe(0);
+    expect(JSON.parse(scaffold.stdout)).toMatchObject({ ok: true, outputPath: scaffoldPath });
+    const scaffoldRecord = await readFile(scaffoldPath, "utf8");
+    expect(scaffoldRecord).toContain("## Manual Acceptance Closure");
+    expect(scaffoldRecord).toContain(`sample SHA-256：${evidence.sampleFiles[0]?.sha256}`);
+    expect(scaffoldRecord).toContain(
+      `citation target：${evidence.citationTargets.find((target) => target.type === "rag-chunk")?.cfi}`,
+    );
+    expect(scaffoldRecord).toContain("distribution：builtBundle: true");
+    expect(scaffoldRecord).toContain("sample-source | pending");
+
+    const validateScaffold = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        scaffoldPath,
+        "--evidence",
+        evidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(validateScaffold.status, validateScaffold.stderr).toBe(0);
+    expect(JSON.parse(validateScaffold.stdout)).toMatchObject({
+      ok: true,
+      validated: { record: scaffoldPath, evidence: evidencePath },
+    });
+
+    const strictScaffold = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        scaffoldPath,
+        "--evidence",
+        evidencePath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(strictScaffold.status).toBe(1);
+    expect(JSON.parse(strictScaffold.stdout)).toMatchObject({
+      ok: false,
+      strictM5: true,
+      errors: expect.arrayContaining([
+        "Strict M5 record still has unchecked scope items.",
+        "Strict M5 record result is not a full pass.",
+      ]),
+    });
+
     const partialRecordPath = resolve(
       cliRoot,
       "../../docs/readany-cli/acceptance/2026-06-16-m3-m4-implementation.md",
