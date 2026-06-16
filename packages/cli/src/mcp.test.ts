@@ -1413,6 +1413,55 @@ describe("mcp", () => {
       ok: false,
       error: { code: "command_failed" },
     });
+
+    const auditResponse = await handleMcpRequest(
+      {
+        method: "tools/call",
+        params: {
+          name: "audit.list",
+          arguments: {
+            source: "mcp",
+            actionPrefix: "tools/call:epub.export",
+            limit: 10,
+          },
+        },
+      },
+      "readonly",
+      env,
+    );
+    expect(auditResponse).toMatchObject({ isError: false });
+    const auditText = (auditResponse as { content: Array<{ text: string }> }).content[0].text;
+    expect(JSON.parse(auditText)).toMatchObject({
+      ok: true,
+      data: {
+        audit: {
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              source: "mcp",
+              action: "tools/call:epub.export",
+              profile: "publisher",
+              ok: true,
+            }),
+            expect.objectContaining({
+              source: "mcp",
+              action: "tools/call:epub.export",
+              profile: "publisher",
+              ok: false,
+              code: "command_failed",
+            }),
+            expect.objectContaining({
+              source: "mcp",
+              action: "tools/call:epub.export",
+              profile: "editor",
+              ok: false,
+              code: "permission_denied",
+            }),
+          ]),
+        },
+      },
+    });
+    expect(auditText).not.toContain(outputPath);
+    expect(auditText).not.toContain(draftId);
   });
 
   it("blocks draft reads after discard", async () => {
