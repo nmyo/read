@@ -360,6 +360,40 @@ describe("commands", () => {
     });
   });
 
+  it("rejects CLI numeric options outside bounded ranges", async () => {
+    const workspace = await createWorkspace();
+    const cases = [
+      {
+        argv: ["books", "list", "--limit", "1000"],
+        message: "books list limit maximum",
+      },
+      {
+        argv: ["books", "list", "--limit", "0"],
+        message: "books list positive integer",
+      },
+      {
+        argv: ["chapter", "get", "book-1", "1", "--chunk-count", "201"],
+        message: "chapter chunk-count maximum",
+      },
+      {
+        argv: ["knowledge", "search", "agent", "--content-limit", "20"],
+        message: "knowledge content-limit minimum",
+      },
+      {
+        argv: ["rag", "search", "agent", "--book", "book-1", "--limit", "51"],
+        message: "rag limit maximum",
+      },
+    ];
+
+    for (const item of cases) {
+      const result = await runCommand(item.argv, workspace.env);
+      expect(result, item.message).toMatchObject({
+        ok: false,
+        error: { code: "invalid_option" },
+      });
+    }
+  });
+
   it("lists bookmarks and skills from the CLI", async () => {
     const workspace = await createWorkspace();
     await seedLibrary(workspace.dataRoot);

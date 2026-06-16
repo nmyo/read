@@ -84,15 +84,39 @@ export function parseCommand(argv: string[]): ParsedCommand {
   };
 }
 
-function getLimit(command: ParsedCommand, fallback: number): number {
-  return getNumberOption(command, "limit", fallback);
+class InvalidCommandOptionError extends Error {
+  readonly code = "invalid_option";
 }
 
-function getNumberOption(command: ParsedCommand, name: string, fallback: number): number {
+type NumberOptionBounds = {
+  min?: number;
+  max?: number;
+};
+
+function getLimit(command: ParsedCommand, fallback: number, max: number): number {
+  return getNumberOption(command, "limit", fallback, { max });
+}
+
+function getNumberOption(
+  command: ParsedCommand,
+  name: string,
+  fallback: number,
+  bounds: NumberOptionBounds = {},
+): number {
   const raw = command.options[name];
   if (typeof raw !== "string") return fallback;
+  if (!/^\d+$/.test(raw)) {
+    throw new InvalidCommandOptionError(`--${name} must be a positive integer`);
+  }
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  const min = bounds.min ?? 1;
+  if (!Number.isFinite(parsed) || parsed < min) {
+    throw new InvalidCommandOptionError(`--${name} must be greater than or equal to ${min}`);
+  }
+  if (bounds.max !== undefined && parsed > bounds.max) {
+    throw new InvalidCommandOptionError(`--${name} must be less than or equal to ${bounds.max}`);
+  }
+  return parsed;
 }
 
 function getStringOption(command: ParsedCommand, name: string): string | undefined {
@@ -275,7 +299,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const source = sourceOption && isCliAuditSource(sourceOption) ? sourceOption : undefined;
         return success({
           audit: await listCliAuditEntries(env, {
-            limit: getLimit(command, 50),
+            limit: getLimit(command, 50, 200),
             source,
             ok: command.options.failed === true ? false : undefined,
             actionPrefix: getStringOption(command, "action-prefix"),
@@ -311,14 +335,14 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
       const data = await getDataApi();
       const subcommand = command.args[0] ?? "list";
       if (subcommand === "list") {
-        return success({ books: await data.listBooks(getLimit(command, 50), env) });
+        return success({ books: await data.listBooks(getLimit(command, 50, 200), env) });
       }
       if (subcommand === "search") {
         const query = command.args.slice(1).join(" ");
         if (!query) {
           return failure("missing_query", "books search requires a query");
         }
-        return success({ books: await data.searchBooks(query, getLimit(command, 20), env) });
+        return success({ books: await data.searchBooks(query, getLimit(command, 20, 200), env) });
       }
       return failure("unknown_books_command", `Unknown books command: ${subcommand}`);
     }
@@ -357,8 +381,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           bookId,
           chapterId,
           chunkStart: getNumberOption(command, "chunk-start", 1),
-          chunkCount: getNumberOption(command, "chunk-count", 0) || undefined,
-          contentLimit: getLimit(command, 12000),
+          chunkCount: getNumberOption(command, "chunk-count", 0, { max: 200 }) || undefined,
+          contentLimit: getLimit(command, 12000, 50000),
           env,
         });
         if (!chapter) {
@@ -381,7 +405,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           notes: await data.listNotes({
             query,
             bookId: getStringOption(command, "book"),
-            limit: getLimit(command, 50),
+            limit: getLimit(command, 50, 200),
             env,
           }),
         });
@@ -430,7 +454,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           highlights: await data.listHighlights({
             query,
             bookId: getStringOption(command, "book"),
-            limit: getLimit(command, 50),
+            limit: getLimit(command, 50, 200),
             env,
           }),
         });
@@ -450,9 +474,9 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           knowledge: await data.searchKnowledgeWorkspace({
             query,
             bookId: getStringOption(command, "book"),
-            limit: getLimit(command, 20),
-            contentLimit: getNumberOption(command, "content-limit", 240),
-            scanLimit: getNumberOption(command, "scan-limit", 1000),
+            limit: getLimit(command, 20, 100),
+            contentLimit: getNumberOption(command, "content-limit", 240, { min: 40, max: 1000 }),
+            scanLimit: getNumberOption(command, "scan-limit", 1000, { max: 10000 }),
             includeBooks: command.options["no-books"] === true ? false : undefined,
             includeNotes: command.options["no-notes"] === true ? false : undefined,
             includeHighlights: command.options["no-highlights"] === true ? false : undefined,
@@ -484,7 +508,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
             includeBooks: command.options["no-books"] === true ? false : undefined,
             includeNotes: command.options["no-notes"] === true ? false : undefined,
             includeHighlights: command.options["no-highlights"] === true ? false : undefined,
-            limit: getLimit(command, 1000),
+            limit: getLimit(command, 1000, 10000),
             env,
           }),
         });
@@ -509,7 +533,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
             query,
             bookId,
             mode,
-            limit: getLimit(command, 5),
+            limit: getLimit(command, 5, 50),
             env,
           }),
         });
@@ -526,7 +550,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
             includeSelection: getBooleanOption(command, "include-selection", true),
             includeSurroundingText: getBooleanOption(command, "include-surrounding-text", true),
             includeHighlights: getBooleanOption(command, "include-highlights", true),
-            contentLimit: getNumberOption(command, "limit", 12000),
+            contentLimit: getNumberOption(command, "limit", 12000, { max: 50000 }),
             env,
           }),
         });
@@ -603,7 +627,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           const chapter = await data.readEpubChapter({
             draftId,
             chapterId,
-            contentLimit: getLimit(command, 12000),
+            contentLimit: getLimit(command, 12000, 50000),
             contentFormat: format,
             env,
           });
@@ -818,6 +842,9 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
 
     return failure("unknown_command", `Unknown command: ${command.name}`);
   } catch (error) {
+    if (error instanceof InvalidCommandOptionError) {
+      return failure(error.code, error.message);
+    }
     return failure(
       "command_failed",
       error instanceof Error ? error.message : String(error),
