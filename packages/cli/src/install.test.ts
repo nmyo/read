@@ -1,4 +1,4 @@
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, mkdir, writeFile } from "node:fs/promises";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -66,5 +66,31 @@ describe("cli install", () => {
 
     expect(installed.path).toBe(join(userBinDir, "readany.cmd"));
     expect(await readFile(installed.path, "utf8")).toContain(`node "${binPath}" %*`);
+  });
+
+  it("does not overwrite or remove unmanaged user commands", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-unmanaged-"));
+    const binPath = join(root, "dist", "bin", "readany.js");
+    const userBinDir = join(root, "bin");
+    const unmanaged = join(userBinDir, "readany");
+    await mkdir(userBinDir, { recursive: true });
+    await writeFile(unmanaged, "#!/bin/sh\necho user command\n", "utf8");
+
+    await expect(
+      installCli({
+        binPath,
+        userBinDir,
+        platformName: "darwin",
+      }),
+    ).rejects.toThrow(/not managed by ReadAny CLI/);
+
+    await expect(
+      uninstallCli({
+        binPath,
+        userBinDir,
+        platformName: "darwin",
+      }),
+    ).rejects.toThrow(/not managed by ReadAny CLI/);
+    expect(await readFile(unmanaged, "utf8")).toContain("user command");
   });
 });
