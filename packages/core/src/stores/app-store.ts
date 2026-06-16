@@ -3,13 +3,14 @@
  */
 import { create } from "zustand";
 
-export type TabType = "home" | "reader" | "chat" | "notes" | "skills";
+export type TabType = "home" | "reader" | "chat" | "notes" | "skills" | "epubDraft";
 
 export interface Tab {
   id: string;
   type: TabType;
   title: string;
   bookId?: string; // for reader tabs
+  draftId?: string; // for EPUB draft workspace tabs
   threadId?: string; // for chat tabs
   initialCfi?: string; // for reader tabs - initial location to navigate to
   isModified?: boolean;

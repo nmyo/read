@@ -32,6 +32,7 @@ pub struct ReadAnyCliRunOptions {
     audit_date: Option<String>,
     audit_limit: Option<u16>,
     book_id: Option<String>,
+    draft_id: Option<String>,
 }
 
 fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
@@ -46,6 +47,9 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "skill_install" => Ok(strings(&["skill", "install", "--json"])),
         "skill_uninstall" => Ok(strings(&["skill", "uninstall", "--json"])),
         "epub_draft_create" => epub_draft_create_args(options),
+        "epub_history" => epub_draft_read_args(options, "history", "editor"),
+        "epub_diff" => epub_draft_read_args(options, "diff", "editor"),
+        "epub_validate" => epub_draft_read_args(options, "validate", "publisher"),
         _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
 }
@@ -97,6 +101,22 @@ fn epub_draft_create_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>,
         book_id,
         "--profile".to_string(),
         "editor".to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn epub_draft_read_args(
+    options: &ReadAnyCliRunOptions,
+    command: &str,
+    profile: &str,
+) -> Result<Vec<String>, String> {
+    let draft_id = normalized_entity_id(options.draft_id.as_deref(), "draft id")?;
+    Ok(vec![
+        "epub".to_string(),
+        command.to_string(),
+        draft_id,
+        "--profile".to_string(),
+        profile.to_string(),
         "--json".to_string(),
     ])
 }
@@ -304,6 +324,57 @@ mod tests {
                 "--json".to_string()
             ])
         );
+        assert_eq!(
+            args_for_action(
+                "epub_history",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "history".to_string(),
+                "draft-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_diff",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "diff".to_string(),
+                "draft-1".to_string(),
+                "--profile".to_string(),
+                "editor".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "epub_validate",
+                &ReadAnyCliRunOptions {
+                    draft_id: Some("draft-1".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "epub".to_string(),
+                "validate".to_string(),
+                "draft-1".to_string(),
+                "--profile".to_string(),
+                "publisher".to_string(),
+                "--json".to_string()
+            ])
+        );
         assert!(args_for_action("shell", &ReadAnyCliRunOptions::default()).is_err());
         assert!(
             args_for_action("doctor --profile admin", &ReadAnyCliRunOptions::default()).is_err()
@@ -322,6 +393,21 @@ mod tests {
             }
         )
         .is_err());
+    }
+
+    #[test]
+    fn validates_epub_draft_workspace_options() {
+        assert!(args_for_action("epub_history", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_diff", &ReadAnyCliRunOptions::default()).is_err());
+        assert!(args_for_action("epub_validate", &ReadAnyCliRunOptions::default()).is_err());
+
+        let invalid = ReadAnyCliRunOptions {
+            draft_id: Some("draft 1".to_string()),
+            ..ReadAnyCliRunOptions::default()
+        };
+        assert!(args_for_action("epub_history", &invalid).is_err());
+        assert!(args_for_action("epub_diff", &invalid).is_err());
+        assert!(args_for_action("epub_validate", &invalid).is_err());
     }
 
     #[test]

@@ -17,6 +17,7 @@
  */
 import { ChatPage as ChatPageComponent } from "@/components/chat/ChatPage";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
+import { EpubDraftWorkspace } from "@/components/epub-draft/EpubDraftWorkspace";
 import { HomePage } from "@/components/home/HomePage";
 import { NotesPage } from "@/components/notes/NotesPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
@@ -127,7 +128,9 @@ export function AppLayout() {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const readerTabs = tabs.filter((t) => t.type === "reader" && t.bookId);
+  const draftTabs = tabs.filter((t) => t.type === "epubDraft" && t.draftId);
   const isReaderActive = readerTabs.some((t) => t.id === activeTabId);
+  const isWorkspaceActive = draftTabs.some((t) => t.id === activeTabId);
   const [showTabBar, setShowTabBar] = useState(!isReaderActive);
   const hideTabBarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevIsReaderActiveRef = useRef(isReaderActive);
@@ -234,7 +237,7 @@ export function AppLayout() {
   }, [isReaderActive]);
 
   // Determine which home sub-view is active
-  const homeViewKey = isReaderActive ? null : (activeTabId ?? "home");
+  const homeViewKey = isReaderActive || isWorkspaceActive ? null : (activeTabId ?? "home");
 
   // Track which reader tabs we've already initialized
   const initializedRef = useRef<Set<string>>(new Set());
@@ -345,11 +348,11 @@ export function AppLayout() {
         <TabBar />
       </div>
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {!isReaderActive && <div className="h-8 shrink-0" />}
+        {!isReaderActive && !isWorkspaceActive && <div className="h-8 shrink-0" />}
         {/* === Home layer (sidebar + content card) === */}
         <div
           className="flex min-h-0 flex-1 w-full overflow-hidden"
-          style={{ display: !isReaderActive ? "flex" : "none" }}
+          style={{ display: !isReaderActive && !isWorkspaceActive ? "flex" : "none" }}
         >
           <HomeSidebar />
           <div className="min-h-0 flex-1 overflow-hidden pr-1 pb-1">
@@ -394,6 +397,16 @@ export function AppLayout() {
             </div>
           );
         })}
+
+        {draftTabs.map((tab) => (
+          <div
+            key={tab.id}
+            className="absolute inset-0 overflow-hidden pt-8"
+            style={{ display: activeTabId === tab.id ? "block" : "none" }}
+          >
+            <EpubDraftWorkspace draftId={tab.draftId!} />
+          </div>
+        ))}
       </main>
       <MissingBookPromptDialog />
       <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />

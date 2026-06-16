@@ -47,4 +47,24 @@ describe("app-store tab initial location", () => {
       useAppStore.getState().tabs.find((tab) => tab.id === "reader-book-1")?.initialCfi,
     ).toBeUndefined();
   });
+
+  it("opens an EPUB draft workspace tab with draft identity", () => {
+    const { addTab } = useAppStore.getState();
+
+    addTab({
+      id: "epub-draft-draft-1",
+      type: "epubDraft",
+      title: "Draft",
+      bookId: "book-1",
+      draftId: "draft-1",
+    });
+
+    const tab = useAppStore.getState().tabs.find((item) => item.id === "epub-draft-draft-1");
+    expect(tab).toMatchObject({
+      type: "epubDraft",
+      bookId: "book-1",
+      draftId: "draft-1",
+    });
+    expect(useAppStore.getState().activeTabId).toBe("epub-draft-draft-1");
+  });
 });

@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useResolvedSrc } from "@/hooks/use-resolved-src";
 import { extractLocalBookMetadata } from "@/lib/book/auto-metadata";
 import { invoke } from "@tauri-apps/api/core";
+import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import type { Book, BookReview } from "@readany/core/types";
 import {
@@ -103,6 +104,35 @@ type DraftCreateResult = {
   stdout: string;
   stderr: string;
 };
+type DraftCreateCommandResult =
+  | {
+      ok: true;
+      data: {
+        draft: {
+          draftId: string;
+          bookId: string;
+          manifestPath: string;
+          historyPath: string;
+        };
+      };
+    }
+  | {
+      ok: false;
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+function parseDraftCreateResult(result: DraftCreateResult): DraftCreateCommandResult | null {
+  const output = result.stdout.trim();
+  if (!output) return null;
+  try {
+    return JSON.parse(output) as DraftCreateCommandResult;
+  } catch {
+    return null;
+  }
+}
 
 function statusLabel(status: Book["syncStatus"], t: TFunction) {
   if (status === "remote") return t("library.detailsSyncRemote", "Remote only");
@@ -240,6 +270,7 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
   const allTags = useLibraryStore((state) => state.allTags);
   const addTag = useLibraryStore((state) => state.addTag);
   const updateBook = useLibraryStore((state) => state.updateBook);
+  const addTab = useAppStore((state) => state.addTab);
   const [values, setValues] = useState<BookMetadataFormValues | null>(null);
   const [newTag, setNewTag] = useState("");
   const [editingBasics, setEditingBasics] = useState(false);
@@ -374,6 +405,17 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
         options: { bookId: book.id },
       });
       setDraftActionResult(result);
+      const parsed = parseDraftCreateResult(result);
+      if (result.ok && parsed?.ok) {
+        const draftId = parsed.data.draft.draftId;
+        addTab({
+          id: `epub-draft-${draftId}`,
+          type: "epubDraft",
+          title: t("library.detailsDraftTabTitle", "精排草稿"),
+          bookId: book.id,
+          draftId,
+        });
+      }
     } catch (error) {
       setDraftActionResult({
         ok: false,
@@ -387,6 +429,20 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
     } finally {
       setDraftActionBusy(false);
     }
+  };
+
+  const handleOpenDraftWorkspace = () => {
+    if (!book || !draftActionResult) return;
+    const parsed = parseDraftCreateResult(draftActionResult);
+    if (!parsed?.ok) return;
+    const draftId = parsed.data.draft.draftId;
+    addTab({
+      id: `epub-draft-${draftId}`,
+      type: "epubDraft",
+      title: t("library.detailsDraftTabTitle", "精排草稿"),
+      bookId: book.id,
+      draftId,
+    });
   };
 
   const updateReview = (reviewId: string, content: string) => {
@@ -874,11 +930,23 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                       </div>
                       {draftActionResult ? (
                         <div className="mt-4 rounded-md bg-background px-3 py-2">
-                          <p className="text-[11px] text-muted-foreground">
-                            {draftActionResult.ok
-                              ? t("library.detailsDraftCreated", "Draft created successfully")
-                              : t("library.detailsDraftCreateFailed", "Draft creation failed")}
-                          </p>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] text-muted-foreground">
+                              {draftActionResult.ok
+                                ? t("library.detailsDraftCreated", "Draft created successfully")
+                                : t("library.detailsDraftCreateFailed", "Draft creation failed")}
+                            </p>
+                            {draftActionResult.ok && parseDraftCreateResult(draftActionResult)?.ok ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleOpenDraftWorkspace}
+                              >
+                                {t("library.detailsDraftOpenWorkspace", "Open workspace")}
+                              </Button>
+                            ) : null}
+                          </div>
                           <pre className="mt-1 max-h-36 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] text-foreground">
                             {draftActionResult.ok
                               ? draftActionResult.stdout.trim()
