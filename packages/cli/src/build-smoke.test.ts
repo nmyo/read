@@ -97,6 +97,49 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ok: true,
       data: { installed: false },
     });
+
+    const doctor = runBuiltCli(["doctor", "--json"], env);
+    expect(doctor.status, doctor.stderr).toBe(0);
+    expect(JSON.parse(doctor.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        version: "0.1.0",
+        tools: { count: 27 },
+      },
+    });
+
+    const tools = runBuiltCli(["tools", "list", "--json"], env);
+    expect(tools.status, tools.stderr).toBe(0);
+    expect(JSON.parse(tools.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        tools: expect.arrayContaining([
+          expect.objectContaining({ name: "books.list" }),
+          expect.objectContaining({ name: "epub.export" }),
+        ]),
+      },
+    });
+
+    const install = runBuiltCli(["skill", "install", "--json"], env);
+    expect(install.status, install.stderr).toBe(0);
+    expect(JSON.parse(install.stdout)).toMatchObject({
+      ok: true,
+      data: { installed: true, version: "0.1.0" },
+    });
+
+    const installedStatus = runBuiltCli(["skill", "status", "--json"], env);
+    expect(installedStatus.status, installedStatus.stderr).toBe(0);
+    expect(JSON.parse(installedStatus.stdout)).toMatchObject({
+      ok: true,
+      data: { installed: true, version: "0.1.0" },
+    });
+
+    const uninstall = runBuiltCli(["skill", "uninstall", "--json"], env);
+    expect(uninstall.status, uninstall.stderr).toBe(0);
+    expect(JSON.parse(uninstall.stdout)).toMatchObject({
+      ok: true,
+      data: { removed: true },
+    });
   });
 
   it("serves MCP over stdio from the built CLI", async () => {

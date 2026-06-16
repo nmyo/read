@@ -433,7 +433,7 @@ M5 可以停下来验收：
 不能说：
 
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
-- 用户 draft 工作区完整 UI 已经完成。
+- 用户 draft 工作区已经完成真实样本和打包产物验收。
 - 引用回跳完整验收已经完成。
 - `epub.diff` 已经是内容级 diff。
 - 安装 Skill 就等于授权写入。
@@ -442,7 +442,7 @@ M5 可以停下来验收：
 
 - 用户精排入口不放在设置页。
 - 书籍详情页已经接入创建精排草稿。
-- 后续完整 draft 工作区继续承接章节编辑、metadata 编辑、diff、history、validate 和 export。
+- draft 工作区已经接入章节编辑、metadata 编辑、diff、history、validate、undo、discard 和 export，所有动作都走受限 draft-first 工具。
 - 外部 AI 写入必须通过 editor / publisher profile 和 draft-first 工具。
 
 ## 7. 建议的 issue 切法
