@@ -270,10 +270,35 @@ describe("commands", () => {
     if (result.ok) expect(result.data).toBe("0.1.0");
   });
 
-  it("installs and reports skill status", async () => {
+  it("installs, updates, and reports skill status", async () => {
     const workspace = await createWorkspace();
     const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
-    await writeFile(skillFile, createSkillContent(), "utf8");
+    const missingUpdate = await runCommand(["skill", "update"], workspace.env);
+    expect(missingUpdate).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
+    });
+
+    const install = await runCommand(["skill", "install"], workspace.env);
+    expect(install).toMatchObject({
+      ok: true,
+      data: {
+        installed: true,
+        path: skillFile,
+      },
+    });
+
+    await writeFile(skillFile, createSkillContent("0.0.0"), "utf8");
+    const update = await runCommand(["skill", "update"], workspace.env);
+    expect(update).toMatchObject({
+      ok: true,
+      data: {
+        updated: true,
+        path: skillFile,
+        previousVersion: "0.0.0",
+        version: "0.1.0",
+      },
+    });
 
     const status = await runCommand(["skill", "status"], workspace.env);
     expect(status.ok).toBe(true);

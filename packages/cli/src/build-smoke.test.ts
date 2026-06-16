@@ -148,6 +148,13 @@ Module._load = function patchedLoad(request, parent, isMain) {
       data: { installed: true, version: "0.1.0" },
     });
 
+    const update = runBuiltCli(["skill", "update", "--json"], env);
+    expect(update.status, update.stderr).toBe(0);
+    expect(JSON.parse(update.stdout)).toMatchObject({
+      ok: true,
+      data: { updated: true, version: "0.1.0" },
+    });
+
     const installedStatus = runBuiltCli(["skill", "status", "--json"], env);
     expect(installedStatus.status, installedStatus.stderr).toBe(0);
     expect(JSON.parse(installedStatus.stdout)).toMatchObject({

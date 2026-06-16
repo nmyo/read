@@ -4,7 +4,7 @@ import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode } from "./install.js";
-import { getSkillStatus, installSkill, uninstallSkill } from "./skill.js";
+import { getSkillStatus, installSkill, uninstallSkill, updateSkill } from "./skill.js";
 import {
   appendCliAuditEntry,
   isCliAuditSource,
@@ -182,6 +182,7 @@ Usage:
   readany --version
   readany doctor [--json] [--profile readonly]
   readany skill install
+  readany skill update
   readany skill uninstall
   readany skill status [--json]
   readany tools list [--json]
@@ -267,6 +268,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
 
       if (subcommand === "install") {
         return success(await installSkill(paths.skillFile));
+      }
+
+      if (subcommand === "update") {
+        return success(await updateSkill(paths.skillFile));
       }
 
       if (subcommand === "uninstall") {

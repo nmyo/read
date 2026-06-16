@@ -148,7 +148,7 @@ draft 工作区至少要提供：
 第一阶段设置页只需要：
 
 - 能检测 CLI。已落地：通过受限 Tauri command 调用 allowlist 中的 ReadAny CLI 动作。
-- 能安装 / 卸载 skill。已落地：设置页调用 `readany skill install/uninstall/status --json`。
+- 能安装 / 更新 / 卸载 skill。已落地：设置页调用 `readany skill install/update/uninstall/status --json`。
 - 能展示 MCP 启动命令。已落地：默认 readonly，editor / publisher 需要用户显式确认后才可复制配置。
 - 能复制 MCP 配置。已落地：设置页通过受限 `mcp_config` action 调用 `readany mcp config --profile <profile> --json`，前端不拼任意 CLI args。
 - 能跑 `doctor --json` 并展示结果。已落地。
@@ -163,7 +163,7 @@ draft 工作区至少要提供：
 当前限制：
 
 - 桌面设置页当前通过受限 Tauri command 调用 ReadAny CLI allowlist 动作。
-- `version`、`doctor`、`mcp_config`、`tools_list`、`skill_status`、`skill_install`、`skill_uninstall`、`install`、`uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。这样用户即使还没安装全局 `readany`，也能在设置页完成诊断、安装 CLI、管理 Skill 和复制 MCP 配置。
+- `version`、`doctor`、`mcp_config`、`tools_list`、`skill_status`、`skill_install`、`skill_update`、`skill_uninstall`、`install`、`uninstall` 会优先使用桌面安装包资源中的 `readany-cli/bin/readany.js`，开发环境中会回退到 monorepo 的 `packages/cli/dist/bin/readany.js`，最后才回退到 PATH 中的 `readany`。这样用户即使还没安装全局 `readany`，也能在设置页完成诊断、安装 CLI、管理 Skill 和复制 MCP 配置。
 - 书库读取、审计读取、EPUB draft/edit/export 等数据动作仍通过 PATH 中已安装的 `readany` 执行，用于验证外部 agent 能访问的同一条 CLI 路径。
 - Tauri `beforeBuildCommand` 会先执行 `pnpm --filter @readany/cli build` 再构建 app，避免桌面包资源中缺少或落后于源码的 CLI dist；Rust preflight 测试会校验这个前置命令和资源映射。
 - 当前 CLI 是 Node bundle。管理命令已经拆成不加载 `better-sqlite3` 的路径，因此安装、卸载、Skill 管理和基础诊断不需要 SQLite 原生模块；`doctor --json` 会报告 Node runtime 和 `better-sqlite3` 可解析性。书库读取、MCP 查询等数据能力仍依赖 Node 和 `better-sqlite3` 运行时。后续应把 CLI 打成真正独立的本地 binary，或把运行时依赖完整放进桌面包。
@@ -185,6 +185,7 @@ draft 工作区至少要提供：
 - 卸载 CLI：调用 `readany uninstall`。
 - 修复 CLI：先跑 `doctor --json`，再根据失败项执行 install 或 path 修复。
 - 安装 Skill：调用 `readany skill install`。
+- 更新 Skill：调用 `readany skill update`。
 - 卸载 Skill：调用 `readany skill uninstall`。
 - 测试 MCP：启动一次 `readany mcp serve --profile readonly` 并发送 `initialize` / `tools/list` smoke。
 

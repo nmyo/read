@@ -70,6 +70,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "audit_list" => audit_list_args(options),
         "skill_status" => Ok(strings(&["skill", "status", "--json"])),
         "skill_install" => Ok(strings(&["skill", "install", "--json"])),
+        "skill_update" => Ok(strings(&["skill", "update", "--json"])),
         "skill_uninstall" => Ok(strings(&["skill", "uninstall", "--json"])),
         "epub_inspect" => epub_inspect_args(options),
         "epub_draft_create" => epub_draft_create_args(options),
@@ -488,6 +489,7 @@ fn action_can_use_bundled_cli(action: &str) -> bool {
             | "tools_list"
             | "skill_status"
             | "skill_install"
+            | "skill_update"
             | "skill_uninstall"
     )
 }
@@ -669,6 +671,14 @@ mod tests {
             Ok(vec![
                 "skill".to_string(),
                 "install".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action("skill_update", &ReadAnyCliRunOptions::default()),
+            Ok(vec![
+                "skill".to_string(),
+                "update".to_string(),
                 "--json".to_string()
             ])
         );
@@ -1091,6 +1101,7 @@ mod tests {
             "tools_list",
             "skill_status",
             "skill_install",
+            "skill_update",
             "skill_uninstall",
         ] {
             let command = resolve_cli_command(action, Some(root.clone()));

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { getSkillStatus, installSkill, uninstallSkill } from "./skill.js";
+import { getSkillStatus, installSkill, uninstallSkill, updateSkill } from "./skill.js";
 import { listTools } from "./tool-registry.js";
 
 describe("skill management", () => {
@@ -66,6 +66,20 @@ describe("skill management", () => {
       path: skillFile,
     });
     expect(await readFile(skillFile, "utf8")).toContain("User content");
+  });
+
+  it("updates only an installed managed skill", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-update-skill-"));
+    const skillFile = join(root, "skills", "readany", "SKILL.md");
+
+    await expect(updateSkill(skillFile)).rejects.toThrow(/not installed or is not managed/);
+    await installSkill(skillFile);
+    const updated = await updateSkill(skillFile);
+    expect(updated).toMatchObject({
+      updated: true,
+      path: skillFile,
+    });
+    expect(await readFile(skillFile, "utf8")).toContain("readany-cli-managed");
   });
 
   it("removes only managed skill file and preserves user files in the directory", async () => {

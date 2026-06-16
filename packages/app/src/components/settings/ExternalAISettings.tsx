@@ -34,6 +34,7 @@ type CliAction =
   | "audit_list"
   | "skill_status"
   | "skill_install"
+  | "skill_update"
   | "skill_uninstall";
 
 type CliRunResult = {
@@ -237,6 +238,12 @@ export function ExternalAISettings() {
     await runCli("doctor");
   }
 
+  async function handleSkillUpdate() {
+    await runCli("skill_update");
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
   async function handleCliInstall() {
     await runCli("install");
     await refreshAll();
@@ -392,6 +399,14 @@ export function ExternalAISettings() {
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleSkillInstall} disabled={busy}>
               安装
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSkillUpdate}
+              disabled={busy || !skillInstalled}
+            >
+              更新
             </Button>
             <Button size="sm" variant="outline" onClick={handleSkillUninstall} disabled={busy}>
               卸载

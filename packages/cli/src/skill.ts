@@ -15,6 +15,13 @@ export type SkillInstallResult = {
   version: string;
 };
 
+export type SkillUpdateResult = {
+  updated: true;
+  path: string;
+  previousVersion?: string;
+  version: string;
+};
+
 export type SkillUninstallResult = {
   removed: boolean;
   path: string;
@@ -144,6 +151,22 @@ export async function installSkill(skillFile: string): Promise<SkillInstallResul
   return {
     installed: true,
     path: skillFile,
+    version: CLI_VERSION,
+  };
+}
+
+export async function updateSkill(skillFile: string): Promise<SkillUpdateResult> {
+  const status = await getSkillStatus(skillFile);
+  if (!status.installed) {
+    throw new Error(`ReadAny skill is not installed or is not managed by ReadAny CLI: ${skillFile}`);
+  }
+
+  await mkdir(dirname(skillFile), { recursive: true });
+  await writeFile(skillFile, createSkillContent(), "utf8");
+  return {
+    updated: true,
+    path: skillFile,
+    previousVersion: status.version,
     version: CLI_VERSION,
   };
 }
