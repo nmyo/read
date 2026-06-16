@@ -155,7 +155,7 @@ audit.list
 readany mcp serve --profile readonly
 readany mcp serve --profile editor
 readany mcp serve --profile publisher
-readany mcp config --profile readonly --json
+readany mcp config --profile readonly --client generic --json
 ```
 
 第一阶段实际开放 readonly 配置，editor / publisher 只能在用户明确开启后使用。

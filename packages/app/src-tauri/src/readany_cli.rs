@@ -38,6 +38,7 @@ pub struct ReadAnyCliRunOptions {
     audit_date: Option<String>,
     audit_limit: Option<u16>,
     mcp_profile: Option<String>,
+    mcp_client: Option<String>,
     book_id: Option<String>,
     draft_id: Option<String>,
     chapter_id: Option<String>,
@@ -93,11 +94,19 @@ fn mcp_config_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String
         "readonly" | "editor" | "publisher" => options.mcp_profile.as_deref().unwrap_or("readonly"),
         _ => return Err("Unsupported MCP profile.".to_string()),
     };
+    let client = match options.mcp_client.as_deref().unwrap_or("generic") {
+        "generic" | "claude" | "cursor" | "codex" => {
+            options.mcp_client.as_deref().unwrap_or("generic")
+        }
+        _ => return Err("Unsupported MCP client.".to_string()),
+    };
     Ok(vec![
         "mcp".to_string(),
         "config".to_string(),
         "--profile".to_string(),
         profile.to_string(),
+        "--client".to_string(),
+        client.to_string(),
         "--json".to_string(),
     ])
 }
@@ -629,6 +638,8 @@ mod tests {
                 "config".to_string(),
                 "--profile".to_string(),
                 "readonly".to_string(),
+                "--client".to_string(),
+                "generic".to_string(),
                 "--json".to_string()
             ])
         );
@@ -637,6 +648,7 @@ mod tests {
                 "mcp_config",
                 &ReadAnyCliRunOptions {
                     mcp_profile: Some("publisher".to_string()),
+                    mcp_client: Some("codex".to_string()),
                     ..ReadAnyCliRunOptions::default()
                 }
             ),
@@ -645,6 +657,8 @@ mod tests {
                 "config".to_string(),
                 "--profile".to_string(),
                 "publisher".to_string(),
+                "--client".to_string(),
+                "codex".to_string(),
                 "--json".to_string()
             ])
         );
@@ -652,6 +666,14 @@ mod tests {
             "mcp_config",
             &ReadAnyCliRunOptions {
                 mcp_profile: Some("admin".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
+        assert!(args_for_action(
+            "mcp_config",
+            &ReadAnyCliRunOptions {
+                mcp_client: Some("vscode".to_string()),
                 ..ReadAnyCliRunOptions::default()
             }
         )

@@ -120,12 +120,29 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(JSON.parse(mcpConfig.stdout)).toMatchObject({
       ok: true,
       data: {
+        client: "generic",
+        format: "json",
+        profile: "readonly",
         mcpServers: {
           readany: {
             command: "readany",
             args: ["mcp", "serve", "--profile", "readonly"],
           },
         },
+      },
+    });
+    const codexConfig = runBuiltCli(
+      ["mcp", "config", "--client", "codex", "--json"],
+      env,
+    );
+    expect(codexConfig.status, codexConfig.stderr).toBe(0);
+    expect(JSON.parse(codexConfig.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        client: "codex",
+        format: "toml",
+        profile: "readonly",
+        snippet: expect.stringContaining("[mcp_servers.readany]"),
       },
     });
 

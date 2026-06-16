@@ -76,7 +76,8 @@ ${renderMcpToolList()}
 \`\`\`bash
 readany doctor --json
 readany mcp serve --profile readonly
-readany mcp config --profile readonly --json
+readany mcp config --profile readonly --client generic --json
+readany mcp config --profile readonly --client codex --json
 readany tools list --json
 readany books list --json
 readany books search <query> --json

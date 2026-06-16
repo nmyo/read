@@ -26,10 +26,10 @@ readany mcp serve --profile readonly
 readany mcp serve --profile assistant
 readany mcp serve --profile editor
 readany mcp serve --profile publisher
-readany mcp config --profile readonly [--json]
+readany mcp config --profile readonly [--client generic|claude|cursor|codex] [--json]
 ```
 
-默认使用 stdio。`mcp config` 只输出外部 agent 可复制的 `mcpServers.readany` 配置片段，不启动服务、不增加 MCP tool、不改变授权。第一阶段不要求 daemon。
+默认使用 stdio。`mcp config` 只输出外部 agent 可复制的配置片段，不启动服务、不增加 MCP tool、不改变授权。`generic`、`claude`、`cursor` 输出 JSON `mcpServers.readany`；`codex` 输出可粘贴到 Codex `config.toml` 的 TOML snippet。第一阶段不要求 daemon。
 
 ### Skill 命令
 

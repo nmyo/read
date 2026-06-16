@@ -50,6 +50,7 @@ type CliRunResult = {
 
 type CliRunOptions = {
   mcpProfile?: McpProfile;
+  mcpClient?: McpClient;
   auditSource?: "cli" | "mcp";
   auditFailedOnly?: boolean;
   auditActionPrefix?: string;
@@ -58,6 +59,7 @@ type CliRunOptions = {
 };
 
 type McpProfile = "readonly" | "editor" | "publisher";
+type McpClient = "generic" | "codex" | "claude" | "cursor";
 
 type CommandResult<T = unknown> =
   | { ok: true; data: T }
@@ -96,9 +98,27 @@ const PROFILE_DESCRIPTIONS: Record<McpProfile, string> = {
   publisher: "发布访问：包含 editor，并允许 validate / export / notes export / knowledge export。",
 };
 
-function createMcpConfig(profile: McpProfile) {
+const MCP_CLIENT_LABELS: Record<McpClient, string> = {
+  generic: "通用 JSON",
+  codex: "Codex TOML",
+  claude: "Claude Desktop",
+  cursor: "Cursor",
+};
+
+function createMcpConfig(profile: McpProfile, client: McpClient) {
+  if (client === "codex") {
+    return [
+      "[mcp_servers.readany]",
+      'command = "readany"',
+      `args = ["mcp","serve","--profile","${profile}"]`,
+    ].join("\n");
+  }
+
   return JSON.stringify(
     {
+      client,
+      format: "json",
+      profile,
       mcpServers: {
         readany: {
           command: "readany",
@@ -157,6 +177,7 @@ export function ExternalAISettings() {
   const [auditDate, setAuditDate] = useState("");
   const [auditLimit, setAuditLimit] = useState("8");
   const [mcpProfile, setMcpProfile] = useState<McpProfile>("readonly");
+  const [mcpClient, setMcpClient] = useState<McpClient>("generic");
   const [profileRiskConfirmed, setProfileRiskConfirmed] = useState(false);
 
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
@@ -186,7 +207,7 @@ export function ExternalAISettings() {
     : [];
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
-  const mcpConfig = useMemo(() => createMcpConfig(mcpProfile), [mcpProfile]);
+  const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
 
   async function runCli(action: CliAction, options?: CliRunOptions) {
     setLoadingAction(action);
@@ -262,11 +283,16 @@ export function ExternalAISettings() {
 
   async function copyMcpConfig() {
     if (!canCopyMcpConfig) return;
-    const result = await runCli("mcp_config", { mcpProfile });
-    const parsed = parseCliJson<{ mcpServers: { readany: { command: string; args: string[] } } }>(
-      result,
-    );
-    const config = parsed?.ok ? JSON.stringify(parsed.data, null, 2) : mcpConfig;
+    const result = await runCli("mcp_config", { mcpProfile, mcpClient });
+    const parsed = parseCliJson<{
+      client: McpClient;
+      format: "json" | "toml";
+      snippet?: string;
+      mcpServers?: { readany: { command: string; args: string[] } };
+    }>(result);
+    const config = parsed?.ok
+      ? parsed.data.snippet ?? JSON.stringify(parsed.data, null, 2)
+      : mcpConfig;
     await getPlatformService().copyToClipboard(config);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
@@ -279,6 +305,11 @@ export function ExternalAISettings() {
     if (nextProfile === "readonly") {
       setProfileRiskConfirmed(false);
     }
+  }
+
+  function handleMcpClientChange(value: string) {
+    setMcpClient(value as McpClient);
+    setCopied(false);
   }
 
   async function refreshAudit() {
@@ -439,19 +470,38 @@ export function ExternalAISettings() {
           </Button>
         </div>
 
-        <div className="mt-3 grid gap-3 rounded-md bg-background p-3 md:grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)]">
-          <Select value={mcpProfile} onValueChange={handleMcpProfileChange}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="readonly">readonly</SelectItem>
-              <SelectItem value="editor">editor</SelectItem>
-              <SelectItem value="publisher">publisher</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="mt-3 grid gap-3 rounded-md bg-background p-3 md:grid-cols-[minmax(9rem,12rem)_minmax(9rem,12rem)_minmax(0,1fr)]">
+          <div className="space-y-1">
+            <p className="text-[11px] text-muted-foreground">Profile</p>
+            <Select value={mcpProfile} onValueChange={handleMcpProfileChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="readonly">readonly</SelectItem>
+                <SelectItem value="editor">editor</SelectItem>
+                <SelectItem value="publisher">publisher</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11px] text-muted-foreground">Client</p>
+            <Select value={mcpClient} onValueChange={handleMcpClientChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="generic">{MCP_CLIENT_LABELS.generic}</SelectItem>
+                <SelectItem value="codex">{MCP_CLIENT_LABELS.codex}</SelectItem>
+                <SelectItem value="claude">{MCP_CLIENT_LABELS.claude}</SelectItem>
+                <SelectItem value="cursor">{MCP_CLIENT_LABELS.cursor}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{PROFILE_DESCRIPTIONS[mcpProfile]}</p>
+            <p className="text-xs text-muted-foreground">
+              {PROFILE_DESCRIPTIONS[mcpProfile]} 当前复制 {MCP_CLIENT_LABELS[mcpClient]} 模板。
+            </p>
             {needsProfileConfirmation ? (
               <label className="mt-2 flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
                 <Switch

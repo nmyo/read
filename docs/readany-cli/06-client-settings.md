@@ -89,7 +89,7 @@ readany skill status --json
 复制配置时给外部 agent 的最小片段可由 CLI 生成：
 
 ```bash
-readany mcp config --profile readonly --json
+readany mcp config --profile readonly --client generic --json
 ```
 
 输出中的核心配置为：
@@ -104,6 +104,13 @@ readany mcp config --profile readonly --json
   }
 }
 ```
+
+设置页需要提供目标客户端选择，第一批固定为：
+
+- `generic`：通用 JSON `mcpServers` 片段。
+- `claude`：Claude Desktop 可用的 JSON `mcpServers` 片段。
+- `cursor`：Cursor 可用的 JSON `mcpServers` 片段。
+- `codex`：Codex `config.toml` 可粘贴的 `[mcp_servers.readany]` 片段。
 
 默认提供 readonly 配置。更高 profile 需要用户在设置页明确开启，并在复制配置前确认风险。
 
@@ -150,7 +157,7 @@ draft 工作区至少要提供：
 - 能检测 CLI。已落地：通过受限 Tauri command 调用 allowlist 中的 ReadAny CLI 动作。
 - 能安装 / 更新 / 卸载 skill。已落地：设置页调用 `readany skill install/update/uninstall/status --json`。
 - 能展示 MCP 启动命令。已落地：默认 readonly，editor / publisher 需要用户显式确认后才可复制配置。
-- 能复制 MCP 配置。已落地：设置页通过受限 `mcp_config` action 调用 `readany mcp config --profile <profile> --json`，前端不拼任意 CLI args。
+- 能复制 MCP 配置。已落地：设置页通过受限 `mcp_config` action 调用 `readany mcp config --profile <profile> --client <generic|claude|cursor|codex> --json`，前端不拼任意 CLI args。
 - 能跑 `doctor --json` 并展示结果。已落地。
 
 第一阶段不需要：

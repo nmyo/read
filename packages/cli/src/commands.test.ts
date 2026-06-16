@@ -346,6 +346,9 @@ describe("commands", () => {
     expect(publisher).toMatchObject({
       ok: true,
       data: {
+        client: "generic",
+        format: "json",
+        profile: "publisher",
         mcpServers: {
           readany: {
             command: "readany",
@@ -353,6 +356,46 @@ describe("commands", () => {
           },
         },
       },
+    });
+
+    const codex = await runCommand(
+      ["mcp", "config", "--profile", "readonly", "--client", "codex"],
+      workspace.env,
+    );
+    expect(codex).toMatchObject({
+      ok: true,
+      data: {
+        client: "codex",
+        format: "toml",
+        profile: "readonly",
+        snippet: expect.stringContaining("[mcp_servers.readany]"),
+      },
+    });
+    if (codex.ok) {
+      expect((codex.data as { snippet: string }).snippet).toContain(
+        'args = ["mcp","serve","--profile","readonly"]',
+      );
+    }
+
+    const claude = await runCommand(["mcp", "config", "--client", "claude"], workspace.env);
+    expect(claude).toMatchObject({
+      ok: true,
+      data: {
+        client: "claude",
+        format: "json",
+        mcpServers: {
+          readany: {
+            command: "readany",
+            args: ["mcp", "serve", "--profile", "readonly"],
+          },
+        },
+      },
+    });
+
+    const invalidClient = await runCommand(["mcp", "config", "--client", "vscode"], workspace.env);
+    expect(invalidClient).toMatchObject({
+      ok: false,
+      error: { code: "command_failed" },
     });
 
     const invalid = await runCommand(["mcp", "config", "--profile", "root"], workspace.env);

@@ -22,6 +22,8 @@ export type ParsedCommand = {
   options: Record<string, string | boolean>;
 };
 
+type McpConfigClient = "generic" | "claude" | "cursor" | "codex";
+
 export function parseCommand(argv: string[]): ParsedCommand {
   const args = [...argv];
   let json = false;
@@ -159,14 +161,49 @@ function parseEpubChapterPatchPlan(value: unknown): unknown[] {
   return patches;
 }
 
-export function createMcpConfig(profile: string | undefined = "readonly") {
+function parseMcpConfigClient(value: string | undefined): McpConfigClient {
+  if (!value) return "generic";
+  if (value === "generic" || value === "claude" || value === "cursor" || value === "codex") {
+    return value;
+  }
+  throw new Error(`Unknown MCP config client: ${value}`);
+}
+
+function createMcpServer(profile: string | undefined) {
   const parsedProfile = parseAccessProfile(profile);
   return {
+    command: "readany",
+    args: ["mcp", "serve", "--profile", parsedProfile],
+  };
+}
+
+export function createMcpConfig(
+  profile: string | undefined = "readonly",
+  client: string | undefined = "generic",
+) {
+  const parsedClient = parseMcpConfigClient(client);
+  const server = createMcpServer(profile);
+  const profileName = server.args[3];
+
+  if (parsedClient === "codex") {
+    return {
+      client: "codex",
+      format: "toml",
+      profile: profileName,
+      snippet: [
+        "[mcp_servers.readany]",
+        `command = ${JSON.stringify(server.command)}`,
+        `args = ${JSON.stringify(server.args)}`,
+      ].join("\n"),
+    };
+  }
+
+  return {
+    client: parsedClient,
+    format: "json",
+    profile: profileName,
     mcpServers: {
-      readany: {
-        command: "readany",
-        args: ["mcp", "serve", "--profile", parsedProfile],
-      },
+      readany: server,
     },
   };
 }
@@ -215,7 +252,7 @@ Usage:
   readany knowledge export --output <path> [--json] [--profile publisher] [--format markdown|json|obsidian] [--limit 1000] [--overwrite]
   readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
-  readany mcp config [--json] [--profile readonly|editor|publisher]
+  readany mcp config [--json] [--profile readonly|editor|publisher] [--client generic|claude|cursor|codex]
 `;
 }
 
@@ -319,7 +356,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (command.name === "mcp") {
       const subcommand = command.args[0];
       if (subcommand === "config") {
-        return success(createMcpConfig(command.profile));
+        return success(createMcpConfig(command.profile, getStringOption(command, "client")));
       }
       if (subcommand === "serve") {
         return failure("mcp_serve_requires_stdio", "mcp serve must be run from the CLI entrypoint");

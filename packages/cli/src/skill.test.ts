@@ -21,7 +21,8 @@ describe("skill management", () => {
     const content = await readFile(skillFile, "utf8");
     expect(content).toContain("readany-cli-managed");
     expect(content).toContain("readany mcp serve --profile readonly");
-    expect(content).toContain("readany mcp config --profile readonly --json");
+    expect(content).toContain("readany mcp config --profile readonly --client generic --json");
+    expect(content).toContain("readany mcp config --profile readonly --client codex --json");
     expect(content).toContain("readany tools list --json");
     expect(content).toContain("readany chapters list <book-id> --json");
     expect(content).toContain("readany context get --json");
