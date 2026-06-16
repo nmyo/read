@@ -2,6 +2,8 @@
 
 这份文档可以直接作为 `feat/readany-cli` 后续工程 issue 的正文使用。它把我们要做什么、怎么做、怎么测试、怎么验收、做到什么程度为止写成执行清单。
 
+总控说明见 [00-overview-and-acceptance.md](00-overview-and-acceptance.md)。本 issue 里的“当前已实现”只描述已经接线的能力；未完成的完整 draft 工作区、完整引用回跳和 native binary 安装体验必须继续拆 issue 验收。
+
 ## 背景
 
 ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受控业务工具，不是裸数据库、任意文件系统或任意 shell。
@@ -83,10 +85,21 @@ epub.export
 当前还不能对外宣称：
 
 - 当前书、当前章、选区上下文资源已经完成完整引用回跳验收。`context.get` 已可用，桌面端会写入 reader context snapshot，Reader AI 侧栏也会显示当前上下文摘要；引用回跳完整验收仍需继续。
-- 用户 draft 工作区完整 UI 已经完成。
+- 用户 draft 工作区完整 UI 已经完成。书籍详情页已经提供精排草稿入口并可通过受限 CLI bridge 创建 draft，但完整章节编辑 / diff / history / validate / export 工作区仍需继续。
 - CLI 已经是完全无 Node/runtime 依赖的 native binary。
 
 ## 功能范围
+
+每个子 issue 都必须写清楚：
+
+- 背景和用户任务。
+- 本次要做什么。
+- 本次明确不做什么。
+- 所属 profile / scope / risk。
+- 是否写入，是否影响原始 EPUB。
+- CLI 命令、MCP tool、桌面入口分别是什么。
+- 需要哪些测试命令和验收证据。
+- 做到什么程度就停下来进入验收。
 
 ### 1. CLI 和安装能力
 
