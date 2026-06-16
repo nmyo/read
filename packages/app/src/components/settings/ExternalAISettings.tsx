@@ -16,6 +16,7 @@ import {
   Clipboard,
   FileCheck2,
   History,
+  PackageCheck,
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
@@ -68,6 +69,22 @@ type CommandResult<T = unknown> =
 type DoctorReport = {
   version: string;
   profile: string;
+  runtime?: {
+    node: string;
+    executable: string;
+    nativeSqliteAvailable: boolean;
+    nativeSqlitePath?: string;
+  };
+  distribution?: {
+    kind: string;
+    usesNodeRuntime: boolean;
+    nativeBinary: boolean;
+    entrypoint?: string;
+    modulePath: string;
+    bundleRoot?: string;
+    builtBundle: boolean;
+    desktopResourceBundle: boolean;
+  };
   tools: { count: number };
   mcp?: {
     defaultProfile: string;
@@ -166,6 +183,24 @@ function outputSummary(result?: CliRunResult, parsed?: CommandResult) {
   return result.stderr.trim() || result.stdout.trim() || `命令退出码 ${result.status ?? "unknown"}`;
 }
 
+function evidenceValue(label: string, value: string | number | boolean | undefined, mono = true) {
+  const rendered =
+    typeof value === "boolean" ? (value ? "true" : "false") : value === undefined ? "-" : String(value);
+  return (
+    <div className="min-w-0 rounded-md bg-background px-3 py-2">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p
+        className={`mt-1 truncate text-xs text-foreground ${
+          mono ? "font-mono" : "font-medium"
+        }`}
+        title={rendered}
+      >
+        {rendered}
+      </p>
+    </div>
+  );
+}
+
 export function ExternalAISettings() {
   const [loadingAction, setLoadingAction] = useState<CliAction | null>(null);
   const [versionResult, setVersionResult] = useState<CliRunResult>();
@@ -194,6 +229,8 @@ export function ExternalAISettings() {
 
   const cliAvailable = Boolean(versionResult?.ok);
   const cliVersion = versionResult?.ok ? versionResult.stdout.trim() : "";
+  const doctorRuntime = doctor?.ok ? doctor.data.runtime : undefined;
+  const doctorDistribution = doctor?.ok ? doctor.data.distribution : undefined;
   const skillInstalled = skill?.ok ? skill.data.installed : false;
   const readonlyToolNames = tools?.ok ? tools.data.tools.map((tool) => tool.name) : [];
   const auditOptions = useMemo<CliRunOptions>(
@@ -395,6 +432,29 @@ export function ExternalAISettings() {
                 : ""}
           </p>
         </div>
+
+        {doctor?.ok ? (
+          <div className="mt-3 rounded-md bg-background/40 p-3">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-medium text-foreground">运行时 / 打包证据</p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+              {evidenceValue("distribution", doctorDistribution?.kind)}
+              {evidenceValue("built bundle", doctorDistribution?.builtBundle)}
+              {evidenceValue("desktop resource", doctorDistribution?.desktopResourceBundle)}
+              {evidenceValue("native binary", doctorDistribution?.nativeBinary)}
+              {evidenceValue("uses node runtime", doctorDistribution?.usesNodeRuntime)}
+              {evidenceValue("node", doctorRuntime?.node)}
+              {evidenceValue("native sqlite", doctorRuntime?.nativeSqliteAvailable)}
+              {evidenceValue("bundle root", doctorDistribution?.bundleRoot)}
+            </div>
+            <div className="mt-2 grid gap-2 lg:grid-cols-2">
+              {evidenceValue("entrypoint", doctorDistribution?.entrypoint)}
+              {evidenceValue("node executable", doctorRuntime?.executable)}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-3 space-y-2">
           {doctor?.ok

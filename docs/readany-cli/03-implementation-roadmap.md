@@ -347,6 +347,7 @@ Phase 7 完成标准：
 - 桌面包资源配置：`packages/cli/dist/` 打包到 `readany-cli/`，设置页管理动作（version / doctor / mcp config / tools list / skill status/install/update/uninstall / install / uninstall）优先使用资源内 CLI，再回退到开发仓库 CLI 和 PATH；书库读取和 draft/export 动作仍走 PATH 中已安装的 `readany`。
 - Tauri 打包前置命令：先构建 `@readany/cli`，再构建 app；Rust preflight 测试校验 CLI dist 资源映射和 bundle resolver 路径一致。
 - CLI version / doctor / tools list / skill status 展示。
+- `doctor --json` 的 runtime / distribution 证据已在设置页展示：包含执行来源、built bundle、desktop resource bundle、native binary、Node runtime、native sqlite 和 entrypoint，可作为 packaged app 验收截图锚点。
 - Skill install / update / uninstall。
 - MCP profile 配置复制：默认 readonly，editor / publisher 需要用户显式选择并确认风险。
 - 最近审计日志浏览：只展示 timestamp、source、action、profile、结果和错误码，不展示工具参数、正文、密钥或同步凭证；支持 source / failed / action prefix / date / limit 受限筛选和失败错误码摘要。
