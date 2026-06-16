@@ -424,6 +424,12 @@ describe("commands", () => {
       error: { code: "invalid_option" },
     });
 
+    const missingDoctorProfile = await runCommand(["doctor", "--profile", "--json"], workspace.env);
+    expect(missingDoctorProfile).toMatchObject({
+      ok: false,
+      error: { code: "invalid_option" },
+    });
+
     const invalid = await runCommand(["mcp", "config", "--profile", "root"], workspace.env);
     expect(invalid).toMatchObject({
       ok: false,

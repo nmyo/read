@@ -299,6 +299,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
   const paths = getCliPaths(env);
 
   try {
+    if (command.profile !== undefined && !command.profile.trim()) {
+      return failure("invalid_option", "--profile requires a value");
+    }
+
     if (command.name === "--version" || command.name === "version") {
       return success(CLI_VERSION);
     }
@@ -368,9 +372,6 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (command.name === "mcp") {
       const subcommand = command.args[0];
       if (subcommand === "config") {
-        if (command.profile !== undefined && !command.profile.trim()) {
-          return failure("invalid_option", "--profile requires a value");
-        }
         return success(createMcpConfig(command.profile, getRequiredStringOption(command, "client")));
       }
       if (subcommand === "serve") {
