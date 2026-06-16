@@ -360,6 +360,7 @@ describe("commands", () => {
         client: "generic",
         format: "json",
         profile: "publisher",
+        snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
             command: "readany",
@@ -368,6 +369,19 @@ describe("commands", () => {
         },
       },
     });
+    if (publisher.ok) {
+      const snippet = (publisher.data as { snippet: string }).snippet;
+      expect(JSON.parse(snippet)).toEqual({
+        mcpServers: {
+          readany: {
+            command: "readany",
+            args: ["mcp", "serve", "--profile", "publisher"],
+          },
+        },
+      });
+      expect(snippet).not.toContain('"client"');
+      expect(snippet).not.toContain('"format"');
+    }
 
     const codex = await runCommand(
       ["mcp", "config", "--profile", "readonly", "--client", "codex"],
@@ -394,6 +408,7 @@ describe("commands", () => {
       data: {
         client: "claude",
         format: "json",
+        snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
             command: "readany",
@@ -402,6 +417,9 @@ describe("commands", () => {
         },
       },
     });
+    if (claude.ok) {
+      expect((claude.data as { snippet: string }).snippet).not.toContain('"client"');
+    }
 
     const invalidClient = await runCommand(["mcp", "config", "--client", "vscode"], workspace.env);
     expect(invalidClient).toMatchObject({

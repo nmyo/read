@@ -196,6 +196,11 @@ export function createMcpConfig(
   const parsedClient = parseMcpConfigClient(client);
   const server = createMcpServer(profile);
   const profileName = server.args[3];
+  const jsonConfig = {
+    mcpServers: {
+      readany: server,
+    },
+  };
 
   if (parsedClient === "codex") {
     return {
@@ -214,9 +219,8 @@ export function createMcpConfig(
     client: parsedClient,
     format: "json",
     profile: profileName,
-    mcpServers: {
-      readany: server,
-    },
+    snippet: JSON.stringify(jsonConfig, null, 2),
+    ...jsonConfig,
   };
 }
 

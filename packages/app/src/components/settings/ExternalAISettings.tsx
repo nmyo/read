@@ -116,9 +116,6 @@ function createMcpConfig(profile: McpProfile, client: McpClient) {
 
   return JSON.stringify(
     {
-      client,
-      format: "json",
-      profile,
       mcpServers: {
         readany: {
           command: "readany",

@@ -29,7 +29,7 @@ readany mcp serve --profile publisher
 readany mcp config --profile readonly [--client generic|claude|cursor|codex] [--json]
 ```
 
-默认使用 stdio。`mcp config` 只输出外部 agent 可复制的配置片段，不启动服务、不增加 MCP tool、不改变授权。`generic`、`claude`、`cursor` 输出 JSON `mcpServers.readany`；`codex` 输出可粘贴到 Codex `config.toml` 的 TOML snippet。第一阶段不要求 daemon。
+默认使用 stdio。`mcp config` 只生成外部 agent 可复制的配置片段，不启动服务、不增加 MCP tool、不改变授权。`generic`、`claude`、`cursor` 的 `snippet` 是纯 JSON `mcpServers.readany`；`codex` 的 `snippet` 是可粘贴到 Codex `config.toml` 的 TOML 片段。`--json` 结果可以额外包含 `client`、`format`、`profile` 等元数据，但设置页复制时必须只复制 `snippet`。第一阶段不要求 daemon。
 
 ### Skill 命令
 

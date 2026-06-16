@@ -123,6 +123,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
         client: "generic",
         format: "json",
         profile: "readonly",
+        snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
             command: "readany",
