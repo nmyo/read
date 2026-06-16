@@ -64,7 +64,9 @@ class ReadingContextService {
       await platform.mkdir(dir);
       const filePath = await platform.joinPath(dir, SNAPSHOT_FILE);
       if (!snapshot) {
-        await platform.deleteFile(filePath);
+        if (await platform.exists(filePath)) {
+          await platform.deleteFile(filePath);
+        }
         return;
       }
       await platform.writeTextFile(filePath, JSON.stringify(snapshot));

@@ -13,8 +13,14 @@ vi.mock("../db/database", () => ({
 
 const mockedGetHighlights = vi.mocked(getHighlights);
 
-function createPlatform(root: string): IPlatformService {
+type TestPlatform = IPlatformService & {
+  deletedFiles: string[];
+};
+
+function createPlatform(root: string): TestPlatform {
+  const deletedFiles: string[] = [];
   return {
+    deletedFiles,
     platformType: "desktop",
     isDesktop: true,
     isMobile: false,
@@ -42,6 +48,7 @@ function createPlatform(root: string): IPlatformService {
       }
     },
     async deleteFile(path) {
+      deletedFiles.push(path);
       await rm(path, { force: true });
     },
     async getAppDataDir() {
@@ -90,10 +97,12 @@ function createPlatform(root: string): IPlatformService {
 
 describe("readingContextService", () => {
   let root: string;
+  let platform: TestPlatform;
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "readany-context-"));
-    setPlatformService(createPlatform(root));
+    platform = createPlatform(root);
+    setPlatformService(platform);
     mockedGetHighlights.mockResolvedValue([
       { text: "Recent note", cfi: "epubcfi(/6/2)", note: "sticky" },
       { text: "Older note", cfi: "epubcfi(/6/4)", note: null },
@@ -152,6 +161,15 @@ describe("readingContextService", () => {
     const filePath = join(root, "readany-store", "reader-context.json");
     expect(readingContextService.getContext()).toBeNull();
     await expect(readFile(filePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("does not delete a missing snapshot during an empty clear", async () => {
+    platform.deletedFiles.length = 0;
+
+    readingContextService.clearContext();
+    await readingContextService.flushSnapshot();
+
+    expect(platform.deletedFiles).toEqual([]);
   });
 
   it("keeps the latest snapshot after rapid updates", async () => {
