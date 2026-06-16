@@ -316,6 +316,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ok: true,
       checks: expect.arrayContaining([
         "readonly MCP initialize/tools/list/books.search/rag.search",
+        "copyable MCP config snippets",
         "tools/list safety metadata",
         "readonly PDF fallback chapters.list/chapters.get",
         "readonly write denial",

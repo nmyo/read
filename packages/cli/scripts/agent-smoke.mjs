@@ -181,6 +181,50 @@ function runBuiltCli(args, env) {
   return JSON.parse(result.stdout);
 }
 
+function assertMcpConfigSnippets(env) {
+  for (const client of ["generic", "claude", "cursor"]) {
+    const result = runBuiltCli(["mcp", "config", "--profile", "readonly", "--client", client, "--json"], env);
+    assert(result.ok, `${client} MCP config command did not succeed`);
+    assert(result.data.client === client, `${client} MCP config reported the wrong client`);
+    assert(result.data.format === "json", `${client} MCP config reported the wrong format`);
+    assert(result.data.profile === "readonly", `${client} MCP config reported the wrong profile`);
+    assert(typeof result.data.snippet === "string", `${client} MCP config did not include a snippet`);
+
+    const snippet = JSON.parse(result.data.snippet);
+    assert(
+      JSON.stringify(snippet) ===
+        JSON.stringify({
+          mcpServers: {
+            readany: {
+              command: "readany",
+              args: ["mcp", "serve", "--profile", "readonly"],
+            },
+          },
+        }),
+      `${client} MCP config snippet was not a pure mcpServers config`,
+    );
+    assert(!result.data.snippet.includes('"client"'), `${client} MCP config snippet leaked client metadata`);
+    assert(!result.data.snippet.includes('"format"'), `${client} MCP config snippet leaked format metadata`);
+    assert(!result.data.snippet.includes('"profile"'), `${client} MCP config snippet leaked profile metadata`);
+  }
+
+  const codex = runBuiltCli(["mcp", "config", "--profile", "editor", "--client", "codex", "--json"], env);
+  assert(codex.ok, "codex MCP config command did not succeed");
+  assert(codex.data.client === "codex", "codex MCP config reported the wrong client");
+  assert(codex.data.format === "toml", "codex MCP config reported the wrong format");
+  assert(codex.data.profile === "editor", "codex MCP config reported the wrong profile");
+  assert(typeof codex.data.snippet === "string", "codex MCP config did not include a snippet");
+  assert(codex.data.snippet.includes("[mcp_servers.readany]"), "codex MCP config snippet did not include server table");
+  assert(codex.data.snippet.includes('command = "readany"'), "codex MCP config snippet did not include command");
+  assert(
+    codex.data.snippet.includes('args = ["mcp","serve","--profile","editor"]'),
+    "codex MCP config snippet did not include editor profile args",
+  );
+  assert(!codex.data.snippet.includes("client ="), "codex MCP config snippet leaked client metadata");
+  assert(!codex.data.snippet.includes("format ="), "codex MCP config snippet leaked format metadata");
+  assert(!codex.data.snippet.includes("profile ="), "codex MCP config snippet leaked profile metadata");
+}
+
 function parseToolContent(response) {
   const text = response?.result?.content?.[0]?.text;
   assert(typeof text === "string", `MCP response did not contain tool text: ${JSON.stringify(response)}`);
@@ -354,6 +398,7 @@ async function main() {
   assert(doctor.ok, "doctor did not initialize the CLI workspace");
   const emptyBooks = runBuiltCli(["books", "list", "--json"], env);
   assert(emptyBooks.ok, "books list did not initialize the CLI data schema");
+  assertMcpConfigSnippets(env);
   const epubPath = await seedLibrary(dataRoot);
   const sourceBefore = await readFile(epubPath);
   const sourceHashBefore = hashBuffer(sourceBefore);
@@ -627,6 +672,7 @@ async function main() {
     exportHash: exportedHash,
     checks: [
       "readonly MCP initialize/tools/list/books.search/rag.search",
+      "copyable MCP config snippets",
       "tools/list safety metadata",
       "readonly PDF fallback chapters.list/chapters.get",
       "readonly write denial",
