@@ -631,6 +631,22 @@ async function main() {
     count: auditData.audit?.entries?.length ?? 0,
   });
 
+  const sampleFiles = Array.from(sampleFilesByBookId.values());
+  const manualAcceptanceRequired = createManualAcceptanceRequirements();
+  const summary = {
+    commandCount: commands.length,
+    checkCount: checks.length,
+    sampleFileCount: sampleFiles.length,
+    sampleFormats: Array.from(new Set(sampleFiles.map((sample) => sample.format).filter(Boolean))),
+    draftExport: options.draftExport,
+    pdfChecked: Boolean(options.pdfBookId),
+    doctorFailedChecks: doctorData.checks
+      ?.filter((check) => check.ok !== true)
+      .map((check) => check.name) ?? [],
+    manualAcceptanceRequiredCount: manualAcceptanceRequired.length,
+    manualAcceptanceRequiredIds: manualAcceptanceRequired.map((item) => item.id),
+  };
+
   const evidence = {
     ok: true,
     generatedAt: new Date().toISOString(),
@@ -640,18 +656,19 @@ async function main() {
     bookId: options.bookId,
     epubBookId: options.epubBookId,
     pdfBookId: options.pdfBookId,
-    sampleFiles: Array.from(sampleFilesByBookId.values()),
+    summary,
+    sampleFiles,
     draftExport: options.draftExport,
     keepDraft: options.keepDraft,
     checks,
     commands,
-    manualAcceptanceRequired: createManualAcceptanceRequirements(),
+    manualAcceptanceRequired,
     note: "This helper records real-sample evidence. It does not replace manual external-agent or packaged-app matrix acceptance.",
   };
 
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
-  process.stdout.write(`${JSON.stringify({ ok: true, evidencePath, checks }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, evidencePath, summary, checks }, null, 2)}\n`);
 }
 
 try {

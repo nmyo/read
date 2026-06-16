@@ -381,8 +381,23 @@ Module._load = function patchedLoad(request, parent, isMain) {
     );
 
     expect(result.status, result.stderr).toBe(0);
-    const summary = JSON.parse(result.stdout) as { ok: boolean; checks: string[]; evidencePath: string };
-    expect(summary).toMatchObject({
+    const output = JSON.parse(result.stdout) as {
+      ok: boolean;
+      checks: string[];
+      evidencePath: string;
+      summary: {
+        commandCount: number;
+        checkCount: number;
+        sampleFileCount: number;
+        sampleFormats: string[];
+        draftExport: boolean;
+        pdfChecked: boolean;
+        doctorFailedChecks: string[];
+        manualAcceptanceRequiredCount: number;
+        manualAcceptanceRequiredIds: string[];
+      };
+    };
+    expect(output).toMatchObject({
       ok: true,
       evidencePath,
       checks: expect.arrayContaining([
@@ -397,6 +412,21 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "pdf chapter.get real sample",
         "audit.list bounded metadata",
       ]),
+      summary: {
+        commandCount: expect.any(Number),
+        checkCount: expect.any(Number),
+        sampleFileCount: 2,
+        sampleFormats: expect.arrayContaining(["epub", "pdf"]),
+        draftExport: true,
+        pdfChecked: true,
+        doctorFailedChecks: expect.any(Array),
+        manualAcceptanceRequiredCount: 6,
+        manualAcceptanceRequiredIds: expect.arrayContaining([
+          "external-agent-clients",
+          "packaged-app-matrix",
+          "runtime-bundle",
+        ]),
+      },
     });
 
     const evidence = JSON.parse(await readFile(evidencePath, "utf8")) as {
@@ -441,6 +471,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
         bytes: number;
         sha256: string;
       }>;
+      summary: typeof output.summary;
       manualAcceptanceRequired: Array<{
         id: string;
         label: string;
@@ -477,6 +508,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
         expect.objectContaining({ name: "native-sqlite", ok: true }),
       ]),
     });
+    expect(evidence.summary).toEqual(output.summary);
+    expect(evidence.summary.commandCount).toBe(evidence.commands.length);
+    expect(evidence.summary.checkCount).toBe(evidence.checks.length);
     expect(evidence.sampleFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
