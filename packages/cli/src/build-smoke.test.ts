@@ -1223,8 +1223,10 @@ Module._load = function patchedLoad(request, parent, isMain) {
         },
       },
       nextSteps: expect.arrayContaining([
-        expect.stringContaining("acceptance:validate -- --record"),
-        expect.stringContaining("acceptance:assemble -- --record"),
+        expect.stringContaining("acceptance:validate"),
+        expect.stringContaining(scaffoldPath),
+        expect.stringContaining(evidencePath),
+        expect.stringContaining("packaged-windows.json"),
       ]),
     });
 
@@ -1734,8 +1736,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         },
       },
       nextSteps: expect.arrayContaining([
-        expect.stringContaining("acceptance:validate -- --record"),
-        expect.stringContaining("acceptance:assemble -- --record"),
+        expect.stringContaining("acceptance:assemble"),
+        expect.stringContaining(anchoredStrictRecordPath),
+        expect.stringContaining(linuxPackagedEvidencePath),
+        expect.stringContaining("--output-dir"),
       ]),
     });
 

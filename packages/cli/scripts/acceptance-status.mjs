@@ -193,7 +193,52 @@ function collectMissing(summary) {
   return missing;
 }
 
-function recommendedCommands(summary, hasRecord) {
+function quoteShellArg(value) {
+  if (/^<.*>$/.test(value)) return value;
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function buildCommand(parts) {
+  return parts.map((part) => quoteShellArg(part)).join(" ");
+}
+
+function firstEntry(entries, type, predicate = () => true) {
+  return entries.find((entry) => entry.type === type && predicate(entry));
+}
+
+function agentEntry(entries, client) {
+  return firstEntry(entries, "external-agent", (entry) => normalizeClientName(entry.evidence.client?.name) === client);
+}
+
+function packagedEntry(entries, platform) {
+  return firstEntry(entries, "packaged-platform", (entry) => normalizePlatform(entry.evidence.environment?.platform) === platform);
+}
+
+function strictEvidencePaths(entries) {
+  const paths = [];
+  const realSample = firstEntry(entries, "real-sample");
+  paths.push(realSample?.path ?? "docs/readany-cli/acceptance/evidence/real-sample.json");
+
+  const codex = agentEntry(entries, "codex");
+  if (codex) paths.push(codex.path);
+  else paths.push("docs/readany-cli/acceptance/evidence/agent-codex.json");
+
+  const secondClient = agentEntry(entries, "claude") ?? agentEntry(entries, "cursor");
+  if (secondClient) paths.push(secondClient.path);
+  else paths.push("docs/readany-cli/acceptance/evidence/agent-second-client.json");
+
+  const desktop = firstEntry(entries, "desktop-settings");
+  paths.push(desktop?.path ?? "docs/readany-cli/acceptance/evidence/desktop-settings.json");
+
+  for (const platform of ["macos", "windows", "linux"]) {
+    const packaged = packagedEntry(entries, platform);
+    paths.push(packaged?.path ?? `docs/readany-cli/acceptance/evidence/packaged-${platform}.json`);
+  }
+
+  return paths;
+}
+
+function recommendedCommands(summary, recordPath, evidenceEntries) {
   const commands = [];
   if (summary.realSampleCount < 1) {
     commands.push("pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence docs/readany-cli/acceptance/evidence/real-sample.json");
@@ -212,13 +257,63 @@ function recommendedCommands(summary, hasRecord) {
       commands.push(`pnpm --filter @readany/cli acceptance:packaged -- --package-source <artifact> --platform ${displayPlatform(platform)} --evidence docs/readany-cli/acceptance/evidence/packaged-${platform}.json`);
     }
   }
-  if (!hasRecord && summary.realSampleCount >= 1) {
-    commands.push("pnpm --filter @readany/cli acceptance:scaffold -- --evidence docs/readany-cli/acceptance/evidence/real-sample.json --output docs/readany-cli/acceptance/<m5-record>.md");
+
+  const strictPaths = strictEvidencePaths(evidenceEntries);
+  if (!recordPath && summary.realSampleCount >= 1) {
+    const scaffoldParts = [
+      "pnpm",
+      "--filter",
+      "@readany/cli",
+      "acceptance:scaffold",
+      "--",
+      "--evidence",
+      strictPaths[0],
+    ];
+    for (const path of strictPaths.slice(1)) {
+      if (/agent-codex|agent-second-client/.test(path)) {
+        scaffoldParts.push("--agent-evidence", path);
+      } else if (/desktop-settings/.test(path)) {
+        scaffoldParts.push("--desktop-evidence", path);
+      } else if (/packaged-/.test(path)) {
+        scaffoldParts.push("--packaged-evidence", path);
+      }
+    }
+    scaffoldParts.push("--output", "docs/readany-cli/acceptance/<m5-record>.md");
+    commands.push(buildCommand(scaffoldParts));
   }
-  if (hasRecord) {
-    commands.push("pnpm --filter @readany/cli acceptance:validate -- --record <acceptance-record.md> --evidence <evidence.json> --evidence <agent-evidence.json> --evidence <desktop-evidence.json> --evidence <macos-packaged-evidence.json> --evidence <windows-packaged-evidence.json> --evidence <linux-packaged-evidence.json> --strict-m5");
-    commands.push("pnpm --filter @readany/cli acceptance:assemble -- --record <acceptance-record.md> --evidence <evidence.json> --evidence <agent-evidence.json> --evidence <desktop-evidence.json> --evidence <macos-packaged-evidence.json> --evidence <windows-packaged-evidence.json> --evidence <linux-packaged-evidence.json> --release <release-label> --reviewer <name> --output-dir <acceptance-bundle-dir>");
+
+  if (recordPath) {
+    const validateParts = [
+      "pnpm",
+      "--filter",
+      "@readany/cli",
+      "acceptance:validate",
+      "--",
+      "--record",
+      recordPath,
+    ];
+    for (const path of strictPaths) {
+      validateParts.push("--evidence", path);
+    }
+    validateParts.push("--strict-m5");
+    commands.push(buildCommand(validateParts));
+
+    const assembleParts = [
+      "pnpm",
+      "--filter",
+      "@readany/cli",
+      "acceptance:assemble",
+      "--",
+      "--record",
+      recordPath,
+    ];
+    for (const path of strictPaths) {
+      assembleParts.push("--evidence", path);
+    }
+    assembleParts.push("--release", "<release-label>", "--reviewer", "<name>", "--output-dir", "<acceptance-bundle-dir>");
+    commands.push(buildCommand(assembleParts));
   }
+
   return commands;
 }
 
@@ -314,7 +409,7 @@ async function main() {
       structural: normalizeValidationResult(structuralValidation.result, structuralPerformed, structuralValidation.status === 0),
       strictM5: normalizeValidationResult(strictValidation.result, strictPerformed, strictReady),
     },
-    nextSteps: recommendedCommands(summary, Boolean(recordPath)),
+    nextSteps: recommendedCommands(summary, recordPath, evidenceEntries),
   };
 
   if (options.json) {
