@@ -680,10 +680,35 @@ pnpm cli:preflight
 pnpm --filter @readany/cli acceptance:validate -- \
   --record docs/readany-cli/acceptance/<m5-record>.md \
   --evidence docs/readany-cli/acceptance/evidence/real-sample.json \
+  --evidence docs/readany-cli/acceptance/evidence/<agent-codex>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<agent-claude-or-cursor>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<desktop-settings>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-macos>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-windows>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-linux>.json \
   --strict-m5
 ```
 
-`--strict-m5` 会拒绝仍有未勾选验收范围、验收结果为“部分通过”或仍列出“当前不能对外宣称”能力的记录；它不能替代人工验收，但能防止 partial evidence 被误标为 M5 完成。
+`--strict-m5` 会拒绝仍有未勾选验收范围、验收结果为“部分通过”或仍列出“当前不能对外宣称”能力的记录；它还要求组合 evidence 齐全：真实样本、两个不同客户端的 external agent（其中一个 MCP-backed）、桌面设置页，以及 macOS / Windows / Linux 三平台 packaged evidence。它不能替代人工验收，但能防止 partial evidence 被误标为 M5 完成。
+
+最终归档：
+
+```bash
+pnpm --filter @readany/cli acceptance:finalize -- \
+  --record docs/readany-cli/acceptance/<m5-record>.md \
+  --evidence docs/readany-cli/acceptance/evidence/real-sample.json \
+  --evidence docs/readany-cli/acceptance/evidence/<agent-codex>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<agent-claude-or-cursor>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<desktop-settings>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-macos>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-windows>.json \
+  --evidence docs/readany-cli/acceptance/evidence/<packaged-linux>.json \
+  --release <release-label> \
+  --reviewer <name> \
+  --output docs/readany-cli/acceptance/<m5-manifest>.json
+```
+
+`acceptance:finalize` 不会绕过 strict M5；只有 strict 校验通过后才会写出最终 manifest，并把 record/evidence SHA-256、git commit/branch 和验证结果一起归档。
 
 ```bash
 pnpm cli:preflight:full
