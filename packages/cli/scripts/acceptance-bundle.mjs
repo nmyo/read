@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +79,10 @@ function bundleFileName(path, fallback) {
   return value || fallback;
 }
 
+function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -98,30 +103,56 @@ async function main() {
 
   const recordText = await readFile(recordPath, "utf8");
   const manifestText = await readFile(manifestPath, "utf8");
+  const recordInfo = {
+    source: recordPath,
+    target: "record.md",
+    sha256: sha256(recordText),
+    bytes: Buffer.byteLength(recordText),
+  };
+  const manifestInfo = {
+    source: manifestPath,
+    target: "manifest.json",
+    sha256: sha256(manifestText),
+    bytes: Buffer.byteLength(manifestText),
+  };
+  const evidenceInfos = await Promise.all(
+    evidencePaths.map(async (path, index) => {
+      const text = await readFile(path, "utf8");
+      return {
+        source: path,
+        target: `evidence/${bundleFileName(path, `evidence-${index + 1}.json`)}`,
+        sha256: sha256(text),
+        bytes: Buffer.byteLength(text),
+        text,
+      };
+    }),
+  );
   await writeFile(join(outputDir, "record.md"), recordText, "utf8");
   await writeFile(join(outputDir, "manifest.json"), manifestText, "utf8");
   await writeFile(
     join(outputDir, "index.json"),
-    `${JSON.stringify(
+      `${JSON.stringify(
       {
         ok: true,
         generatedAt: new Date().toISOString(),
         release: options.release,
         record: "record.md",
         manifest: "manifest.json",
-        evidences: evidencePaths.map((path, index) => ({
-          source: path,
-          target: `evidence/${bundleFileName(path, `evidence-${index + 1}.json`)}`,
-        })),
+        evidences: evidenceInfos.map(({ source, target }) => ({ source, target })),
+        files: [recordInfo, manifestInfo, ...evidenceInfos.map(({ source, target, sha256, bytes }) => ({
+          source,
+          target,
+          sha256,
+          bytes,
+        }))],
       },
       null,
       2,
     )}\n`,
     "utf8",
   );
-  for (const [index, evidencePath] of evidencePaths.entries()) {
-    const target = join(evidenceDir, bundleFileName(evidencePath, `evidence-${index + 1}.json`));
-    await writeFile(target, await readFile(evidencePath, "utf8"), "utf8");
+  for (const evidenceInfo of evidenceInfos) {
+    await writeFile(join(outputDir, evidenceInfo.target), evidenceInfo.text, "utf8");
   }
 
   process.stdout.write(

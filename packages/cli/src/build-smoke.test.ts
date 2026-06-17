@@ -1783,6 +1783,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       record: string;
       manifest: string;
       evidences: Array<{ source: string; target: string }>;
+      files: Array<{ source: string; target: string; sha256: string; bytes: number }>;
     };
     expect(bundleIndex).toMatchObject({
       ok: true,
@@ -1795,6 +1796,28 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         expect.objectContaining({ source: evidencePath }),
         expect.objectContaining({ source: codexAgentEvidencePath }),
         expect.objectContaining({ source: desktopEvidencePath }),
+      ]),
+    );
+    expect(bundleIndex.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: anchoredStrictRecordPath,
+          target: "record.md",
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          bytes: expect.any(Number),
+        }),
+        expect.objectContaining({
+          source: finalManifestPath,
+          target: "manifest.json",
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          bytes: expect.any(Number),
+        }),
+        expect.objectContaining({
+          source: evidencePath,
+          target: expect.stringMatching(/^evidence\//),
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          bytes: expect.any(Number),
+        }),
       ]),
     );
 
