@@ -88,6 +88,22 @@ export function workspaceBundleDir(workspace) {
   return workspace?.outputs?.bundleDir ?? workspace?.paths?.bundleDir;
 }
 
+export function workspaceMilestone(workspace) {
+  return workspace?.defaults?.milestone;
+}
+
+export function workspaceReviewer(workspace) {
+  return workspace?.defaults?.reviewer;
+}
+
+export function workspaceRelease(workspace) {
+  return workspace?.defaults?.release;
+}
+
+export function workspaceDesktopPackage(workspace) {
+  return workspace?.defaults?.desktopPackage;
+}
+
 export async function filterExistingPaths(paths) {
   const existing = [];
   for (const path of paths) {

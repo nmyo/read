@@ -10,6 +10,7 @@ import {
   workspaceBundleDir,
   workspaceEvidenceFiles,
   workspaceFinalManifestPath,
+  workspaceRelease,
   workspaceRecordPath,
 } from "./acceptance-workspace.mjs";
 
@@ -160,6 +161,9 @@ async function main() {
     const loaded = await loadWorkspaceConfig(options.workspacePath);
     workspaceFile = loaded.workspaceFile;
     workspace = loaded.workspace;
+    if (!options.release) {
+      options.release = workspaceRelease(workspace);
+    }
   }
 
   const recordPath = options.recordPath

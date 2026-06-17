@@ -6,10 +6,13 @@ import {
   loadWorkspaceConfig,
   resolveInputPath,
   workspaceAgentEvidencePath,
+  workspaceDesktopPackage,
   workspaceDesktopSettingsPath,
+  workspaceMilestone,
   workspacePackagedEvidencePath,
   workspaceRealSamplePath,
   workspaceRecordPath,
+  workspaceReviewer,
 } from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -489,6 +492,15 @@ async function main() {
     const loaded = await loadWorkspaceConfig(options.workspacePath);
     workspaceFile = loaded.workspaceFile;
     workspace = loaded.workspace;
+    options.milestone = options.milestone === "M5 acceptance draft"
+      ? workspaceMilestone(workspace) ?? options.milestone
+      : options.milestone;
+    options.reviewer = options.reviewer === "TBD"
+      ? workspaceReviewer(workspace) ?? options.reviewer
+      : options.reviewer;
+    options.desktopPackage = options.desktopPackage === "TBD"
+      ? workspaceDesktopPackage(workspace) ?? options.desktopPackage
+      : options.desktopPackage;
   }
 
   const realSamplePath = options.evidencePath

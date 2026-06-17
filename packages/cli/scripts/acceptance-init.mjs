@@ -9,6 +9,10 @@ const templatePath = resolve(repoRoot, "docs/readany-cli/acceptance/TEMPLATE.md"
 function parseArgs(argv) {
   const options = {
     workspacePath: resolve(process.cwd(), "readany-cli-acceptance"),
+    milestone: "M5 acceptance draft",
+    reviewer: "TBD",
+    release: "TBD",
+    desktopPackage: "TBD",
     json: false,
   };
 
@@ -19,6 +23,18 @@ function parseArgs(argv) {
       continue;
     } else if (arg === "--workspace") {
       options.workspacePath = next;
+      index += 1;
+    } else if (arg === "--milestone") {
+      options.milestone = next;
+      index += 1;
+    } else if (arg === "--reviewer") {
+      options.reviewer = next;
+      index += 1;
+    } else if (arg === "--release") {
+      options.release = next;
+      index += 1;
+    } else if (arg === "--desktop-package") {
+      options.desktopPackage = next;
       index += 1;
     } else if (arg === "--json") {
       options.json = true;
@@ -39,8 +55,12 @@ Usage:
   pnpm --filter @readany/cli acceptance:init -- [options]
 
 Options:
-  --workspace <path>   Workspace root to create.
-  --json               Print machine-readable output.
+  --workspace <path>        Workspace root to create.
+  --milestone <name>       Default milestone label for scaffolded records.
+  --reviewer <name>        Default reviewer for scaffold/finalize/assemble.
+  --release <label>        Default release/build label for finalize/bundle/assemble.
+  --desktop-package <src>  Default desktop package source label for scaffolded records.
+  --json                    Print machine-readable output.
 `;
 }
 
@@ -86,7 +106,7 @@ async function writeIfMissing(path, content, createdFiles) {
   return true;
 }
 
-function renderWorkspaceReadme(paths) {
+function renderWorkspaceReadme(paths, defaults) {
   return `# ReadAny Acceptance Workspace
 
 Workspace root:
@@ -111,6 +131,13 @@ Suggested evidence files:
 - \`${paths.evidenceDir}/packaged-windows.json\`
 - \`${paths.evidenceDir}/packaged-linux.json\`
 
+Workspace defaults:
+
+- milestone: \`${defaults.milestone}\`
+- reviewer: \`${defaults.reviewer}\`
+- release: \`${defaults.release}\`
+- desktopPackage: \`${defaults.desktopPackage}\`
+
 Next commands:
 
 \`\`\`bash
@@ -123,7 +150,7 @@ pnpm --filter @readany/cli acceptance:status -- --workspace ${paths.workspacePat
 `;
 }
 
-function renderWorkspaceJson(paths) {
+function renderWorkspaceJson(paths, defaults) {
   return `${JSON.stringify(
     {
       workspacePath: paths.workspacePath,
@@ -146,6 +173,12 @@ function renderWorkspaceJson(paths) {
       outputs: {
         finalManifestPath: resolve(paths.workspacePath, "final-manifest.json"),
         bundleDir: paths.bundleDir,
+      },
+      defaults: {
+        milestone: defaults.milestone,
+        reviewer: defaults.reviewer,
+        release: defaults.release,
+        desktopPackage: defaults.desktopPackage,
       },
     },
     null,
@@ -173,6 +206,12 @@ async function main() {
     exportsDir,
     logsDir,
   };
+  const defaults = {
+    milestone: options.milestone,
+    reviewer: options.reviewer,
+    release: options.release,
+    desktopPackage: options.desktopPackage,
+  };
 
   const createdDirectories = [];
   for (const path of [workspacePath, evidenceDir, bundleDir, exportsDir, logsDir]) {
@@ -182,8 +221,8 @@ async function main() {
   const template = await readFile(templatePath, "utf8");
   const createdFiles = [];
   await writeIfMissing(paths.recordPath, template, createdFiles);
-  await writeIfMissing(resolve(workspacePath, "README.md"), renderWorkspaceReadme(paths), createdFiles);
-  await writeIfMissing(resolve(workspacePath, "workspace.json"), renderWorkspaceJson(paths), createdFiles);
+  await writeIfMissing(resolve(workspacePath, "README.md"), renderWorkspaceReadme(paths, defaults), createdFiles);
+  await writeIfMissing(resolve(workspacePath, "workspace.json"), renderWorkspaceJson(paths, defaults), createdFiles);
 
   const output = {
     ok: true,

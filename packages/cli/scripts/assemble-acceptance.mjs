@@ -9,7 +9,9 @@ import {
   resolveInputPath,
   workspaceBundleDir,
   workspaceEvidenceFiles,
+  workspaceRelease,
   workspaceRecordPath,
+  workspaceReviewer,
 } from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -122,6 +124,12 @@ async function main() {
     const loaded = await loadWorkspaceConfig(options.workspacePath);
     workspaceFile = loaded.workspaceFile;
     workspace = loaded.workspace;
+    if (!options.reviewer) {
+      options.reviewer = workspaceReviewer(workspace);
+    }
+    if (!options.release) {
+      options.release = workspaceRelease(workspace);
+    }
   }
 
   const recordPath = options.recordPath

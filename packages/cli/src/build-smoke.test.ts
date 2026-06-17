@@ -1749,6 +1749,14 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         resolve(cliRoot, "scripts/acceptance-init.mjs"),
         "--workspace",
         acceptanceInitWorkspace,
+        "--milestone",
+        "Workspace M5",
+        "--reviewer",
+        "Workspace Reviewer",
+        "--release",
+        "workspace-default-release",
+        "--desktop-package",
+        "workspace desktop package",
         "--json",
       ],
       {
@@ -1786,8 +1794,13 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(workspaceReadme).toContain("ReadAny Acceptance Workspace");
     expect(workspaceReadme).toContain(`acceptance:real -- --workspace ${acceptanceInitWorkspace}`);
     expect(workspaceReadme).toContain(`acceptance:status -- --workspace ${acceptanceInitWorkspace}`);
+    expect(workspaceReadme).toContain("milestone: `Workspace M5`");
+    expect(workspaceReadme).toContain("reviewer: `Workspace Reviewer`");
+    expect(workspaceReadme).toContain("release: `workspace-default-release`");
+    expect(workspaceReadme).toContain("desktopPackage: `workspace desktop package`");
     const workspaceJson = JSON.parse(await readFile(join(acceptanceInitWorkspace, "workspace.json"), "utf8")) as {
       paths: { recordPath: string };
+      defaults: { milestone: string; reviewer: string; release: string; desktopPackage: string };
       evidenceFiles: { realSample: string; packagedWindows: string };
     };
     expect(workspaceJson).toMatchObject({
@@ -1797,6 +1810,12 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       evidenceFiles: {
         realSample: join(acceptanceInitWorkspace, "evidence", "real-sample.json"),
         packagedWindows: join(acceptanceInitWorkspace, "evidence", "packaged-windows.json"),
+      },
+      defaults: {
+        milestone: "Workspace M5",
+        reviewer: "Workspace Reviewer",
+        release: "workspace-default-release",
+        desktopPackage: "workspace desktop package",
       },
     });
     const workspaceReal = spawnSync(
@@ -2070,6 +2089,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     const workspaceRecord = await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8");
     expect(workspaceRecord).toContain("# ReadAny CLI Acceptance Record");
     expect(workspaceRecord).toContain("sample SHA-256");
+    expect(workspaceRecord).toContain("- Milestone：Workspace M5");
+    expect(workspaceRecord).toContain("- 验收人：Workspace Reviewer");
+    expect(workspaceRecord).toContain("- 桌面包来源：workspace desktop package");
     expect(workspaceRecord).toContain(`acceptance:status -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
     expect(workspaceRecord).toContain(`acceptance:validate -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --strict-m5`);
     expect(workspaceRecord).toContain(`acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`);
@@ -2131,10 +2153,6 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         resolve(cliRoot, "scripts/finalize-acceptance.mjs"),
         "--workspace",
         acceptanceInitWorkspace,
-        "--reviewer",
-        "Vitest",
-        "--release",
-        "workspace-release",
       ],
       {
         cwd: cliRoot,
@@ -2148,14 +2166,16 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputPath: join(acceptanceInitWorkspace, "final-manifest.json"),
     });
+    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8"))).toMatchObject({
+      release: "workspace-default-release",
+      reviewer: "Workspace Reviewer",
+    });
     const workspaceBundle = spawnSync(
       process.execPath,
       [
         resolve(cliRoot, "scripts/acceptance-bundle.mjs"),
         "--workspace",
         acceptanceInitWorkspace,
-        "--release",
-        "workspace-release",
       ],
       {
         cwd: cliRoot,
@@ -2169,6 +2189,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputDir: join(acceptanceInitWorkspace, "bundle"),
       files: expect.arrayContaining(["record.md", "manifest.json", "index.json"]),
+    });
+    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "bundle", "index.json"), "utf8"))).toMatchObject({
+      release: "workspace-default-release",
     });
     const workspaceVerifyBundle = spawnSync(
       process.execPath,
@@ -2195,10 +2218,6 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         resolve(cliRoot, "scripts/assemble-acceptance.mjs"),
         "--workspace",
         acceptanceInitWorkspace,
-        "--reviewer",
-        "Vitest",
-        "--release",
-        "workspace-release",
       ],
       {
         cwd: cliRoot,
@@ -2212,6 +2231,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputDir: join(acceptanceInitWorkspace, "bundle"),
       verified: true,
+    });
+    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8"))).toMatchObject({
+      release: "workspace-default-release",
+      reviewer: "Workspace Reviewer",
     });
 
     const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
