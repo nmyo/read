@@ -58,6 +58,7 @@ pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <quer
 pnpm --filter @readany/cli acceptance:agent -- --client <Codex|Claude Desktop|Cursor> --client-version <version> --profile <profiles> --evidence <evidence.json>
 pnpm --filter @readany/cli acceptance:desktop -- --snapshot <snapshot.json> --screenshot <path> --evidence <evidence.json>
 pnpm --filter @readany/cli acceptance:packaged -- --package-source <artifact> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:init -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:scaffold -- --evidence <real-sample.json> --output <record.md>
 pnpm --filter @readany/cli acceptance:status -- --record <record.md> --evidence <evidence.json>
 pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json> [--strict-m5]
@@ -71,6 +72,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 
 - `acceptance:real` 生成真实样本 evidence，默认只读；只有显式 `--draft-export` 才会创建 draft、validate、export 并清理草稿。
 - `acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 只记录对应人工或半自动证据，不替代 strict M5 的完整组合证据。
+- `acceptance:init` 会先搭好一个本地 acceptance workspace，包含 `record.md`、`evidence/`、`bundle/`、`exports/` 和 `logs/`，适合作为真实 M5 采证起点。
 - `acceptance:scaffold` 生成 partial 验收草稿，用于减少手工填表漏项，不把 pending/TBD 伪装成通过。
 - `acceptance:status` 是验收收口助手，会汇总当前 record/evidence 距离 strict M5 还缺什么，并给出下一步建议命令。
 - `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。

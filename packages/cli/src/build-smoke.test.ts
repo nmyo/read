@@ -1743,6 +1743,48 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ]),
     });
 
+    const acceptanceInitWorkspace = join(root, "evidence", "acceptance-workspace");
+    const initWorkspace = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-init.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(initWorkspace.status, initWorkspace.stderr || initWorkspace.stdout).toBe(0);
+    expect(JSON.parse(initWorkspace.stdout)).toMatchObject({
+      ok: true,
+      workspacePath: acceptanceInitWorkspace,
+      paths: {
+        recordPath: join(acceptanceInitWorkspace, "record.md"),
+        evidenceDir: join(acceptanceInitWorkspace, "evidence"),
+        bundleDir: join(acceptanceInitWorkspace, "bundle"),
+        exportsDir: join(acceptanceInitWorkspace, "exports"),
+        logsDir: join(acceptanceInitWorkspace, "logs"),
+      },
+      createdDirectories: expect.arrayContaining([
+        acceptanceInitWorkspace,
+        join(acceptanceInitWorkspace, "evidence"),
+        join(acceptanceInitWorkspace, "bundle"),
+        join(acceptanceInitWorkspace, "exports"),
+        join(acceptanceInitWorkspace, "logs"),
+      ]),
+      createdFiles: expect.arrayContaining([
+        join(acceptanceInitWorkspace, "record.md"),
+        join(acceptanceInitWorkspace, "README.md"),
+        join(acceptanceInitWorkspace, "workspace.json"),
+      ]),
+    });
+    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("ReadAny CLI Acceptance Record");
+    expect(await readFile(join(acceptanceInitWorkspace, "README.md"), "utf8")).toContain("ReadAny Acceptance Workspace");
+
     const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
     const rejectedFinalize = spawnSync(
       process.execPath,

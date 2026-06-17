@@ -99,6 +99,7 @@ readany audit list --source mcp --json
 
 ```bash
 pnpm --filter @readany/cli build
+pnpm --filter @readany/cli acceptance:init -- --workspace <acceptance-workspace-dir>
 pnpm --filter @readany/cli acceptance:real -- \
   --readany-home <real-readany-home> \
   --book <book-id> \
@@ -202,6 +203,8 @@ pnpm --filter @readany/cli acceptance:assemble -- \
 `acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本会在 stdout 输出脱敏摘要，并写入完整 JSON 证据；证据会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和 `manualAcceptanceRequired` 清单。每个 `manualAcceptanceRequired` 项都带 `evidence` 和 `commands`，用于指导后续人工补证，但不能替代样本来源、真实外部 agent 和打包产物记录。
 
 `acceptance:packaged` 用来给 macOS / Windows / Linux 打包矩阵逐个平台采证。默认只读，记录 version、doctor runtime/distribution、tools list、MCP config、readonly MCP initialize/tools/list 和 skill status；只有显式 `--repair-bin-dir <tmp-bin-dir>` 才会运行 `readany repair --user` 并把 shim 写入临时 bin 目录；只有显式 `--with-skill-install` 才会执行 skill install/status/uninstall，建议搭配临时 `--agent-home`；只有显式 `--draft-export --book <epub-book-id> --export-dir <dir>` 才会创建 draft、validate、export、检查导出 EPUB 结构并默认 discard draft 清理工作区。该 evidence 只证明单平台安装/运行状态，不能替代真实样本、真实外部 agent 或最终 M5 记录。
+
+`acceptance:init` 用来创建一套本地 acceptance workspace，包含 `record.md`、`evidence/`、`bundle/`、`exports/`、`logs/` 以及一个说明 README。文档里引用的 `docs/readany-cli/acceptance/evidence/*.json` 结构可以直接映射到这套 workspace，用它起手能少掉不少手工搭目录和改路径。
 
 `acceptance:agent` 用来记录 Codex / Claude Desktop / Cursor 等真实外部客户端的人工验收事实，包括 read/search/RAG、readonly 写入拒绝、draft/export 和 audit 摘要。使用 MCP 的客户端必须传 `--uses-mcp`、脱敏 MCP config、tools/list 摘要和 tool count；脚本会拦截明显未脱敏密钥。每个 evidence 只代表一个真实客户端，不能替代至少两个外部 agent、其中一个使用 MCP 的 strict M5 要求。
 
