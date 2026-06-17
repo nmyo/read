@@ -1851,6 +1851,27 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         evidences: [expect.objectContaining({ path: workspaceJson.evidenceFiles.realSample, type: "real-sample" })],
       },
     });
+    const workspaceScaffold = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/scaffold-acceptance-record.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceScaffold.status, workspaceScaffold.stderr || workspaceScaffold.stdout).toBe(0);
+    expect(JSON.parse(workspaceScaffold.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputPath: join(acceptanceInitWorkspace, "record.md"),
+    });
+    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("# ReadAny CLI Acceptance Record");
+    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("sample SHA-256");
     await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
     await writeFile(workspaceJson.evidenceFiles.agentCodex, await readFile(codexAgentEvidencePath, "utf8"), "utf8");
     await writeFile(workspaceJson.evidenceFiles.agentSecondClient, await readFile(claudeAgentEvidencePath, "utf8"), "utf8");

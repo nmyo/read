@@ -261,26 +261,38 @@ function recommendedCommands(summary, recordPath, evidenceEntries) {
 
   const strictPaths = strictEvidencePaths(evidenceEntries);
   if (!recordPath && summary.realSampleCount >= 1) {
-    const scaffoldParts = [
-      "pnpm",
-      "--filter",
-      "@readany/cli",
-      "acceptance:scaffold",
-      "--",
-      "--evidence",
-      strictPaths[0],
-    ];
-    for (const path of strictPaths.slice(1)) {
-      if (/agent-codex|agent-second-client/.test(path)) {
-        scaffoldParts.push("--agent-evidence", path);
-      } else if (/desktop-settings/.test(path)) {
-        scaffoldParts.push("--desktop-evidence", path);
-      } else if (/packaged-/.test(path)) {
-        scaffoldParts.push("--packaged-evidence", path);
+    if (workspaceFile) {
+      commands.push(buildCommand([
+        "pnpm",
+        "--filter",
+        "@readany/cli",
+        "acceptance:scaffold",
+        "--",
+        "--workspace",
+        workspaceFile,
+      ]));
+    } else {
+      const scaffoldParts = [
+        "pnpm",
+        "--filter",
+        "@readany/cli",
+        "acceptance:scaffold",
+        "--",
+        "--evidence",
+        strictPaths[0],
+      ];
+      for (const path of strictPaths.slice(1)) {
+        if (/agent-codex|agent-second-client/.test(path)) {
+          scaffoldParts.push("--agent-evidence", path);
+        } else if (/desktop-settings/.test(path)) {
+          scaffoldParts.push("--desktop-evidence", path);
+        } else if (/packaged-/.test(path)) {
+          scaffoldParts.push("--packaged-evidence", path);
+        }
       }
+      scaffoldParts.push("--output", "docs/readany-cli/acceptance/<m5-record>.md");
+      commands.push(buildCommand(scaffoldParts));
     }
-    scaffoldParts.push("--output", "docs/readany-cli/acceptance/<m5-record>.md");
-    commands.push(buildCommand(scaffoldParts));
   }
 
   if (recordPath) {

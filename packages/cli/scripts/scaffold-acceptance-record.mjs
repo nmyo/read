@@ -1,9 +1,15 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  filterExistingPaths,
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspaceEvidenceFiles,
+  workspaceRecordPath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, "../../..");
 
 function parseArgs(argv) {
   const options = {
@@ -11,6 +17,7 @@ function parseArgs(argv) {
     packagedEvidencePaths: [],
     agentEvidencePaths: [],
     desktopEvidencePath: undefined,
+    workspacePath: undefined,
     outputPath: undefined,
     milestone: "M5 acceptance draft",
     reviewer: "TBD",
@@ -33,6 +40,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--desktop-evidence") {
       options.desktopEvidencePath = next;
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--output") {
       options.outputPath = next;
@@ -67,20 +77,12 @@ Options:
   --packaged-evidence <path>     acceptance:packaged JSON evidence; repeatable.
   --agent-evidence <path>        acceptance:agent JSON evidence; repeatable.
   --desktop-evidence <path>      acceptance:desktop JSON evidence.
+  --workspace <path>             Acceptance workspace root or workspace.json.
   --output <path>                Write Markdown record to this path; stdout when omitted.
   --milestone <name>             Milestone label.
   --reviewer <name>              Reviewer name.
   --desktop-package <source>     Desktop package source.
 `;
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function value(value, fallback = "TBD") {
@@ -464,25 +466,50 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  if (!options.evidencePath) throw new Error("Pass --evidence <path>.");
 
-  const evidencePath = resolveInputPath(options.evidencePath);
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const workspaceEvidencePaths = await filterExistingPaths(workspaceEvidenceFiles(workspace).map(resolveInputPath));
+  const realSamplePath = options.evidencePath
+    ? resolveInputPath(options.evidencePath)
+    : workspaceEvidencePaths[0];
+  if (!realSamplePath) throw new Error("Pass --evidence <path> or use --workspace <path> with a real-sample evidence file.");
+
+  const outputPath = options.outputPath
+    ? resolveInputPath(options.outputPath)
+    : workspaceRecordPath(workspace);
+  const packagedEvidencePaths = options.packagedEvidencePaths.length > 0
+    ? options.packagedEvidencePaths.map(resolveInputPath)
+    : workspaceEvidencePaths.filter((path) => /packaged-(macos|windows|linux)\.json$/i.test(path));
+  const agentEvidencePaths = options.agentEvidencePaths.length > 0
+    ? options.agentEvidencePaths.map(resolveInputPath)
+    : workspaceEvidencePaths.filter((path) => /agent-(codex|second-client)\.json$/i.test(path));
+  const desktopEvidencePath = options.desktopEvidencePath
+    ? resolveInputPath(options.desktopEvidencePath)
+    : workspaceEvidencePaths.find((path) => /desktop-settings\.json$/i.test(path));
+
+  const evidencePath = realSamplePath;
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
   const packagedEvidences = await Promise.all(
-    options.packagedEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
+    packagedEvidencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))),
   );
   const agentEvidences = await Promise.all(
-    options.agentEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
+    agentEvidencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))),
   );
-  const desktopEvidence = options.desktopEvidencePath
-    ? JSON.parse(await readFile(resolveInputPath(options.desktopEvidencePath), "utf8"))
+  const desktopEvidence = desktopEvidencePath
+    ? JSON.parse(await readFile(desktopEvidencePath, "utf8"))
     : undefined;
   const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence);
-  if (options.outputPath) {
-    const outputPath = resolveInputPath(options.outputPath);
+  if (outputPath) {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, record, "utf8");
-    process.stdout.write(`${JSON.stringify({ ok: true, outputPath }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, workspaceFile, outputPath }, null, 2)}\n`);
   } else {
     process.stdout.write(record);
   }
