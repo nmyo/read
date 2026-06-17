@@ -241,12 +241,41 @@ function validateExternalAgentEvidence(evidence) {
   return { errors, warnings };
 }
 
+function validateDesktopSettingsEvidence(evidence) {
+  const errors = [];
+  const warnings = [];
+
+  assertCondition(evidence?.ok === true, errors, "Evidence ok must be true.");
+  assertCondition(typeof evidence?.generatedAt === "string", errors, "Evidence generatedAt is required.");
+  assertCondition(evidence?.environment?.evidenceType === "desktop-settings", errors, "Desktop settings evidenceType is required.");
+  assertCondition(evidence?.summary?.completed === true, errors, "Desktop settings summary.completed must be true.");
+  assertCondition(evidence?.summary?.cliAvailable === true, errors, "Desktop settings CLI availability is required.");
+  assertCondition(typeof evidence?.summary?.toolCount === "number" && evidence.summary.toolCount > 0, errors, "Desktop settings toolCount is required.");
+  assertCondition(typeof evidence?.summary?.mcpProfile === "string", errors, "Desktop settings MCP profile is required.");
+  assertCondition(typeof evidence?.summary?.mcpClient === "string", errors, "Desktop settings MCP client is required.");
+  assertCondition(typeof evidence?.snapshot?.doctor?.version === "string", errors, "Desktop settings doctor version is required.");
+  assertCondition(typeof evidence?.snapshot?.doctor?.distribution?.builtBundle === "boolean", errors, "Desktop settings doctor distribution.builtBundle is required.");
+  assertCondition(typeof evidence?.snapshot?.doctor?.distribution?.desktopResourceBundle === "boolean", errors, "Desktop settings doctor distribution.desktopResourceBundle is required.");
+  assertCondition(typeof evidence?.snapshot?.skill?.installed === "boolean", errors, "Desktop settings skill status is required.");
+  assertCondition(evidence?.snapshot?.mcp?.hasConfig === true, errors, "Desktop settings MCP config evidence is required.");
+  assertCondition(evidence?.snapshot?.audit?.checked === true, errors, "Desktop settings audit evidence is required.");
+  assertCondition(Array.isArray(evidence?.checks), errors, "Desktop settings checks must be an array.");
+  assertCondition((evidence?.checks ?? []).every((check) => check.ok === true), errors, "Desktop settings checks must all pass.");
+  if (!evidence?.screenshot) {
+    warnings.push("Desktop settings evidence has no screenshot path; strict M5 record still needs UI evidence or copied snapshot attachment.");
+  }
+  warnings.push("Desktop settings evidence validates the settings page snapshot only; strict M5 still requires final record closure.");
+  return { errors, warnings };
+}
+
 function evidenceType(evidence) {
   return evidence?.environment?.evidenceType === "packaged-platform"
     ? "packaged-platform"
     : evidence?.environment?.evidenceType === "external-agent"
       ? "external-agent"
-      : "real-sample";
+      : evidence?.environment?.evidenceType === "desktop-settings"
+        ? "desktop-settings"
+        : "real-sample";
 }
 
 function validateDoctorEvidence(evidence, errors) {
@@ -463,6 +492,7 @@ function validateEvidence(evidence) {
   const type = evidenceType(evidence);
   if (type === "packaged-platform") return validatePackagedEvidence(evidence);
   if (type === "external-agent") return validateExternalAgentEvidence(evidence);
+  if (type === "desktop-settings") return validateDesktopSettingsEvidence(evidence);
   return validateRealSampleEvidence(evidence);
 }
 
@@ -550,6 +580,8 @@ async function main() {
     validateStrictM5RecordEvidenceLinks(recordText, evidence, errors);
   } else if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "packaged-platform") {
     warnings.push("Strict M5 evidence anchor checks require real-sample evidence; packaged evidence is supplemental.");
+  } else if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "desktop-settings") {
+    warnings.push("Strict M5 evidence anchor checks require real-sample evidence; desktop settings evidence is supplemental.");
   }
 
   const output = {

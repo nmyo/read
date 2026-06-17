@@ -948,6 +948,156 @@ Module._load = function patchedLoad(request, parent, isMain) {
       });
     }
 
+    const desktopSnapshotPath = join(root, "evidence", "desktop-settings-snapshot.json");
+    await writeFile(
+      desktopSnapshotPath,
+      JSON.stringify(
+        {
+          generatedAt: "2026-06-17T00:00:00.000Z",
+          cli: {
+            available: true,
+            version: "0.1.0",
+            source: "fixture bundled CLI",
+          },
+          doctor: evidence.doctor,
+          skill: {
+            installed: true,
+            path: join(root, "agent", "skills", "readany", "SKILL.md"),
+            version: "0.1.0",
+          },
+          mcp: {
+            profile: "readonly",
+            client: "codex",
+            config: {
+              mcpServers: {
+                readany: {
+                  command: "readany",
+                  args: ["mcp", "serve", "--profile", "readonly"],
+                },
+              },
+            },
+          },
+          tools: Array.from({ length: 28 }, (_, index) => ({
+            name: `readany.fixture.${index + 1}`,
+            risk: index % 3 === 0 ? "write" : "read",
+          })),
+          audit: {
+            entries: [
+              {
+                timestamp: "2026-06-17T00:00:00.000Z",
+                source: "mcp",
+                action: "books.list",
+                profile: "readonly",
+                ok: true,
+              },
+            ],
+            limit: 8,
+          },
+          lastAction: {
+            action: "audit_list",
+            ok: true,
+            command: "readany audit list --json",
+            command_source: "fixture bundled CLI",
+            status: 0,
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    const desktopEvidencePath = join(root, "evidence", "desktop-settings.json");
+    const desktopEvidenceResult = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/desktop-settings-acceptance.mjs"),
+        "--snapshot",
+        desktopSnapshotPath,
+        "--screenshot",
+        "docs/readany-cli/acceptance/screenshots/desktop-settings-fixture.png",
+        "--reviewer",
+        "Vitest",
+        "--notes",
+        "Fixture desktop settings snapshot captured through copy evidence flow.",
+        "--evidence",
+        desktopEvidencePath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(desktopEvidenceResult.status, desktopEvidenceResult.stderr).toBe(0);
+    expect(JSON.parse(desktopEvidenceResult.stdout)).toMatchObject({
+      ok: true,
+      outputPath: desktopEvidencePath,
+      summary: {
+        cliAvailable: true,
+        skillInstalled: true,
+        mcpProfile: "readonly",
+        mcpClient: "codex",
+        toolCount: 28,
+        auditEntryCount: 1,
+        commandSource: "fixture bundled CLI",
+      },
+    });
+    const desktopEvidence = JSON.parse(await readFile(desktopEvidencePath, "utf8")) as {
+      environment: { evidenceType: string };
+      snapshot: {
+        doctor: typeof evidence.doctor;
+        skill: { installed: boolean };
+        mcp: { profile: string; client: string; hasConfig: boolean };
+        tools: { count: number };
+        audit: { checked: boolean; entryCount: number };
+      };
+      summary: {
+        completed: boolean;
+        cliAvailable: boolean;
+        skillInstalled: boolean;
+        toolCount: number;
+      };
+    };
+    expect(desktopEvidence).toMatchObject({
+      environment: { evidenceType: "desktop-settings" },
+      snapshot: {
+        skill: { installed: true },
+        mcp: { profile: "readonly", client: "codex", hasConfig: true },
+        tools: { count: 28 },
+        audit: { checked: true, entryCount: 1 },
+      },
+      summary: {
+        completed: true,
+        cliAvailable: true,
+        skillInstalled: true,
+        toolCount: 28,
+      },
+    });
+
+    const validateDesktopEvidence = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--evidence",
+        desktopEvidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(validateDesktopEvidence.status, validateDesktopEvidence.stderr).toBe(0);
+    expect(JSON.parse(validateDesktopEvidence.stdout)).toMatchObject({
+      ok: true,
+      validated: { evidence: desktopEvidencePath },
+      errors: [],
+      warnings: expect.arrayContaining([
+        "Desktop settings evidence validates the settings page snapshot only; strict M5 still requires final record closure.",
+      ]),
+    });
+
     const scaffoldPath = join(root, "evidence", "scaffold-record.md");
     const scaffold = spawnSync(
       process.execPath,
@@ -961,6 +1111,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         codexAgentEvidencePath,
         "--agent-evidence",
         claudeAgentEvidencePath,
+        "--desktop-evidence",
+        desktopEvidencePath,
         "--output",
         scaffoldPath,
         "--milestone",
@@ -1001,6 +1153,15 @@ Module._load = function patchedLoad(request, parent, isMain) {
     );
     expect(scaffoldRecord).toContain(
       "- external agent Codex：version: fixture-1.0.0 / profile: readonly/editor/publisher / usesMcp: true / tools: 28 / readonly denial: readonly epub.export returned permission_denied before any draft output / audit: audit.list source=mcp showed bounded MCP operation summaries without full content",
+    );
+    expect(scaffoldRecord).toContain(
+      "- 桌面设置页：CLI: available / Skill: installed / MCP: codex/readonly / tools: 28 / audit: 1 / source: fixture bundled CLI",
+    );
+    expect(scaffoldRecord).toContain(
+      "| desktop-settings | resolved | CLI: available / Skill: installed / MCP: codex/readonly / tools: 28 / audit: 1 / source: fixture bundled CLI | Vitest |",
+    );
+    expect(scaffoldRecord).toContain(
+      "- desktop settings：CLI: available / Skill: installed / MCP: codex/readonly / tools: 28 / audit: 1 / source: fixture bundled CLI",
     );
     expect(scaffoldRecord).toContain("sample-source | pending");
 

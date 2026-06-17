@@ -10,6 +10,7 @@ function parseArgs(argv) {
     evidencePath: undefined,
     packagedEvidencePaths: [],
     agentEvidencePaths: [],
+    desktopEvidencePath: undefined,
     outputPath: undefined,
     milestone: "M5 acceptance draft",
     reviewer: "TBD",
@@ -29,6 +30,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--agent-evidence") {
       options.agentEvidencePaths.push(next);
+      index += 1;
+    } else if (arg === "--desktop-evidence") {
+      options.desktopEvidencePath = next;
       index += 1;
     } else if (arg === "--output") {
       options.outputPath = next;
@@ -62,6 +66,7 @@ Options:
   --evidence <path>              acceptance:real JSON evidence.
   --packaged-evidence <path>     acceptance:packaged JSON evidence; repeatable.
   --agent-evidence <path>        acceptance:agent JSON evidence; repeatable.
+  --desktop-evidence <path>      acceptance:desktop JSON evidence.
   --output <path>                Write Markdown record to this path; stdout when omitted.
   --milestone <name>             Milestone label.
   --reviewer <name>              Reviewer name.
@@ -249,6 +254,34 @@ function agentAnchors(agentEvidences) {
   ].join(" / "));
 }
 
+function desktopSettingsText(desktopEvidence) {
+  if (!desktopEvidence) return "TBD";
+  const summary = desktopEvidence.summary ?? {};
+  return [
+    `CLI: ${summary.cliAvailable === true ? "available" : "TBD"}`,
+    `Skill: ${summary.skillInstalled === true ? "installed" : "not installed"}`,
+    `MCP: ${value(summary.mcpClient)}/${value(summary.mcpProfile)}`,
+    `tools: ${value(summary.toolCount)}`,
+    `audit: ${value(summary.auditEntryCount)}`,
+    `source: ${value(summary.commandSource)}`,
+  ].join(" / ");
+}
+
+function closureStatus(id, evidence, desktopEvidence) {
+  if (id === "desktop-settings" && desktopEvidence?.summary?.completed === true) {
+    return {
+      status: "resolved",
+      evidence: desktopSettingsText(desktopEvidence),
+      owner: value(desktopEvidence.reviewer, "TBD"),
+    };
+  }
+  return {
+    status: "pending",
+    evidence: evidence.evidence?.join("; ") ?? evidence.label,
+    owner: "TBD",
+  };
+}
+
 function sampleRows(evidence) {
   return (evidence.sampleFiles ?? [])
     .map((sample) => {
@@ -258,13 +291,16 @@ function sampleRows(evidence) {
     .join("\n");
 }
 
-function closureRows(evidence) {
+function closureRows(evidence, desktopEvidence) {
   return (evidence.manualAcceptanceRequired ?? [])
-    .map((item) => `| ${item.id} | pending | ${item.evidence?.join("; ") ?? item.label} | TBD |`)
+    .map((item) => {
+      const closure = closureStatus(item.id, item, desktopEvidence);
+      return `| ${item.id} | ${closure.status} | ${closure.evidence} | ${closure.owner} |`;
+    })
     .join("\n");
 }
 
-function renderRecord(evidence, options, packagedEvidences, agentEvidences) {
+function renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence) {
   const sampleHash = evidence.sampleFiles?.[0]?.sha256 ?? "TBD";
   const citationAnchor = firstCitationAnchor(evidence);
   const distribution = distributionAnchors(evidence);
@@ -342,6 +378,7 @@ pnpm --filter @readany/cli acceptance:validate -- --record <acceptance-record.md
 - Tauri allowlist：TBD
 - MCP tools/list 与真实实现一致：TBD
 - audit 不含完整正文 / 密钥 / 同步凭证：TBD
+- 桌面设置页：${desktopSettingsText(desktopEvidence)}
 
 ## 真实样本证据
 
@@ -387,7 +424,7 @@ ${packageMatrixRows(packagedEvidences)}
 
 | id | status | evidence | owner |
 | --- | --- | --- | --- |
-${closureRows(evidence)}
+${closureRows(evidence, desktopEvidence)}
 
 ## Evidence Anchors
 
@@ -395,6 +432,7 @@ ${closureRows(evidence)}
 - citation target：${citationAnchor}
 ${distribution.map((item) => `- distribution：${item}`).join("\n")}
 ${agentAnchorRows.length > 0 ? agentAnchorRows.join("\n") : "- external agent evidence：TBD"}
+${desktopEvidence ? `- desktop settings：${desktopSettingsText(desktopEvidence)}` : "- desktop settings evidence：TBD"}
 ${packagedAnchorRows.length > 0 ? packagedAnchorRows.join("\n") : "- packaged evidence：TBD"}
 
 ## 当前可对外说明
@@ -434,7 +472,10 @@ async function main() {
   const agentEvidences = await Promise.all(
     options.agentEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
   );
-  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences);
+  const desktopEvidence = options.desktopEvidencePath
+    ? JSON.parse(await readFile(resolveInputPath(options.desktopEvidencePath), "utf8"))
+    : undefined;
+  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence);
   if (options.outputPath) {
     const outputPath = resolveInputPath(options.outputPath);
     await mkdir(dirname(outputPath), { recursive: true });
