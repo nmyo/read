@@ -74,7 +74,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 - `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。
 - `acceptance:finalize` 会先跑 strict M5，再写出最终 manifest。
 - `acceptance:bundle` 把 record、manifest 和 evidence 整理成归档目录。
-- `acceptance:verify-bundle` 独立复验 bundle 目录里的 `index.json`、record、manifest 和 evidence 是否匹配，适合交接或 CI 二次校验。
+- `acceptance:verify-bundle` 独立复验 bundle 目录里的 `index.json`、record、manifest 和 evidence 是否匹配，并重跑 strict M5，适合交接或 CI 二次校验。
 - `acceptance:assemble` 是 `acceptance:finalize + acceptance:bundle + acceptance:verify-bundle` 的一键入口，会先卡 strict M5，再在 bundle 目录下写出 `final-manifest.json` 和对外交付用的 `manifest.json`，最后自动复验 bundle。
 
 ### 只读数据命令

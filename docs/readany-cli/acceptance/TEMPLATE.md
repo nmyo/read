@@ -207,7 +207,7 @@ pnpm --filter @readany/cli acceptance:assemble -- \
 
 `acceptance:bundle` 用来把最终验收 record、manifest 和 evidence 复制到一个 bundle 目录，并生成 `index.json`。它不替代 `acceptance:finalize`；推荐在 manifest 生成后执行，用于归档、交接和上传发布证据。
 
-`acceptance:verify-bundle` 用来独立复验 bundle 目录里的 `index.json`、`record.md`、`manifest.json` 和 evidence 文件是否彼此匹配。它适合在交接、上传发布证据或 CI 下载归档包后做二次校验。
+`acceptance:verify-bundle` 用来独立复验 bundle 目录里的 `index.json`、`record.md`、`manifest.json` 和 evidence 文件是否彼此匹配，并重跑 strict M5。它适合在交接、上传发布证据或 CI 下载归档包后做二次校验。
 
 `acceptance:assemble` 是 `acceptance:finalize + acceptance:bundle + acceptance:verify-bundle` 的一键入口。它会先执行 strict M5 校验并写出 `<output-dir>/final-manifest.json`，然后把对外交付使用的 `record.md`、`manifest.json`、`index.json` 和全部 evidence 整理到同一个 bundle 目录，最后自动复验整个 bundle。适合在证据都齐全后作为最后一步执行。
 

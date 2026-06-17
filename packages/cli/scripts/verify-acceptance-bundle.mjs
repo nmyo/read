@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
+const cliRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(import.meta.dirname, "../..");
 
 function parseArgs(argv) {
@@ -55,6 +57,31 @@ function assertCondition(condition, errors, message) {
   if (!condition) errors.push(message);
 }
 
+function runStrictValidation(recordPath, evidencePaths) {
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(import.meta.dirname, "validate-acceptance.mjs"),
+      "--record",
+      recordPath,
+      ...evidencePaths.flatMap((path) => ["--evidence", path]),
+      "--strict-m5",
+      "--json",
+    ],
+    {
+      cwd: cliRoot,
+      env: process.env,
+      encoding: "utf8",
+    },
+  );
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    result: JSON.parse(result.stdout || "{}"),
+  };
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -102,12 +129,14 @@ async function main() {
   const manifestEvidences = Array.isArray(manifest?.evidences) ? manifest.evidences : [];
   const indexEvidenceBySource = new Map((index?.evidences ?? []).map((item) => [item.source, item]));
   const fileEntryBySource = new Map(files.map((item) => [item.source, item]));
+  const bundledEvidencePaths = [];
 
   for (const manifestEvidence of manifestEvidences) {
     const indexEvidence = indexEvidenceBySource.get(manifestEvidence.path);
     assertCondition(Boolean(indexEvidence), errors, `Bundle index evidences is missing ${manifestEvidence.path}.`);
     if (!indexEvidence) continue;
     const target = indexEvidence.target;
+    bundledEvidencePaths.push(join(bundleDir, target));
     const bundleEvidenceText = await readFile(join(bundleDir, target), "utf8");
     const fileEntry = fileEntryBySource.get(manifestEvidence.path);
     assertCondition(Boolean(fileEntry), errors, `Bundle files is missing ${manifestEvidence.path}.`);
@@ -129,6 +158,15 @@ async function main() {
     return;
   }
 
+  const strictValidation = runStrictValidation(recordPath, bundledEvidencePaths);
+  if (strictValidation.status !== 0 || strictValidation.result?.ok !== true) {
+    process.stderr.write(
+      `Acceptance bundle strict verification failed:\n${strictValidation.stdout || strictValidation.stderr}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -137,6 +175,7 @@ async function main() {
         recordPath,
         manifestPath,
         evidenceCount: manifestEvidences.length,
+        strictM5: strictValidation.result,
       },
       null,
       2,

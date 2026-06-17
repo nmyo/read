@@ -1838,6 +1838,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ok: true,
       bundleDir,
       evidenceCount: 7,
+      strictM5: {
+        ok: true,
+        strictM5: true,
+        errors: [],
+      },
     });
     const verifyBundleRelative = spawnSync(
       process.execPath,
@@ -1857,6 +1862,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ok: true,
       bundleDir,
       evidenceCount: 7,
+      strictM5: {
+        ok: true,
+        strictM5: true,
+        errors: [],
+      },
     });
 
     const mismatchManifestPath = join(root, "evidence", "mismatch-final-manifest.json");
@@ -2023,5 +2033,15 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       },
     );
     expect(verifyAssembledBundle.status, verifyAssembledBundle.stderr || verifyAssembledBundle.stdout).toBe(0);
+    expect(JSON.parse(verifyAssembledBundle.stdout)).toMatchObject({
+      ok: true,
+      bundleDir: assembledDir,
+      evidenceCount: 7,
+      strictM5: {
+        ok: true,
+        strictM5: true,
+        errors: [],
+      },
+    });
   });
 });
