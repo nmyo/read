@@ -1782,7 +1782,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ]),
     });
     expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("ReadAny CLI Acceptance Record");
-    expect(await readFile(join(acceptanceInitWorkspace, "README.md"), "utf8")).toContain("ReadAny Acceptance Workspace");
+    const workspaceReadme = await readFile(join(acceptanceInitWorkspace, "README.md"), "utf8");
+    expect(workspaceReadme).toContain("ReadAny Acceptance Workspace");
+    expect(workspaceReadme).toContain(`acceptance:real -- --workspace ${acceptanceInitWorkspace}`);
+    expect(workspaceReadme).toContain(`acceptance:status -- --workspace ${acceptanceInitWorkspace}`);
     const workspaceJson = JSON.parse(await readFile(join(acceptanceInitWorkspace, "workspace.json"), "utf8")) as {
       paths: { recordPath: string };
       evidenceFiles: { realSample: string; packagedWindows: string };
@@ -1859,6 +1862,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
           "Windows packaged-platform evidence",
         ]),
       },
+      nextSteps: expect.arrayContaining([
+        expect.stringContaining("acceptance:agent"),
+        expect.stringContaining("--workspace"),
+        expect.stringContaining(join(acceptanceInitWorkspace, "workspace.json")),
+      ]),
     });
     const workspaceAgentCodex = spawnSync(
       process.execPath,
@@ -2082,6 +2090,36 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       strictM5: true,
+    });
+    const workspaceReadyStatus = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-status.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceReadyStatus.status, workspaceReadyStatus.stderr || workspaceReadyStatus.stdout).toBe(0);
+    expect(JSON.parse(workspaceReadyStatus.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      readiness: {
+        strictM5Ready: true,
+        missing: [],
+      },
+      nextSteps: expect.arrayContaining([
+        expect.stringContaining("acceptance:validate"),
+        expect.stringContaining("--workspace"),
+        expect.stringContaining(join(acceptanceInitWorkspace, "workspace.json")),
+        expect.stringContaining("--strict-m5"),
+        expect.stringContaining("acceptance:assemble"),
+      ]),
     });
     const workspaceFinalize = spawnSync(
       process.execPath,

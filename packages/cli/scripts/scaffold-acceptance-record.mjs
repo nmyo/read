@@ -5,7 +5,10 @@ import {
   filterExistingPaths,
   loadWorkspaceConfig,
   resolveInputPath,
-  workspaceEvidenceFiles,
+  workspaceAgentEvidencePath,
+  workspaceDesktopSettingsPath,
+  workspacePackagedEvidencePath,
+  workspaceRealSamplePath,
   workspaceRecordPath,
 } from "./acceptance-workspace.mjs";
 
@@ -475,10 +478,11 @@ async function main() {
     workspace = loaded.workspace;
   }
 
-  const workspaceEvidencePaths = await filterExistingPaths(workspaceEvidenceFiles(workspace).map(resolveInputPath));
   const realSamplePath = options.evidencePath
     ? resolveInputPath(options.evidencePath)
-    : workspaceEvidencePaths[0];
+    : workspaceRealSamplePath(workspace)
+      ? resolveInputPath(workspaceRealSamplePath(workspace))
+      : undefined;
   if (!realSamplePath) throw new Error("Pass --evidence <path> or use --workspace <path> with a real-sample evidence file.");
 
   const outputPath = options.outputPath
@@ -486,13 +490,27 @@ async function main() {
     : workspaceRecordPath(workspace);
   const packagedEvidencePaths = options.packagedEvidencePaths.length > 0
     ? options.packagedEvidencePaths.map(resolveInputPath)
-    : workspaceEvidencePaths.filter((path) => /packaged-(macos|windows|linux)\.json$/i.test(path));
+    : await filterExistingPaths(
+        ["macos", "windows", "linux"]
+          .map((platform) => workspacePackagedEvidencePath(workspace, platform))
+          .filter(Boolean)
+          .map(resolveInputPath),
+      );
   const agentEvidencePaths = options.agentEvidencePaths.length > 0
     ? options.agentEvidencePaths.map(resolveInputPath)
-    : workspaceEvidencePaths.filter((path) => /agent-(codex|second-client)\.json$/i.test(path));
+    : await filterExistingPaths(
+        [
+          workspaceAgentEvidencePath(workspace, "codex"),
+          workspaceAgentEvidencePath(workspace, "claude"),
+        ]
+          .filter(Boolean)
+          .map(resolveInputPath),
+      );
   const desktopEvidencePath = options.desktopEvidencePath
     ? resolveInputPath(options.desktopEvidencePath)
-    : workspaceEvidencePaths.find((path) => /desktop-settings\.json$/i.test(path));
+    : workspaceDesktopSettingsPath(workspace)
+      ? resolveInputPath(workspaceDesktopSettingsPath(workspace))
+      : undefined;
 
   const evidencePath = realSamplePath;
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));

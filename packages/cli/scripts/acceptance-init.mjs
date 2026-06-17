@@ -114,11 +114,11 @@ Suggested evidence files:
 Next commands:
 
 \`\`\`bash
-pnpm --filter @readany/cli acceptance:real -- --evidence ${paths.evidenceDir}/real-sample.json
-pnpm --filter @readany/cli acceptance:agent -- --evidence ${paths.evidenceDir}/agent-codex.json
-pnpm --filter @readany/cli acceptance:desktop -- --evidence ${paths.evidenceDir}/desktop-settings.json
-pnpm --filter @readany/cli acceptance:packaged -- --evidence ${paths.evidenceDir}/packaged-macos.json
-pnpm --filter @readany/cli acceptance:status -- --record ${paths.recordPath} --evidence ${paths.evidenceDir}/real-sample.json
+pnpm --filter @readany/cli acceptance:real -- --workspace ${paths.workspacePath} --book <book-id> --rag-query <query>
+pnpm --filter @readany/cli acceptance:agent -- --workspace ${paths.workspacePath} --client Codex --client-version <version> --profile readonly/editor/publisher
+pnpm --filter @readany/cli acceptance:desktop -- --workspace ${paths.workspacePath} --snapshot <snapshot.json> --screenshot <screenshot-or-recording>
+pnpm --filter @readany/cli acceptance:packaged -- --workspace ${paths.workspacePath} --package-source <artifact> --platform macOS
+pnpm --filter @readany/cli acceptance:status -- --workspace ${paths.workspacePath}
 \`\`\`
 `;
 }

@@ -87,6 +87,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 - `acceptance:real`、`acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 也支持 `--workspace`：real 会写入 `real-sample.json`，agent 会按客户端名写入 `agent-codex.json` 或 `agent-second-client.json`，desktop 会写入 `desktop-settings.json`，packaged 会按 `--platform` 写入 `packaged-macos.json` / `packaged-windows.json` / `packaged-linux.json`。
 - `acceptance:scaffold` 生成 partial 验收草稿，用于减少手工填表漏项，不把 pending/TBD 伪装成通过。
 - `acceptance:status` 是验收收口助手，会汇总当前 record/evidence 距离 strict M5 还缺什么，并给出下一步建议命令；如果已经用 `acceptance:init` 建好了 workspace，也可以直接传 `--workspace` 让它自动读取 `workspace.json` 里的 record/evidence 约定。
+- `acceptance:status --workspace <dir>` 给出的 next steps 也会继续用 `--workspace` 形式推荐 `acceptance:real` / `acceptance:agent` / `acceptance:desktop` / `acceptance:packaged` / `acceptance:validate` / `acceptance:assemble`，减少在收口时反复切回手工路径模式。
 - `acceptance:scaffold`、`acceptance:validate`、`acceptance:finalize`、`acceptance:bundle`、`acceptance:verify-bundle` 和 `acceptance:assemble` 现在也支持 `--workspace`，这样最终收口可以围绕同一套 acceptance workspace 进行，而不是重复手输整组 record/evidence/output 路径。
 - `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。
 - `acceptance:finalize` 会先跑 strict M5，再写出最终 manifest。
