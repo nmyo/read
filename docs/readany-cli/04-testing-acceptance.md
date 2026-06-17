@@ -161,7 +161,7 @@ pnpm --filter @readany/cli smoke:agent
 - 最终归档必须在 strict M5 通过后使用 `pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence <evidence.json> ... --output <manifest.json>` 生成 manifest。该脚本不会绕过校验：如果组合证据不完整或 record 未通过 strict M5，manifest 不会写出；通过后会记录 record/evidence SHA-256、git commit、验证结果和证据类型摘要。
 - 最终交付建议再执行 `pnpm --filter @readany/cli acceptance:bundle -- --record <record.md> --manifest <manifest.json> --evidence <evidence.json> ... --output-dir <bundle-dir>`，把 record、manifest 和全部 evidence 整理到一个 bundle 目录，便于归档、交接和后续 CI 上传。
 - 如果要在交接或上传后复验 bundle，可执行 `pnpm --filter @readany/cli acceptance:verify-bundle -- --bundle-dir <bundle-dir>`；它会独立检查 `index.json`、record、manifest 和 evidence 的 path/SHA-256/bytes 是否一致。
-- 如果已经拿到完整 evidence，也可以直接执行 `pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidence <evidence.json> ... --output-dir <bundle-dir>`；它会串联 strict M5 校验、manifest 生成和 bundle 导出。失败时不会留下“看起来像已归档”的假阳性结果；成功后 bundle 目录里同时保留 `final-manifest.json` 和对外交付用的 `manifest.json`。
+- 如果已经拿到完整 evidence，也可以直接执行 `pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidence <evidence.json> ... --output-dir <bundle-dir>`；它会串联 strict M5 校验、manifest 生成、bundle 导出和 bundle 复验。失败时不会留下“看起来像已归档”的假阳性结果；成功后 bundle 目录里同时保留 `final-manifest.json` 和对外交付用的 `manifest.json`。
 - 发布前本地 preflight 必须通过：`pnpm cli:preflight` 会顺序执行 CLI check/test/build、built CLI external agent smoke、Tauri CLI bridge tests 和 `cargo check`；触碰桌面前端或 release matrix 时使用 `pnpm cli:preflight:full` 额外覆盖 `pnpm --filter app build`。
 
 如果本次改动触碰桌面客户端或 Tauri bridge，还必须执行：

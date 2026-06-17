@@ -139,12 +139,26 @@ async function main() {
     return;
   }
 
+  const verify = runNodeScript("verify-acceptance-bundle.mjs", [
+    "--bundle-dir",
+    outputDir,
+  ]);
+  if (verify.status !== 0) {
+    process.stderr.write(commandOutput(verify, "acceptance:verify-bundle failed.\n"));
+    process.exitCode = 1;
+    return;
+  }
+
+  const verifyResult = JSON.parse(verify.stdout || "{}");
+
   process.stdout.write(
     `${JSON.stringify(
       {
         ok: true,
         outputDir,
         manifestPath,
+        verified: true,
+        evidenceCount: verifyResult.evidenceCount,
       },
       null,
       2,

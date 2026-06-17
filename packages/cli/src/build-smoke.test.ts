@@ -1963,6 +1963,8 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ok: true,
       outputDir: assembledDir,
       manifestPath: join(assembledDir, "final-manifest.json"),
+      verified: true,
+      evidenceCount: 7,
     });
     const assembledManifest = JSON.parse(await readFile(join(assembledDir, "manifest.json"), "utf8")) as {
       ok: boolean;
