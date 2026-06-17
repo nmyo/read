@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { beforeAll, describe, expect, it } from "vitest";
 import { seedLibrary } from "../scripts/agent-smoke.mjs";
@@ -1835,6 +1835,25 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     );
     expect(verifyBundle.status, verifyBundle.stderr || verifyBundle.stdout).toBe(0);
     expect(JSON.parse(verifyBundle.stdout)).toMatchObject({
+      ok: true,
+      bundleDir,
+      evidenceCount: 7,
+    });
+    const verifyBundleRelative = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
+        "--bundle-dir",
+        relative(cliRoot, bundleDir),
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(verifyBundleRelative.status, verifyBundleRelative.stderr || verifyBundleRelative.stdout).toBe(0);
+    expect(JSON.parse(verifyBundleRelative.stdout)).toMatchObject({
       ok: true,
       bundleDir,
       evidenceCount: 7,

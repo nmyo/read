@@ -40,7 +40,11 @@ Options:
 
 function resolveInputPath(path) {
   if (isAbsolute(path)) return path;
-  return resolve(process.cwd() === repoRoot ? process.cwd() : repoRoot, path);
+  const fromCwd = resolve(process.cwd(), path);
+  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
+    return resolve(repoRoot, path);
+  }
+  return fromCwd;
 }
 
 function sha256(text) {
