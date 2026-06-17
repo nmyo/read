@@ -11,6 +11,8 @@ import {
   workspaceRealSamplePath,
   resolveInputPath,
   workspaceEvidenceFiles,
+  workspaceRelease,
+  workspaceReviewer,
 } from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -205,6 +207,17 @@ function quoteShellArg(value) {
 
 function buildCommand(parts) {
   return parts.map((part) => quoteShellArg(part)).join(" ");
+}
+
+function workspaceClosureArgs(workspace) {
+  const args = [];
+  if (!workspaceRelease(workspace)) {
+    args.push("--release", "<release-label>");
+  }
+  if (!workspaceReviewer(workspace)) {
+    args.push("--reviewer", "<name>");
+  }
+  return args;
 }
 
 function firstEntry(entries, type, predicate = () => true) {
@@ -426,10 +439,7 @@ function recommendedCommands(summary, recordPath, evidenceEntries, { workspaceFi
         "--",
         "--workspace",
         workspaceFile,
-        "--release",
-        "<release-label>",
-        "--reviewer",
-        "<name>",
+        ...workspaceClosureArgs(workspace),
       ]));
     } else {
       const validateParts = [

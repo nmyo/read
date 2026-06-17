@@ -69,11 +69,11 @@ pnpm --filter @readany/cli acceptance:status -- --record <record.md> --evidence 
 pnpm --filter @readany/cli acceptance:status -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:validate -- --workspace docs/readany-cli/acceptance/<workspace-dir> [--strict-m5]
 pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json> [--strict-m5]
-pnpm --filter @readany/cli acceptance:finalize -- --workspace docs/readany-cli/acceptance/<workspace-dir> --reviewer <name> --release <label>
+pnpm --filter @readany/cli acceptance:finalize -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence <evidence.json>... --output <manifest.json>
 pnpm --filter @readany/cli acceptance:bundle -- --workspace docs/readany-cli/acceptance/<workspace-dir> --release <label>
 pnpm --filter @readany/cli acceptance:bundle -- --record <record.md> --manifest <manifest.json> --evidence <evidence.json>... --output-dir <bundle-dir>
-pnpm --filter @readany/cli acceptance:assemble -- --workspace docs/readany-cli/acceptance/<workspace-dir> --reviewer <name> --release <label>
+pnpm --filter @readany/cli acceptance:assemble -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:verify-bundle -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:verify-bundle -- --bundle-dir <bundle-dir>
 pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidence <evidence.json>... --output-dir <bundle-dir>
@@ -84,6 +84,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 - `acceptance:real` 生成真实样本 evidence，默认只读；只有显式 `--draft-export` 才会创建 draft、validate、export 并清理草稿。
 - `acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 只记录对应人工或半自动证据，不替代 strict M5 的完整组合证据。
 - `acceptance:init` 会先搭好一个本地 acceptance workspace，包含 `record.md`、`evidence/`、`bundle/`、`exports/` 和 `logs/`，适合作为真实 M5 采证起点。
+- `acceptance:init --reviewer <name> --release <label>` 会把收口默认值写进 `workspace.json`；后续 `acceptance:scaffold`、`acceptance:finalize`、`acceptance:bundle` 和 `acceptance:assemble` 会自动继承。只有 workspace 没有默认值，或本次要覆盖默认值时，才需要继续显式传 `--reviewer` / `--release`。
 - `acceptance:real`、`acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 也支持 `--workspace`：real 会写入 `real-sample.json`，agent 会按客户端名写入 `agent-codex.json` 或 `agent-second-client.json`，desktop 会写入 `desktop-settings.json`，packaged 会按 `--platform` 写入 `packaged-macos.json` / `packaged-windows.json` / `packaged-linux.json`。
 - `acceptance:scaffold` 生成 partial 验收草稿，用于减少手工填表漏项，不把 pending/TBD 伪装成通过。
 - `acceptance:status` 是验收收口助手，会汇总当前 record/evidence 距离 strict M5 还缺什么，并给出下一步建议命令；如果已经用 `acceptance:init` 建好了 workspace，也可以直接传 `--workspace` 让它自动读取 `workspace.json` 里的 record/evidence 约定。

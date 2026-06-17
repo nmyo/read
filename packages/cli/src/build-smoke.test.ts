@@ -2094,7 +2094,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(workspaceRecord).toContain("- 桌面包来源：workspace desktop package");
     expect(workspaceRecord).toContain(`acceptance:status -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
     expect(workspaceRecord).toContain(`acceptance:validate -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --strict-m5`);
-    expect(workspaceRecord).toContain(`acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`);
+    expect(workspaceRecord).toContain(`acceptance:finalize -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
+    expect(workspaceRecord).toContain(`acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
+    expect(workspaceRecord).not.toContain("--release <release-label> --reviewer <name>");
     await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
     const workspaceStrictValidate = spawnSync(
       process.execPath,
@@ -2132,7 +2134,8 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       },
     );
     expect(workspaceReadyStatus.status, workspaceReadyStatus.stderr || workspaceReadyStatus.stdout).toBe(0);
-    expect(JSON.parse(workspaceReadyStatus.stdout)).toMatchObject({
+    const workspaceReadyStatusJson = JSON.parse(workspaceReadyStatus.stdout);
+    expect(workspaceReadyStatusJson).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       readiness: {
@@ -2147,6 +2150,8 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         expect.stringContaining("acceptance:assemble"),
       ]),
     });
+    expect(workspaceReadyStatusJson.nextSteps.join("\n")).not.toContain("--release <release-label>");
+    expect(workspaceReadyStatusJson.nextSteps.join("\n")).not.toContain("--reviewer <name>");
     const workspaceFinalize = spawnSync(
       process.execPath,
       [

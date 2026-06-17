@@ -11,6 +11,7 @@ import {
   workspaceMilestone,
   workspacePackagedEvidencePath,
   workspaceRealSamplePath,
+  workspaceRelease,
   workspaceRecordPath,
   workspaceReviewer,
 } from "./acceptance-workspace.mjs";
@@ -308,13 +309,25 @@ function closureRows(evidence, desktopEvidence) {
     .join("\n");
 }
 
-function renderCommandBlock(options, workspaceFile) {
+function workspaceClosureCommandSuffix(workspace) {
+  const parts = [];
+  if (!workspaceRelease(workspace)) {
+    parts.push("--release <release-label>");
+  }
+  if (!workspaceReviewer(workspace)) {
+    parts.push("--reviewer <name>");
+  }
+  return parts.length > 0 ? ` ${parts.join(" ")}` : "";
+}
+
+function renderCommandBlock(options, workspaceFile, workspace) {
   if (workspaceFile) {
+    const closureSuffix = workspaceClosureCommandSuffix(workspace);
     return `\`\`\`bash
 pnpm --filter @readany/cli acceptance:status -- --workspace ${workspaceFile}
 pnpm --filter @readany/cli acceptance:validate -- --workspace ${workspaceFile} --strict-m5
-pnpm --filter @readany/cli acceptance:finalize -- --workspace ${workspaceFile} --release <release-label> --reviewer <name>
-pnpm --filter @readany/cli acceptance:assemble -- --workspace ${workspaceFile} --release <release-label> --reviewer <name>
+pnpm --filter @readany/cli acceptance:finalize -- --workspace ${workspaceFile}${closureSuffix}
+pnpm --filter @readany/cli acceptance:assemble -- --workspace ${workspaceFile}${closureSuffix}
 \`\`\``;
   }
 
@@ -326,7 +339,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <acceptance-record.md
 \`\`\``;
 }
 
-function renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile) {
+function renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile, workspace) {
   const sampleHash = evidence.sampleFiles?.[0]?.sha256 ?? "TBD";
   const citationAnchor = firstCitationAnchor(evidence);
   const distribution = distributionAnchors(evidence);
@@ -373,7 +386,7 @@ function renderRecord(evidence, options, packagedEvidences, agentEvidences, desk
 
 ## 执行命令
 
-${renderCommandBlock(options, workspaceFile)}
+${renderCommandBlock(options, workspaceFile, workspace)}
 
 ## 验收结果
 
@@ -548,7 +561,7 @@ async function main() {
   const desktopEvidence = desktopEvidencePath
     ? JSON.parse(await readFile(desktopEvidencePath, "utf8"))
     : undefined;
-  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile);
+  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile, workspace);
   if (outputPath) {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, record, "utf8");
