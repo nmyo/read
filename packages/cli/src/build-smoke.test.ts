@@ -1796,7 +1796,39 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         packagedWindows: join(acceptanceInitWorkspace, "evidence", "packaged-windows.json"),
       },
     });
-    await writeFile(workspaceJson.evidenceFiles.realSample, await readFile(evidencePath, "utf8"), "utf8");
+    const workspaceReal = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/real-sample-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--readany-home",
+        dataRoot,
+        "--book",
+        "agent-smoke-book",
+        "--epub-book",
+        "agent-smoke-book",
+        "--pdf-book",
+        "agent-smoke-pdf",
+        "--rag-query",
+        "bounded MCP",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceReal.status, workspaceReal.stderr || workspaceReal.stdout).toBe(0);
+    expect(JSON.parse(workspaceReal.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      evidencePath: workspaceJson.evidenceFiles.realSample,
+      summary: {
+        draftExport: false,
+        pdfChecked: true,
+      },
+    });
     const workspaceStatus = spawnSync(
       process.execPath,
       [
@@ -1828,6 +1860,158 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         ]),
       },
     });
+    const workspaceAgentCodex = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/agent-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--client",
+        "Codex",
+        "--client-version",
+        "fixture-1.0.0",
+        "--profile",
+        "readonly/editor/publisher",
+        "--uses-mcp",
+        "--mcp-config-text",
+        '{"mcpServers":{"readany":{"command":"readany","args":["mcp","serve","--profile","readonly"]}}}',
+        "--tools-list-summary",
+        "readany tools/list captured 28 tools with risk scopes and minimumProfile metadata",
+        "--tool-count",
+        "28",
+        "--read-flow",
+        "books.search, chapters.get, and rag.search returned bounded ReadAny results",
+        "--readonly-denial",
+        "readonly epub.export returned permission_denied before any draft output",
+        "--draft-export-flow",
+        "editor draft patch and publisher export completed to a new EPUB path",
+        "--audit-summary",
+        "audit.list source=mcp showed bounded MCP operation summaries without full content",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceAgentCodex.status, workspaceAgentCodex.stderr || workspaceAgentCodex.stdout).toBe(0);
+    expect(JSON.parse(workspaceAgentCodex.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputPath: workspaceJson.evidenceFiles.agentCodex,
+      client: "Codex",
+      usesMcp: true,
+    });
+    const workspaceAgentClaude = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/agent-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--client",
+        "Claude Desktop",
+        "--client-version",
+        "fixture-2.0.0",
+        "--profile",
+        "readonly/editor/publisher",
+        "--read-flow",
+        "CLI-backed client prompt listed books and read a chapter through the installed readany command",
+        "--readonly-denial",
+        "readonly write attempt was refused with permission_denied",
+        "--draft-export-flow",
+        "agent requested draft edit and export only after profile elevation was confirmed",
+        "--audit-summary",
+        "audit list showed summarized agent operations and no secrets",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceAgentClaude.status, workspaceAgentClaude.stderr || workspaceAgentClaude.stdout).toBe(0);
+    expect(JSON.parse(workspaceAgentClaude.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputPath: workspaceJson.evidenceFiles.agentSecondClient,
+      client: "Claude Desktop",
+      usesMcp: false,
+    });
+    const workspaceDesktop = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/desktop-settings-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--snapshot",
+        desktopSnapshotPath,
+        "--screenshot",
+        "docs/readany-cli/acceptance/screenshots/desktop-settings-fixture.png",
+        "--reviewer",
+        "Vitest",
+        "--notes",
+        "Fixture desktop settings snapshot captured through copy evidence flow.",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceDesktop.status, workspaceDesktop.stderr || workspaceDesktop.stdout).toBe(0);
+    expect(JSON.parse(workspaceDesktop.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputPath: workspaceJson.evidenceFiles.desktopSettings,
+      summary: {
+        cliAvailable: true,
+        skillInstalled: true,
+        toolCount: 28,
+      },
+    });
+    const workspacePackagedMacos = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/packaged-platform-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--cli",
+        binPath,
+        "--package-source",
+        "fixture packaged cli",
+        "--platform",
+        "macOS",
+        "--readany-home",
+        dataRoot,
+        "--agent-home",
+        join(root, "workspace-packaged-agent"),
+        "--repair-bin-dir",
+        join(root, "workspace-packaged-bin"),
+        "--with-skill-install",
+        "--draft-export",
+        "--book",
+        "agent-smoke-book",
+        "--export-dir",
+        join(acceptanceInitWorkspace, "exports", "packaged-macos"),
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspacePackagedMacos.status, workspacePackagedMacos.stderr || workspacePackagedMacos.stdout).toBe(0);
+    expect(JSON.parse(workspacePackagedMacos.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      evidencePath: workspaceJson.evidenceFiles.packagedMacos,
+      summary: {
+        platform: "macOS",
+        draftExportChecked: true,
+      },
+    });
+    await writeFile(workspaceJson.evidenceFiles.packagedWindows, await readFile(windowsPackagedEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.packagedLinux, await readFile(linuxPackagedEvidencePath, "utf8"), "utf8");
     const workspaceValidate = spawnSync(
       process.execPath,
       [
@@ -1848,7 +2032,12 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       validated: {
         record: join(acceptanceInitWorkspace, "record.md"),
-        evidences: [expect.objectContaining({ path: workspaceJson.evidenceFiles.realSample, type: "real-sample" })],
+        evidences: expect.arrayContaining([
+          expect.objectContaining({ path: workspaceJson.evidenceFiles.realSample, type: "real-sample" }),
+          expect.objectContaining({ path: workspaceJson.evidenceFiles.agentCodex, type: "external-agent" }),
+          expect.objectContaining({ path: workspaceJson.evidenceFiles.desktopSettings, type: "desktop-settings" }),
+          expect.objectContaining({ path: workspaceJson.evidenceFiles.packagedMacos, type: "packaged-platform" }),
+        ]),
       },
     });
     const workspaceScaffold = spawnSync(
@@ -1873,12 +2062,6 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("# ReadAny CLI Acceptance Record");
     expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("sample SHA-256");
     await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.agentCodex, await readFile(codexAgentEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.agentSecondClient, await readFile(claudeAgentEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.desktopSettings, await readFile(desktopEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.packagedMacos, await readFile(darwinPackagedEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.packagedWindows, await readFile(windowsPackagedEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.packagedLinux, await readFile(linuxPackagedEvidencePath, "utf8"), "utf8");
     const workspaceStrictValidate = spawnSync(
       process.execPath,
       [
@@ -2402,5 +2585,5 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         errors: [],
       },
     });
-  });
+  }, 15000);
 });

@@ -37,6 +37,45 @@ export function workspaceEvidenceFiles(workspace) {
   ].filter(Boolean);
 }
 
+export function normalizeWorkspaceClientName(name) {
+  const normalized = String(name ?? "").trim().toLowerCase();
+  if (/codex/.test(normalized)) return "codex";
+  if (/claude/.test(normalized)) return "claude";
+  if (/cursor/.test(normalized)) return "cursor";
+  return normalized;
+}
+
+export function normalizeWorkspacePlatform(platform) {
+  const normalized = String(platform ?? "").trim().toLowerCase();
+  if (["macos", "mac", "darwin"].includes(normalized)) return "macos";
+  if (["windows", "win32", "win"].includes(normalized)) return "windows";
+  if (normalized === "linux") return "linux";
+  return normalized;
+}
+
+export function workspaceRealSamplePath(workspace) {
+  return workspace?.evidenceFiles?.realSample;
+}
+
+export function workspaceAgentEvidencePath(workspace, clientName) {
+  const client = normalizeWorkspaceClientName(clientName);
+  if (client === "codex") return workspace?.evidenceFiles?.agentCodex;
+  if (client) return workspace?.evidenceFiles?.agentSecondClient;
+  return undefined;
+}
+
+export function workspaceDesktopSettingsPath(workspace) {
+  return workspace?.evidenceFiles?.desktopSettings;
+}
+
+export function workspacePackagedEvidencePath(workspace, platform) {
+  const normalized = normalizeWorkspacePlatform(platform);
+  if (normalized === "macos") return workspace?.evidenceFiles?.packagedMacos;
+  if (normalized === "windows") return workspace?.evidenceFiles?.packagedWindows;
+  if (normalized === "linux") return workspace?.evidenceFiles?.packagedLinux;
+  return undefined;
+}
+
 export function workspaceRecordPath(workspace) {
   return workspace?.paths?.recordPath;
 }

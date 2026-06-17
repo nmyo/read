@@ -1,10 +1,10 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const cliRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(cliRoot, "../..");
+import { dirname } from "node:path";
+import {
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspaceAgentEvidencePath,
+} from "./acceptance-workspace.mjs";
 
 function parseArgs(argv) {
   const options = {
@@ -22,6 +22,7 @@ function parseArgs(argv) {
     draftExportFlow: undefined,
     auditSummary: undefined,
     evidencePath: undefined,
+    workspacePath: undefined,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -70,6 +71,9 @@ function parseArgs(argv) {
     } else if (arg === "--evidence") {
       options.evidencePath = next;
       index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
+      index += 1;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -84,7 +88,7 @@ function usage() {
   return `ReadAny external agent acceptance helper
 
 Usage:
-  pnpm --filter @readany/cli acceptance:agent -- --client <name> --client-version <version> --profile <profile> --evidence <file> [options]
+  pnpm --filter @readany/cli acceptance:agent -- --client <name> --client-version <version> --profile <profile> [options]
 
 Required flow evidence:
   --read-flow <summary>          Real client read/search/RAG flow summary.
@@ -99,20 +103,13 @@ MCP evidence:
   --tools-list <file>            Captured tools/list output or summary.
   --tools-list-summary <text>    Human summary of tools/list.
   --tool-count <number>          Number of tools visible to the client.
+  --evidence <path>              Write JSON evidence to this path.
+  --workspace <path>             Acceptance workspace root or workspace.json.
 `;
 }
 
 function assertOption(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function hasObviousSecret(text) {
@@ -140,11 +137,11 @@ function createFlow(summary) {
   };
 }
 
-function validateOptions(options) {
+function validateOptions(options, outputPath) {
   assertOption(options.client, "Pass --client <name>.");
   assertOption(options.clientVersion, "Pass --client-version <version>.");
   assertOption(options.profile, "Pass --profile <readonly|editor|publisher|...>.");
-  assertOption(options.evidencePath, "Pass --evidence <path>.");
+  assertOption(outputPath, "Pass --evidence <path> or use --workspace <path>.");
   assertOption(options.readFlow, "Pass --read-flow <summary>.");
   assertOption(options.readonlyDenial, "Pass --readonly-denial <summary>.");
   assertOption(options.draftExportFlow, "Pass --draft-export-flow <summary>.");
@@ -162,7 +159,19 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  validateOptions(options);
+
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const outputPath = options.evidencePath
+    ? resolveInputPath(options.evidencePath)
+    : workspaceAgentEvidencePath(workspace, options.client);
+  validateOptions(options, outputPath);
 
   const mcpConfigRaw = options.mcpConfigText ?? await readOptionalText(options.mcpConfig);
   const toolsListRaw = await readOptionalText(options.toolsList);
@@ -208,10 +217,15 @@ async function main() {
     },
   };
 
-  const outputPath = resolveInputPath(options.evidencePath);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
-  process.stdout.write(`${JSON.stringify({ ok: true, outputPath, client: options.client, usesMcp: options.usesMcp }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({
+    ok: true,
+    workspaceFile,
+    outputPath,
+    client: options.client,
+    usesMcp: options.usesMcp,
+  }, null, 2)}\n`);
 }
 
 try {

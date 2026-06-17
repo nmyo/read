@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inflateRawSync } from "node:zlib";
+import {
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspacePackagedEvidencePath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(cliRoot, "../..");
 const defaultBinPath = resolve(cliRoot, "dist/bin/readany.js");
 
 function parseArgs(argv) {
@@ -16,6 +20,7 @@ function parseArgs(argv) {
     packageSource: undefined,
     platform: process.platform,
     evidencePath: undefined,
+    workspacePath: undefined,
     agentHome: process.env.AGENT_HOME,
     readanyHome: process.env.READANY_HOME,
     withSkillInstall: false,
@@ -42,6 +47,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--evidence") {
       options.evidencePath = next;
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--agent-home") {
       options.agentHome = next;
@@ -86,6 +94,7 @@ Readonly by default:
   --platform <name>            Platform label; defaults to process.platform.
   --readany-home <path>        ReadAny data root; defaults to READANY_HOME.
   --evidence <path>            Write JSON evidence to this path.
+  --workspace <path>           Acceptance workspace root or workspace.json.
 
 Explicit write mode:
   --repair-bin-dir <path>       Run readany repair --user in this temp bin dir for install/repair evidence.
@@ -96,15 +105,6 @@ Explicit write mode:
   --export-dir <path>          Export target directory used by --draft-export.
   --keep-draft                 Keep the draft workspace after export for manual inspection.
 `;
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function commandForCli(cliPath) {
@@ -348,7 +348,18 @@ async function main() {
   if (options.draftExport && !options.bookId) throw new Error("--draft-export requires --book <book-id>.");
   if (options.draftExport && !options.exportDir) throw new Error("--draft-export requires --export-dir <path>.");
 
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
   const cliPath = resolveInputPath(options.cli ?? defaultBinPath);
+  const evidencePath = options.evidencePath
+    ? resolveInputPath(options.evidencePath)
+    : workspacePackagedEvidencePath(workspace, options.platform);
   const cli = commandForCli(cliPath);
   const env = {
     ...process.env,
@@ -548,15 +559,15 @@ async function main() {
     ],
   };
 
-  if (options.evidencePath) {
-    const evidencePath = resolveInputPath(options.evidencePath);
+  if (evidencePath) {
     await mkdir(dirname(evidencePath), { recursive: true });
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
   }
 
   process.stdout.write(`${JSON.stringify({
     ok: true,
-    evidencePath: options.evidencePath ? resolveInputPath(options.evidencePath) : undefined,
+    workspaceFile,
+    evidencePath,
     summary: evidence.summary,
     manualAcceptanceRequired: evidence.manualAcceptanceRequired.map((item) => item.id),
   }, null, 2)}\n`);

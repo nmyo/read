@@ -1,15 +1,16 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const cliRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(cliRoot, "../..");
+import { dirname } from "node:path";
+import {
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspaceDesktopSettingsPath,
+} from "./acceptance-workspace.mjs";
 
 function parseArgs(argv) {
   const options = {
     snapshotPath: undefined,
     evidencePath: undefined,
+    workspacePath: undefined,
     screenshot: undefined,
     reviewer: undefined,
     notes: undefined,
@@ -25,6 +26,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--evidence") {
       options.evidencePath = next;
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--screenshot") {
       options.screenshot = next;
@@ -49,9 +53,11 @@ function usage() {
   return `ReadAny desktop External AI settings acceptance helper
 
 Usage:
-  pnpm --filter @readany/cli acceptance:desktop -- --snapshot <copied-settings-snapshot.json> --evidence <file> [options]
+  pnpm --filter @readany/cli acceptance:desktop -- --snapshot <copied-settings-snapshot.json> [options]
 
 Options:
+  --evidence <path>       Write JSON evidence to this path.
+  --workspace <path>      Acceptance workspace root or workspace.json.
   --screenshot <path>     Optional screenshot or screen recording path for manual review.
   --reviewer <name>      Reviewer name.
   --notes <text>         Short manual validation note.
@@ -60,15 +66,6 @@ Options:
 
 function assertOption(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function hasObviousSecret(text) {
@@ -138,8 +135,20 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
+
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
   assertOption(options.snapshotPath, "Pass --snapshot <path>.");
-  assertOption(options.evidencePath, "Pass --evidence <path>.");
+  const outputPath = options.evidencePath
+    ? resolveInputPath(options.evidencePath)
+    : workspaceDesktopSettingsPath(workspace);
+  assertOption(outputPath, "Pass --evidence <path> or use --workspace <path>.");
 
   const snapshotPath = resolveInputPath(options.snapshotPath);
   const snapshotText = await readFile(snapshotPath, "utf8");
@@ -194,10 +203,9 @@ async function main() {
     },
   };
 
-  const outputPath = resolveInputPath(options.evidencePath);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
-  process.stdout.write(`${JSON.stringify({ ok: evidence.ok, outputPath, summary: evidence.summary }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: evidence.ok, workspaceFile, outputPath, summary: evidence.summary }, null, 2)}\n`);
   if (!evidence.ok) process.exitCode = 1;
 }
 

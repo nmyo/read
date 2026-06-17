@@ -5,6 +5,11 @@ import { dirname, resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { inflateRawSync } from "node:zlib";
+import {
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspaceRealSamplePath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
@@ -21,6 +26,7 @@ function parseArgs(argv) {
     knowledgeQuery: undefined,
     exportDir: undefined,
     evidencePath: undefined,
+    workspacePath: undefined,
     draftExport: false,
     keepDraft: false,
     readanyHome: process.env.READANY_HOME,
@@ -52,6 +58,9 @@ function parseArgs(argv) {
     } else if (arg === "--evidence") {
       options.evidencePath = next;
       index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
+      index += 1;
     } else if (arg === "--readany-home") {
       options.readanyHome = next;
       index += 1;
@@ -82,6 +91,7 @@ Readonly by default:
   --knowledge-query <query>    Knowledge query; defaults to --rag-query.
   --readany-home <path>        ReadAny data root; defaults to READANY_HOME.
   --evidence <path>            Write JSON evidence to this path.
+  --workspace <path>           Acceptance workspace root or workspace.json.
 
 Explicit write/export mode:
   --draft-export               Create, validate, export, and re-inspect an EPUB draft.
@@ -439,8 +449,18 @@ async function main() {
     throw new Error("--draft-export requires --export-dir <path>.");
   }
 
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
   const evidencePath =
-    options.evidencePath ??
+    (options.evidencePath
+      ? resolveInputPath(options.evidencePath)
+      : workspaceRealSamplePath(workspace)) ??
     join(await mkdtemp(join(tmpdir(), "readany-real-acceptance-")), "evidence.json");
   const env = {
     ...process.env,
@@ -726,7 +746,7 @@ async function main() {
 
   await mkdir(dirname(evidencePath), { recursive: true });
   await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
-  process.stdout.write(`${JSON.stringify({ ok: true, evidencePath, summary, checks }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, workspaceFile, evidencePath, summary, checks }, null, 2)}\n`);
 }
 
 try {
