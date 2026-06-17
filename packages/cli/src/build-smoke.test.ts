@@ -143,8 +143,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
-            command: "readany",
-            args: ["mcp", "serve", "--profile", "readonly"],
+            command: process.execPath,
+            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
           },
         },
       },
@@ -825,7 +825,14 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "readonly/editor/publisher",
         "--uses-mcp",
         "--mcp-config-text",
-        '{"mcpServers":{"readany":{"command":"readany","args":["mcp","serve","--profile","readonly"]}}}',
+        JSON.stringify({
+          mcpServers: {
+            readany: {
+              command: process.execPath,
+              args: [binPath, "mcp", "serve", "--profile", "readonly"],
+            },
+          },
+        }),
         "--tools-list-summary",
         "readany tools/list captured 28 tools with risk scopes and minimumProfile metadata",
         "--tool-count",
@@ -969,12 +976,12 @@ Module._load = function patchedLoad(request, parent, isMain) {
             profile: "readonly",
             client: "codex",
             config: {
-              mcpServers: {
-                readany: {
-                  command: "readany",
-                  args: ["mcp", "serve", "--profile", "readonly"],
+                mcpServers: {
+                  readany: {
+                    command: process.execPath,
+                    args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
+                  },
                 },
-              },
             },
           },
           tools: Array.from({ length: 28 }, (_, index) => ({
@@ -1965,7 +1972,14 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         "readonly/editor/publisher",
         "--uses-mcp",
         "--mcp-config-text",
-        '{"mcpServers":{"readany":{"command":"readany","args":["mcp","serve","--profile","readonly"]}}}',
+        JSON.stringify({
+          mcpServers: {
+            readany: {
+              command: process.execPath,
+              args: [binPath, "mcp", "serve", "--profile", "readonly"],
+            },
+          },
+        }),
         "--tools-list-summary",
         "readany tools/list captured 28 tools with risk scopes and minimumProfile metadata",
         "--tool-count",

@@ -426,8 +426,8 @@ describe("commands", () => {
       data: {
         mcpServers: {
           readany: {
-            command: "readany",
-            args: ["mcp", "serve", "--profile", "readonly"],
+            command: process.execPath,
+            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
           },
         },
       },
@@ -443,8 +443,8 @@ describe("commands", () => {
         snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
-            command: "readany",
-            args: ["mcp", "serve", "--profile", "publisher"],
+            command: process.execPath,
+            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "publisher"],
           },
         },
       },
@@ -454,8 +454,8 @@ describe("commands", () => {
       expect(JSON.parse(snippet)).toEqual({
         mcpServers: {
           readany: {
-            command: "readany",
-            args: ["mcp", "serve", "--profile", "publisher"],
+            command: process.execPath,
+            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "publisher"],
           },
         },
       });
@@ -478,7 +478,10 @@ describe("commands", () => {
     });
     if (codex.ok) {
       expect((codex.data as { snippet: string }).snippet).toContain(
-        'args = ["mcp","serve","--profile","readonly"]',
+        '"mcp","serve","--profile","readonly"',
+      );
+      expect((codex.data as { snippet: string }).snippet).toContain(
+        `command = ${JSON.stringify(process.execPath)}`,
       );
     }
 
@@ -491,8 +494,8 @@ describe("commands", () => {
         snippet: expect.stringContaining('"mcpServers"'),
         mcpServers: {
           readany: {
-            command: "readany",
-            args: ["mcp", "serve", "--profile", "readonly"],
+            command: process.execPath,
+            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
           },
         },
       },

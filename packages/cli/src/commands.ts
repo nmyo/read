@@ -1,5 +1,5 @@
 import { CLI_VERSION } from "./version.js";
-import { getCliPaths } from "./paths.js";
+import { getCliPaths, resolveExecutablePath } from "./paths.js";
 import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles.js";
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
@@ -183,9 +183,10 @@ function parseMcpConfigClient(value: string | undefined): McpConfigClient {
 
 function createMcpServer(profile: string | undefined) {
   const parsedProfile = parseAccessProfile(profile);
+  const executablePath = resolveExecutablePath();
   return {
-    command: "readany",
-    args: ["mcp", "serve", "--profile", parsedProfile],
+    command: process.execPath,
+    args: [executablePath, "mcp", "serve", "--profile", parsedProfile],
   };
 }
 
@@ -195,7 +196,7 @@ export function createMcpConfig(
 ) {
   const parsedClient = parseMcpConfigClient(client);
   const server = createMcpServer(profile);
-  const profileName = server.args[3];
+  const profileName = server.args[4];
   const jsonConfig = {
     mcpServers: {
       readany: server,

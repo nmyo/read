@@ -196,8 +196,8 @@ function assertMcpConfigSnippets(env) {
         JSON.stringify({
           mcpServers: {
             readany: {
-              command: "readany",
-              args: ["mcp", "serve", "--profile", "readonly"],
+              command: process.execPath,
+              args: [binPath, "mcp", "serve", "--profile", "readonly"],
             },
           },
         }),
@@ -215,9 +215,12 @@ function assertMcpConfigSnippets(env) {
   assert(codex.data.profile === "editor", "codex MCP config reported the wrong profile");
   assert(typeof codex.data.snippet === "string", "codex MCP config did not include a snippet");
   assert(codex.data.snippet.includes("[mcp_servers.readany]"), "codex MCP config snippet did not include server table");
-  assert(codex.data.snippet.includes('command = "readany"'), "codex MCP config snippet did not include command");
   assert(
-    codex.data.snippet.includes('args = ["mcp","serve","--profile","editor"]'),
+    codex.data.snippet.includes(`command = ${JSON.stringify(process.execPath)}`),
+    "codex MCP config snippet did not include command",
+  );
+  assert(
+    codex.data.snippet.includes('"mcp","serve","--profile","editor"'),
     "codex MCP config snippet did not include editor profile args",
   );
   assert(!codex.data.snippet.includes("client ="), "codex MCP config snippet leaked client metadata");
