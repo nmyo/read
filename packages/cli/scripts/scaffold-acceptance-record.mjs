@@ -546,9 +546,11 @@ async function main() {
       );
   const desktopEvidencePath = options.desktopEvidencePath
     ? resolveInputPath(options.desktopEvidencePath)
-    : workspaceDesktopSettingsPath(workspace)
-      ? resolveInputPath(workspaceDesktopSettingsPath(workspace))
-      : undefined;
+    : (await filterExistingPaths(
+        [workspaceDesktopSettingsPath(workspace)]
+          .filter(Boolean)
+          .map(resolveInputPath),
+      ))[0];
 
   const evidencePath = realSamplePath;
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));

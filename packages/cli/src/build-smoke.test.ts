@@ -1742,6 +1742,70 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ]),
     });
 
+    const tbdDefaultsWorkspace = join(root, "evidence", "acceptance-workspace-tbd-defaults");
+    const initTbdDefaultsWorkspace = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-init.mjs"),
+        "--workspace",
+        tbdDefaultsWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(initTbdDefaultsWorkspace.status, initTbdDefaultsWorkspace.stderr || initTbdDefaultsWorkspace.stdout).toBe(0);
+    const tbdDefaultsWorkspaceJson = JSON.parse(await readFile(join(tbdDefaultsWorkspace, "workspace.json"), "utf8")) as {
+      evidenceFiles: { realSample: string };
+    };
+    await writeFile(tbdDefaultsWorkspaceJson.evidenceFiles.realSample, await readFile(evidencePath, "utf8"), "utf8");
+    const tbdDefaultsScaffold = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/scaffold-acceptance-record.mjs"),
+        "--workspace",
+        tbdDefaultsWorkspace,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(tbdDefaultsScaffold.status, tbdDefaultsScaffold.stderr || tbdDefaultsScaffold.stdout).toBe(0);
+    const tbdDefaultsRecord = await readFile(join(tbdDefaultsWorkspace, "record.md"), "utf8");
+    expect(tbdDefaultsRecord).toContain(
+      `acceptance:finalize -- --workspace ${join(tbdDefaultsWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`,
+    );
+    expect(tbdDefaultsRecord).toContain(
+      `acceptance:assemble -- --workspace ${join(tbdDefaultsWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`,
+    );
+    await writeFile(join(tbdDefaultsWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
+    const tbdDefaultsReadyStatus = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-status.mjs"),
+        "--workspace",
+        tbdDefaultsWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(tbdDefaultsReadyStatus.status, tbdDefaultsReadyStatus.stderr || tbdDefaultsReadyStatus.stdout).toBe(0);
+    const tbdDefaultsReadyStatusJson = JSON.parse(tbdDefaultsReadyStatus.stdout);
+    const tbdDefaultsAssembleStep = tbdDefaultsReadyStatusJson.nextSteps.find((step: string) => step.includes("acceptance:assemble"));
+    expect(tbdDefaultsAssembleStep).toContain("--release");
+    expect(tbdDefaultsAssembleStep).toContain("<release-label>");
+    expect(tbdDefaultsAssembleStep).toContain("--reviewer");
+    expect(tbdDefaultsAssembleStep).toContain("<name>");
+
     const acceptanceInitWorkspace = join(root, "evidence", "acceptance-workspace");
     const initWorkspace = spawnSync(
       process.execPath,

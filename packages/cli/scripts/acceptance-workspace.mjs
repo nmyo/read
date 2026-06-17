@@ -89,19 +89,25 @@ export function workspaceBundleDir(workspace) {
 }
 
 export function workspaceMilestone(workspace) {
-  return workspace?.defaults?.milestone;
+  return workspaceDefaultValue(workspace?.defaults?.milestone);
 }
 
 export function workspaceReviewer(workspace) {
-  return workspace?.defaults?.reviewer;
+  return workspaceDefaultValue(workspace?.defaults?.reviewer);
 }
 
 export function workspaceRelease(workspace) {
-  return workspace?.defaults?.release;
+  return workspaceDefaultValue(workspace?.defaults?.release);
 }
 
 export function workspaceDesktopPackage(workspace) {
-  return workspace?.defaults?.desktopPackage;
+  return workspaceDefaultValue(workspace?.defaults?.desktopPackage);
+}
+
+function workspaceDefaultValue(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized || normalized.toLowerCase() === "tbd") return undefined;
+  return normalized;
 }
 
 export async function filterExistingPaths(paths) {
