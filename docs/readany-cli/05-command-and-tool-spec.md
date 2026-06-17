@@ -49,6 +49,32 @@ $AGENT_HOME/skills/readany
 ~/.agent/skills/readany
 ```
 
+### 验收与归档命令
+
+这些命令不进入 MCP `tools/list`，只作为 CLI 侧的验收、采证和归档工具：
+
+```bash
+pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:agent -- --client <Codex|Claude Desktop|Cursor> --client-version <version> --profile <profiles> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:desktop -- --snapshot <snapshot.json> --screenshot <path> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:packaged -- --package-source <artifact> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:scaffold -- --evidence <real-sample.json> --output <record.md>
+pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json> [--strict-m5]
+pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence <evidence.json>... --output <manifest.json>
+pnpm --filter @readany/cli acceptance:bundle -- --record <record.md> --manifest <manifest.json> --evidence <evidence.json>... --output-dir <bundle-dir>
+pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidence <evidence.json>... --output-dir <bundle-dir>
+```
+
+补充约定：
+
+- `acceptance:real` 生成真实样本 evidence，默认只读；只有显式 `--draft-export` 才会创建 draft、validate、export 并清理草稿。
+- `acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 只记录对应人工或半自动证据，不替代 strict M5 的完整组合证据。
+- `acceptance:scaffold` 生成 partial 验收草稿，用于减少手工填表漏项，不把 pending/TBD 伪装成通过。
+- `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。
+- `acceptance:finalize` 会先跑 strict M5，再写出最终 manifest。
+- `acceptance:bundle` 把 record、manifest 和 evidence 整理成归档目录。
+- `acceptance:assemble` 是 `acceptance:finalize + acceptance:bundle` 的一键入口，会先卡 strict M5，再在 bundle 目录下写出 `final-manifest.json` 和对外交付用的 `manifest.json`。
+
 ### 只读数据命令
 
 已实现：
