@@ -250,6 +250,53 @@ export function ExternalAISettings() {
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
+  const evidenceSnapshot = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          cli: {
+            available: cliAvailable,
+            version: cliVersion || null,
+            source: lastActionResult?.command_source ?? versionResult?.command_source ?? null,
+          },
+          doctor: doctor?.ok ? doctor.data : null,
+          skill: skill?.ok ? skill.data : null,
+          mcp: {
+            profile: mcpProfile,
+            client: mcpClient,
+            config: mcpConfig,
+          },
+          tools: tools?.ok ? tools.data.tools.map((tool) => ({ name: tool.name, risk: tool.risk })) : [],
+          audit: audit?.ok ? audit.data.audit : null,
+          lastAction: lastActionResult
+            ? {
+                action: lastActionResult.action,
+                ok: lastActionResult.ok,
+                command: lastActionResult.command,
+                command_source: lastActionResult.command_source,
+                status: lastActionResult.status,
+              }
+            : null,
+        },
+        null,
+        2,
+      ),
+    [
+      audit,
+      cliAvailable,
+      cliVersion,
+      doctor,
+      lastActionResult,
+      mcpClient,
+      mcpConfig,
+      mcpProfile,
+      skill,
+      tools,
+      versionResult?.command_source,
+      lastActionResult?.command_source,
+    ],
+  );
 
   async function runCli(action: CliAction, options?: CliRunOptions) {
     setLoadingAction(action);
@@ -345,6 +392,12 @@ export function ExternalAISettings() {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  async function copyEvidenceSnapshot() {
+    await getPlatformService().copyToClipboard(evidenceSnapshot);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
   function handleMcpProfileChange(value: string) {
     const nextProfile = value as McpProfile;
     setMcpProfile(nextProfile);
@@ -404,6 +457,9 @@ export function ExternalAISettings() {
           </Button>
           <Button size="sm" variant="outline" onClick={handleCliUninstall} disabled={busy}>
             卸载
+          </Button>
+          <Button size="sm" variant="outline" onClick={copyEvidenceSnapshot} disabled={busy}>
+            复制证据
           </Button>
         </div>
 

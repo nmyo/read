@@ -56,6 +56,7 @@ readany skill status --json
 - 卸载。
 - 修复。
 - 诊断。
+- 复制诊断证据快照。
 
 ### 2. External AI Skill
 
@@ -68,7 +69,6 @@ readany skill status --json
 操作：
 
 - 安装到通用 agent 目录。
-- 修复或重装 CLI shim。
 - 卸载。
 - 更新。
 - 打开所在目录。
