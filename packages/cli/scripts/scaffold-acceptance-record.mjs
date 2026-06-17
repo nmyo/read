@@ -148,6 +148,18 @@ function packagedMcpText(packagedEvidence) {
   ].join(" / ");
 }
 
+function packagedDraftExportText(packagedEvidence) {
+  if (packagedEvidence.summary?.draftExportChecked !== true || packagedEvidence.draftExport?.checked !== true) {
+    return "TBD";
+  }
+  const inspect = packagedEvidence.draftExport.exportedInspect ?? {};
+  return [
+    "export pass",
+    `spine: ${value(inspect.spineCount)}`,
+    `hash: ${value(packagedEvidence.draftExport.outputHash)}`,
+  ].join(" / ");
+}
+
 function packageMatrixRows(packagedEvidences) {
   const byPlatform = packagedEvidenceByPlatform(packagedEvidences);
   return ["macOS", "Windows", "Linux"]
@@ -164,7 +176,7 @@ function packageMatrixRows(packagedEvidences) {
         distributionText(packagedEvidence),
         packagedSkillText(packagedEvidence),
         packagedMcpText(packagedEvidence),
-        "TBD",
+        packagedDraftExportText(packagedEvidence),
         "partial |",
       ].join(" | ");
     })
@@ -175,7 +187,7 @@ function packagedAnchors(packagedEvidences) {
   return packagedEvidences.map((packagedEvidence) => {
     const platform = normalizePlatform(packagedEvidence.environment?.platform ?? packagedEvidence.summary?.platform);
     const packageSource = value(packagedEvidence.environment?.packageSource ?? packagedEvidence.summary?.packageSource);
-    return `- packaged ${platform}：packageSource: ${packageSource} / ${distributionText(packagedEvidence)} / MCP ${packagedMcpText(packagedEvidence)}`;
+    return `- packaged ${platform}：packageSource: ${packageSource} / ${distributionText(packagedEvidence)} / MCP ${packagedMcpText(packagedEvidence)} / draftExport ${packagedDraftExportText(packagedEvidence)}`;
   });
 }
 

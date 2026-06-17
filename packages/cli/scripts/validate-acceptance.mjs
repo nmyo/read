@@ -303,6 +303,32 @@ function validatePackagedEvidence(evidence) {
     errors,
     "Packaged evidence must include doctor and MCP checks.",
   );
+  if (evidence?.summary?.draftExportChecked === true) {
+    assertCondition(evidence?.draftExport?.checked === true, errors, "Packaged draftExport.checked must be true.");
+    assertCondition(typeof evidence?.draftExport?.bookId === "string", errors, "Packaged draftExport.bookId is required.");
+    assertCondition(typeof evidence?.draftExport?.outputPath === "string", errors, "Packaged draftExport.outputPath is required.");
+    assertCondition(typeof evidence?.draftExport?.outputHash === "string", errors, "Packaged draftExport.outputHash is required.");
+    assertCondition(
+      typeof evidence?.draftExport?.exportedInspect?.spineCount === "number" &&
+        evidence.draftExport.exportedInspect.spineCount > 0,
+      errors,
+      "Packaged draftExport exportedInspect.spineCount is required.",
+    );
+    for (const commandName of ["epub.draft.create", "epub.validate", "epub.export", "epub.draft.discard"]) {
+      assertCondition(
+        (evidence?.commands ?? []).some((command) => command.name === commandName && command.ok === true),
+        errors,
+        `Packaged draft export evidence must include ${commandName}.`,
+      );
+    }
+    for (const checkName of ["epub.draft.create", "epub.validate", "epub.export", "epub.export.inspect"]) {
+      assertCondition(
+        (evidence?.checks ?? []).includes(checkName),
+        errors,
+        `Packaged draft export evidence must include check ${checkName}.`,
+      );
+    }
+  }
 
   for (const item of evidence?.manualAcceptanceRequired ?? []) {
     assertCondition(typeof item.id === "string", errors, "Manual requirement id is required.");

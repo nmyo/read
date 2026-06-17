@@ -656,6 +656,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     });
 
     const packagedEvidencePath = join(root, "evidence", "packaged-platform.json");
+    const packagedExportDir = join(root, "packaged-exports");
     const packaged = spawnSync(
       process.execPath,
       [
@@ -667,10 +668,15 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "--platform",
         "macOS",
         "--readany-home",
-        join(root, "packaged-readany-home"),
+        dataRoot,
         "--agent-home",
         join(root, "packaged-agent"),
         "--with-skill-install",
+        "--draft-export",
+        "--book",
+        "agent-smoke-book",
+        "--export-dir",
+        packagedExportDir,
         "--evidence",
         packagedEvidencePath,
       ],
@@ -687,13 +693,14 @@ Module._load = function patchedLoad(request, parent, isMain) {
       summary: {
         platform: "macOS",
         packageSource: "fixture packaged cli",
-        commandCount: 10,
-        checkCount: 10,
+        commandCount: 14,
+        checkCount: 15,
         skillInstallChecked: true,
         builtBundle: true,
         desktopResourceBundle: false,
         nativeBinary: false,
         usesNodeRuntime: true,
+        draftExportChecked: true,
       },
       manualAcceptanceRequired: expect.arrayContaining(["desktop-settings", "draft-export"]),
     });
@@ -715,6 +722,17 @@ Module._load = function patchedLoad(request, parent, isMain) {
         checkCount: number;
         skillInstallChecked: boolean;
         builtBundle: boolean;
+        draftExportChecked: boolean;
+      };
+      draftExport: {
+        checked: boolean;
+        bookId: string;
+        outputPath: string;
+        outputBytes: number;
+        outputHash: string;
+        exportedInspect: {
+          spineCount: number;
+        };
       };
       commands: Array<{ name: string; ok: boolean }>;
     };
@@ -735,12 +753,31 @@ Module._load = function patchedLoad(request, parent, isMain) {
       toolCount: 28,
       hasSafetyMetadata: true,
     });
+    expect(packagedEvidence.summary).toMatchObject({
+      draftExportChecked: true,
+    });
+    expect(packagedEvidence.draftExport).toMatchObject({
+      checked: true,
+      bookId: "agent-smoke-book",
+      outputPath: expect.stringContaining(packagedExportDir),
+      outputBytes: expect.any(Number),
+      outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      exportedInspect: {
+        spineCount: expect.any(Number),
+      },
+    });
+    expect(packagedEvidence.draftExport.outputBytes).toBeGreaterThan(0);
+    expect(packagedEvidence.draftExport.exportedInspect.spineCount).toBeGreaterThan(0);
     expect(packagedEvidence.commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "doctor", ok: true }),
         expect.objectContaining({ name: "mcp.initialize.tools.list", ok: true }),
         expect.objectContaining({ name: "skill.install", ok: true }),
         expect.objectContaining({ name: "skill.uninstall", ok: true }),
+        expect.objectContaining({ name: "epub.draft.create", ok: true }),
+        expect.objectContaining({ name: "epub.validate", ok: true }),
+        expect.objectContaining({ name: "epub.export", ok: true }),
+        expect.objectContaining({ name: "epub.draft.discard", ok: true }),
       ]),
     );
 
@@ -802,12 +839,12 @@ Module._load = function patchedLoad(request, parent, isMain) {
     );
     expect(scaffoldRecord).toContain("distribution：builtBundle: true");
     expect(scaffoldRecord).toContain(
-      "| macOS | fixture packaged cli | CLI executable checked; installer install TBD | builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true | install/status/uninstall pass | readany / tools: 28 / safety metadata: yes | TBD | partial |",
+      `| macOS | fixture packaged cli | CLI executable checked; installer install TBD | builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true | install/status/uninstall pass | readany / tools: 28 / safety metadata: yes | export pass / spine: ${packagedEvidence.draftExport.exportedInspect.spineCount} / hash: ${packagedEvidence.draftExport.outputHash} | partial |`,
     );
     expect(scaffoldRecord).toContain("| Windows |  |  |  |  |  |  |  |");
     expect(scaffoldRecord).toContain("| Linux |  |  |  |  |  |  |  |");
     expect(scaffoldRecord).toContain(
-      "- packaged macOS：packageSource: fixture packaged cli / builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true / MCP readany / tools: 28 / safety metadata: yes",
+      `- packaged macOS：packageSource: fixture packaged cli / builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true / MCP readany / tools: 28 / safety metadata: yes / draftExport export pass / spine: ${packagedEvidence.draftExport.exportedInspect.spineCount} / hash: ${packagedEvidence.draftExport.outputHash}`,
     );
     expect(scaffoldRecord).toContain("sample-source | pending");
 

@@ -115,6 +115,9 @@ pnpm --filter @readany/cli acceptance:packaged -- \
   --readany-home <real-readany-home> \
   --agent-home <tmp-agent-home> \
   --with-skill-install \
+  --draft-export \
+  --book <epub-book-id> \
+  --export-dir <tmp-export-dir> \
   --evidence <packaged-evidence-json>
 pnpm --filter @readany/cli acceptance:scaffold -- \
   --evidence <evidence-json> \
@@ -128,7 +131,7 @@ pnpm --filter @readany/cli acceptance:validate -- \
 
 `acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本会在 stdout 输出脱敏摘要，并写入完整 JSON 证据；证据会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和 `manualAcceptanceRequired` 清单。每个 `manualAcceptanceRequired` 项都带 `evidence` 和 `commands`，用于指导后续人工补证，但不能替代样本来源、真实外部 agent 和打包产物记录。
 
-`acceptance:packaged` 用来给 macOS / Windows / Linux 打包矩阵逐个平台采证。默认只读，记录 version、doctor runtime/distribution、tools list、MCP config、readonly MCP initialize/tools/list 和 skill status；只有显式 `--with-skill-install` 才会执行 skill install/status/uninstall，建议搭配临时 `--agent-home`。该 evidence 只证明单平台安装/运行状态，不能替代真实样本、真实外部 agent 或最终 M5 记录。
+`acceptance:packaged` 用来给 macOS / Windows / Linux 打包矩阵逐个平台采证。默认只读，记录 version、doctor runtime/distribution、tools list、MCP config、readonly MCP initialize/tools/list 和 skill status；只有显式 `--with-skill-install` 才会执行 skill install/status/uninstall，建议搭配临时 `--agent-home`；只有显式 `--draft-export --book <epub-book-id> --export-dir <dir>` 才会创建 draft、validate、export、检查导出 EPUB 结构并默认 discard draft 清理工作区。该 evidence 只证明单平台安装/运行状态，不能替代真实样本、真实外部 agent 或最终 M5 记录。
 
 `acceptance:scaffold` 可以从 evidence 生成验收记录草稿，自动填入样本 SHA-256、citation target、doctor distribution 和 `Manual Acceptance Closure` 待办项；也可以重复传 `--packaged-evidence <json>`，用单平台 packaged 证据预填 macOS / Windows / Linux 打包矩阵中的 package source、doctor distribution、Skill 和 MCP 检查结果。它只生成 partial 草稿，不会把 pending/TBD 项伪装成通过；packaged 矩阵行也只代表单平台补证，draft export、真实安装器和跨平台完整矩阵仍要人工关闭。
 
