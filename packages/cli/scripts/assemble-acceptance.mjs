@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -93,6 +94,17 @@ function commandOutput(result, fallback) {
   return result.stderr || result.stdout || fallback;
 }
 
+async function annotateAssembledManifest(manifestPath, verifyResult) {
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.bundle = {
+    verified: true,
+    verifiedAt: new Date().toISOString(),
+    verification: verifyResult,
+    indexPath: "index.json",
+  };
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -150,6 +162,22 @@ async function main() {
   }
 
   const verifyResult = JSON.parse(verify.stdout || "{}");
+  await annotateAssembledManifest(manifestPath, verifyResult);
+  const rebundle = runNodeScript("acceptance-bundle.mjs", [
+    "--record",
+    recordPath,
+    "--manifest",
+    manifestPath,
+    ...evidencePaths.flatMap((path) => ["--evidence", path]),
+    ...(options.release ? ["--release", options.release] : []),
+    "--output-dir",
+    outputDir,
+  ]);
+  if (rebundle.status !== 0) {
+    process.stderr.write(commandOutput(rebundle, "acceptance:bundle failed after manifest annotation.\n"));
+    process.exitCode = 1;
+    return;
+  }
 
   process.stdout.write(
     `${JSON.stringify(

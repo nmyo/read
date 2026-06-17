@@ -1970,11 +1970,25 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ok: boolean;
       release?: string;
       reviewer?: string;
+      bundle?: {
+        verified: boolean;
+        indexPath: string;
+        verification: { ok: boolean; bundleDir: string; evidenceCount: number };
+      };
     };
     expect(assembledManifest).toMatchObject({
       ok: true,
       release: "fixture-release",
       reviewer: "Vitest",
+      bundle: {
+        verified: true,
+        indexPath: "index.json",
+        verification: {
+          ok: true,
+          bundleDir: assembledDir,
+          evidenceCount: 7,
+        },
+      },
     });
     const verifyAssembledBundle = spawnSync(
       process.execPath,
