@@ -1794,5 +1794,76 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         expect.objectContaining({ source: desktopEvidencePath }),
       ]),
     );
+
+    const rejectedAssembleDir = join(root, "evidence", "rejected-assemble");
+    const rejectedAssemble = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/assemble-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--output-dir",
+        rejectedAssembleDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(rejectedAssemble.status).toBe(1);
+
+    const assembledDir = join(root, "evidence", "assembled-final-bundle");
+    const assemble = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/assemble-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        darwinPackagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--reviewer",
+        "Vitest",
+        "--release",
+        "fixture-release",
+        "--output-dir",
+        assembledDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(assemble.status, assemble.stderr || assemble.stdout).toBe(0);
+    expect(JSON.parse(assemble.stdout)).toMatchObject({
+      ok: true,
+      outputDir: assembledDir,
+      manifestPath: join(assembledDir, "final-manifest.json"),
+    });
+    const assembledManifest = JSON.parse(await readFile(join(assembledDir, "manifest.json"), "utf8")) as {
+      ok: boolean;
+      release?: string;
+      reviewer?: string;
+    };
+    expect(assembledManifest).toMatchObject({
+      ok: true,
+      release: "fixture-release",
+      reviewer: "Vitest",
+    });
   });
 });

@@ -176,6 +176,17 @@ pnpm --filter @readany/cli acceptance:bundle -- \
   --evidence <linux-packaged-evidence-json> \
   --release <release-label> \
   --output-dir <acceptance-bundle-dir>
+pnpm --filter @readany/cli acceptance:assemble -- \
+  --record <acceptance-record.md> \
+  --evidence <evidence-json> \
+  --evidence <agent-evidence-json> \
+  --evidence <desktop-evidence-json> \
+  --evidence <macos-packaged-evidence-json> \
+  --evidence <windows-packaged-evidence-json> \
+  --evidence <linux-packaged-evidence-json> \
+  --release <release-label> \
+  --reviewer <name> \
+  --output-dir <acceptance-bundle-dir>
 ```
 
 `acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本会在 stdout 输出脱敏摘要，并写入完整 JSON 证据；证据会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和 `manualAcceptanceRequired` 清单。每个 `manualAcceptanceRequired` 项都带 `evidence` 和 `commands`，用于指导后续人工补证，但不能替代样本来源、真实外部 agent 和打包产物记录。
@@ -193,6 +204,8 @@ pnpm --filter @readany/cli acceptance:bundle -- \
 `acceptance:finalize` 用来生成最终验收 manifest。它会先执行 strict M5 组合证据校验，失败时不会写 manifest；通过后会记录验收 record、每份 evidence 的 SHA-256、git commit/branch、验证结果和证据类型摘要，作为发布归档锚点。
 
 `acceptance:bundle` 用来把最终验收 record、manifest 和 evidence 复制到一个 bundle 目录，并生成 `index.json`。它不替代 `acceptance:finalize`；推荐在 manifest 生成后执行，用于归档、交接和上传发布证据。
+
+`acceptance:assemble` 是 `acceptance:finalize + acceptance:bundle` 的一键入口。它会先执行 strict M5 校验并写出 `<output-dir>/final-manifest.json`，然后把对外交付使用的 `record.md`、`manifest.json`、`index.json` 和全部 evidence 整理到同一个 bundle 目录。适合在证据都齐全后作为最后一步执行。
 
 ## 验收结果
 

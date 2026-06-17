@@ -12,6 +12,8 @@
 
 如果只读一份文档，先读这一份。更细的命令和工具清单见 [05-command-and-tool-spec.md](05-command-and-tool-spec.md)，更严格的交付合同见 [09-delivery-acceptance-contract.md](09-delivery-acceptance-contract.md)，可直接贴 issue 的正文见 [11-implementation-issue.md](11-implementation-issue.md)。
 
+最终 M5 验收归档既可以分两步执行 `acceptance:finalize` + `acceptance:bundle`，也可以一步执行 `acceptance:assemble`。后一种更适合发布前收口，因为它会先卡 strict M5，再把 manifest 和 bundle 一起产出。
+
 ## 1. 目标
 
 ReadAny CLI 不是一个给人类敲命令的小工具，而是 ReadAny 的本地能力网关。

@@ -10,6 +10,7 @@
     "build": "node scripts/build.mjs",
     "smoke:agent": "node scripts/agent-smoke.mjs",
     "acceptance:agent": "node scripts/agent-acceptance.mjs",
+    "acceptance:assemble": "node scripts/assemble-acceptance.mjs",
     "acceptance:desktop": "node scripts/desktop-settings-acceptance.mjs",
     "acceptance:bundle": "node scripts/acceptance-bundle.mjs",
     "acceptance:finalize": "node scripts/finalize-acceptance.mjs",

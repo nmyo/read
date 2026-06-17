@@ -160,6 +160,11 @@ AI 可以修当前章或全书 draft，用户可以查看 diff、撤销、继续
 普通用户不读命令行文档，也能在桌面客户端完成外部 AI 接入；高级用户和外部 agent 可以通过 CLI/MCP 使用完整能力。
 ```
 
+最终交付归档建议：
+
+- 需要把 strict M5 校验和 manifest / bundle 分开留痕时，用 `acceptance:finalize` + `acceptance:bundle`。
+- 需要一条命令收口时，用 `acceptance:assemble`。它会先失败后停，不会在证据不完整时产出误导性的最终 bundle。
+
 ## 实现顺序
 
 ### 1. CLI 基础层

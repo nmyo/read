@@ -256,6 +256,24 @@ readany knowledge search "keyword" --json
 - 导出 EPUB 可以重新导入 ReadAny，或至少通过标准 EPUB 检查。
 - 导出记录进入审计日志。
 
+最终验收交付物还必须能被稳定归档。建议在 evidence 收齐后执行：
+
+```bash
+pnpm --filter @readany/cli acceptance:assemble -- \
+  --record <acceptance-record.md> \
+  --evidence <evidence-json> \
+  --evidence <agent-evidence-json> \
+  --evidence <desktop-evidence-json> \
+  --evidence <macos-packaged-evidence-json> \
+  --evidence <windows-packaged-evidence-json> \
+  --evidence <linux-packaged-evidence-json> \
+  --release <release-label> \
+  --reviewer <name> \
+  --output-dir <acceptance-bundle-dir>
+```
+
+这条命令必须先通过 strict M5，再生成 `final-manifest.json` 和最终 bundle；因此它可以作为“交付物齐全”的最后一道机器闸门。
+
 ### 2.7 桌面客户端入口
 
 设置页入口：
