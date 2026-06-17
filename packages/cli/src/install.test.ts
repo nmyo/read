@@ -1,9 +1,11 @@
+import { realpathSync } from "node:fs";
 import { lstat, readFile, mkdir, symlink, writeFile } from "node:fs/promises";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { installCli, resolveShimPath, uninstallCli } from "./install.js";
+import { resolveExecutablePath } from "./paths.js";
 
 describe("cli install", () => {
   it("resolves user shim path", () => {
@@ -18,6 +20,29 @@ describe("cli install", () => {
       mode: "user",
       platformName: "darwin",
     });
+  });
+
+  it("resolves the real CLI target when argv[1] is a managed symlink", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-cli-paths-symlink-"));
+    const binPath = join(root, "dist", "bin", "readany.js");
+    const shimPath = join(root, "bin", "readany");
+    await mkdir(join(root, "dist", "bin"), { recursive: true });
+    await mkdir(join(root, "bin"), { recursive: true });
+    await writeFile(binPath, "#!/usr/bin/env node\n", "utf8");
+    await symlink(binPath, shimPath);
+
+    expect(resolveExecutablePath({}, { argv1: shimPath })).toBe(realpathSync(binPath));
+  });
+
+  it("ignores non-CLI argv[1] paths and falls back to the module-derived entrypoint", () => {
+    const resolved = resolveExecutablePath(
+      {},
+      {
+        argv1: "/tmp/vitest/dist/workers/forks.js",
+        moduleUrl: "file:///repo/packages/cli/dist/chunks/chunk-ABC123.js",
+      },
+    );
+    expect(resolved).toBe("/repo/packages/cli/dist/bin/readany.js");
   });
 
   it("installs and uninstalls a unix symlink", async () => {
