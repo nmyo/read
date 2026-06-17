@@ -23,7 +23,7 @@ import {
   Terminal,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 type CliAction =
   | "version"
@@ -167,7 +167,7 @@ function parseCliJson<T>(result?: CliRunResult): CommandResult<T> | undefined {
 function statusLabel(ok: boolean, yes: string, no: string) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium leading-none ${
         ok ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"
       }`}
     >
@@ -182,6 +182,44 @@ function outputSummary(result?: CliRunResult, parsed?: CommandResult) {
   if (parsed?.ok === false) return parsed.error.message;
   if (result.ok) return "命令执行成功。";
   return result.stderr.trim() || result.stdout.trim() || `命令退出码 ${result.status ?? "unknown"}`;
+}
+
+function sectionHeader(
+  icon: ReactNode,
+  title: string,
+  status: ReactNode,
+  description: string,
+  actions?: ReactNode,
+) {
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {icon}
+          <h2 className="text-sm font-medium text-foreground">{title}</h2>
+          {status}
+        </div>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>
+      </div>
+      {actions ? <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div> : null}
+    </div>
+  );
+}
+
+function outputPanel(text: string, tone: "default" | "error" = "default") {
+  return (
+    <div
+      className={`rounded-md border px-3 py-2 text-xs leading-5 ${
+        tone === "error"
+          ? "border-destructive/20 bg-destructive/5 text-destructive"
+          : "border-border/60 bg-background text-muted-foreground"
+      }`}
+    >
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5">
+        {text}
+      </pre>
+    </div>
+  );
 }
 
 function evidenceValue(label: string, value: string | number | boolean | undefined, mono = true) {
@@ -434,36 +472,32 @@ export function ExternalAISettings() {
   return (
     <div className="space-y-4 p-4 pt-3">
       <section className="rounded-lg bg-muted/60 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">ReadAny CLI</h2>
-              {statusLabel(cliAvailable, "可用", "未检测到")}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              桌面端通过受限命令检测 CLI，不开放任意 shell。
-            </p>
-          </div>
-          <Button size="sm" variant="outline" onClick={refreshAll} disabled={busy}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-            诊断
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCliInstall} disabled={busy}>
-            安装
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCliRepair} disabled={busy}>
-            修复
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCliUninstall} disabled={busy}>
-            卸载
-          </Button>
-          <Button size="sm" variant="outline" onClick={copyEvidenceSnapshot} disabled={busy}>
-            复制证据
-          </Button>
-        </div>
+        {sectionHeader(
+          <Terminal className="h-4 w-4 text-muted-foreground" />,
+          "ReadAny CLI",
+          statusLabel(cliAvailable, "可用", "未检测到"),
+          "桌面端通过受限命令检测 CLI，不开放任意 shell。",
+          <>
+            <Button size="sm" variant="outline" onClick={refreshAll} disabled={busy}>
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+              诊断
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCliInstall} disabled={busy}>
+              安装
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCliRepair} disabled={busy}>
+              修复
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCliUninstall} disabled={busy}>
+              卸载
+            </Button>
+            <Button size="sm" variant="outline" onClick={copyEvidenceSnapshot} disabled={busy}>
+              复制证据
+            </Button>
+          </>,
+        )}
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           <div className="rounded-md bg-background px-3 py-2">
             <p className="text-[11px] text-muted-foreground">版本</p>
             <p className="mt-1 truncate font-mono text-xs text-foreground">
@@ -504,7 +538,7 @@ export function ExternalAISettings() {
               <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />
               <p className="text-xs font-medium text-foreground">运行时 / 打包证据</p>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {evidenceValue("distribution", doctorDistribution?.kind)}
               {evidenceValue("built bundle", doctorDistribution?.builtBundle)}
               {evidenceValue("desktop resource", doctorDistribution?.desktopResourceBundle)}
@@ -526,37 +560,29 @@ export function ExternalAISettings() {
             ? doctor.data.checks.map((check) => (
                 <div
                   key={check.name}
-                  className="flex items-start justify-between gap-3 rounded-md bg-background px-3 py-2"
+                  className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-mono text-xs text-foreground">{check.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{check.message}</p>
+                    <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">{check.message}</p>
                   </div>
-                  {statusLabel(check.ok, "通过", "失败")}
+                  <div className="self-start">{statusLabel(check.ok, "通过", "失败")}</div>
                 </div>
               ))
             : null}
           {!doctor?.ok && (
-            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
-              {outputSummary(doctorResult, doctor)}
-            </p>
+            outputPanel(outputSummary(doctorResult, doctor), doctorResult ? "error" : "default")
           )}
         </div>
       </section>
 
       <section className="rounded-lg bg-muted/60 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">External AI Skill</h2>
-              {statusLabel(skillInstalled, "已安装", "未安装")}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Skill 安装到通用 agent 目录，只提供使用说明，不保存书库数据或密钥。
-            </p>
-          </div>
-          <div className="flex gap-2">
+        {sectionHeader(
+          <Bot className="h-4 w-4 text-muted-foreground" />,
+          "External AI Skill",
+          statusLabel(skillInstalled, "已安装", "未安装"),
+          "Skill 安装到通用 agent 目录，只提供使用说明，不保存书库数据或密钥。",
+          <>
             <Button size="sm" variant="outline" onClick={handleSkillInstall} disabled={busy}>
               安装
             </Button>
@@ -571,8 +597,8 @@ export function ExternalAISettings() {
             <Button size="sm" variant="outline" onClick={handleSkillUninstall} disabled={busy}>
               卸载
             </Button>
-          </div>
-        </div>
+          </>,
+        )}
         <div className="mt-3 rounded-md bg-background px-3 py-2">
           <p className="text-[11px] text-muted-foreground">安装位置</p>
           <p className="mt-1 break-all font-mono text-xs text-foreground">
@@ -582,62 +608,58 @@ export function ExternalAISettings() {
       </section>
 
       <section className="rounded-lg bg-muted/60 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">MCP access profile</h2>
-              {statusLabel(canCopyMcpConfig, "可配置", "等待确认")}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              默认 readonly。editor / publisher 需要用户显式确认，安装 CLI 或 Skill 不等于授权写入。
-            </p>
-          </div>
+        {sectionHeader(
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />,
+          "MCP access profile",
+          statusLabel(canCopyMcpConfig, "可配置", "等待确认"),
+          "默认 readonly。editor / publisher 需要用户显式确认，安装 CLI 或 Skill 不等于授权写入。",
           <Button size="sm" variant="outline" onClick={copyMcpConfig} disabled={!canCopyMcpConfig}>
             <Clipboard className="mr-1.5 h-3.5 w-3.5" />
             {copied ? "已复制" : "复制配置"}
-          </Button>
-        </div>
+          </Button>,
+        )}
 
-        <div className="mt-3 grid gap-3 rounded-md bg-background p-3 md:grid-cols-[minmax(9rem,12rem)_minmax(9rem,12rem)_minmax(0,1fr)]">
-          <div className="space-y-1">
-            <p className="text-[11px] text-muted-foreground">Profile</p>
-            <Select value={mcpProfile} onValueChange={handleMcpProfileChange}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="readonly">readonly</SelectItem>
-                <SelectItem value="editor">editor</SelectItem>
-                <SelectItem value="publisher">publisher</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="mt-3 rounded-md bg-background p-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Profile</p>
+              <Select value={mcpProfile} onValueChange={handleMcpProfileChange}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="readonly">readonly</SelectItem>
+                  <SelectItem value="editor">editor</SelectItem>
+                  <SelectItem value="publisher">publisher</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Client</p>
+              <Select value={mcpClient} onValueChange={handleMcpClientChange}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generic">{MCP_CLIENT_LABELS.generic}</SelectItem>
+                  <SelectItem value="codex">{MCP_CLIENT_LABELS.codex}</SelectItem>
+                  <SelectItem value="claude">{MCP_CLIENT_LABELS.claude}</SelectItem>
+                  <SelectItem value="cursor">{MCP_CLIENT_LABELS.cursor}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[11px] text-muted-foreground">Client</p>
-            <Select value={mcpClient} onValueChange={handleMcpClientChange}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="generic">{MCP_CLIENT_LABELS.generic}</SelectItem>
-                <SelectItem value="codex">{MCP_CLIENT_LABELS.codex}</SelectItem>
-                <SelectItem value="claude">{MCP_CLIENT_LABELS.claude}</SelectItem>
-                <SelectItem value="cursor">{MCP_CLIENT_LABELS.cursor}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">
+          <div className="mt-3 rounded-md border border-border/60 bg-muted/50 px-3 py-3">
+            <p className="text-xs leading-5 text-muted-foreground">
               {PROFILE_DESCRIPTIONS[mcpProfile]} 当前复制 {MCP_CLIENT_LABELS[mcpClient]} 模板。
             </p>
             {needsProfileConfirmation ? (
-              <label className="mt-2 flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2">
+              <label className="mt-3 flex items-start gap-3 rounded-md bg-background px-3 py-3">
                 <Switch
                   checked={profileRiskConfirmed}
                   onCheckedChange={setProfileRiskConfirmed}
                 />
-                <span className="text-xs text-muted-foreground">
+                <span className="min-w-0 text-xs leading-5 text-muted-foreground">
                   我确认该 profile 会允许外部 AI 调用 draft 写入或导出类工具；原书仍不会被覆盖，导出默认生成新文件。
                 </span>
               </label>
@@ -661,17 +683,11 @@ export function ExternalAISettings() {
       </section>
 
       <section className="rounded-lg bg-muted/60 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <History className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">最近审计</h2>
-              {statusLabel(audit?.ok === true, "可读取", "等待日志")}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证。
-            </p>
-          </div>
+        {sectionHeader(
+          <History className="h-4 w-4 text-muted-foreground" />,
+          "最近审计",
+          statusLabel(audit?.ok === true, "可读取", "等待日志"),
+          "只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证。",
           <Button
             size="sm"
             variant="outline"
@@ -682,56 +698,76 @@ export function ExternalAISettings() {
               className={`mr-1.5 h-3.5 w-3.5 ${loadingAction === "audit_list" ? "animate-spin" : ""}`}
             />
             刷新
-          </Button>
-        </div>
+          </Button>,
+        )}
 
         <div className="mt-3 rounded-md bg-background p-3">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs font-medium text-foreground">筛选</p>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[minmax(7rem,0.8fr)_minmax(7rem,0.8fr)_minmax(8rem,1fr)_minmax(9rem,1.1fr)_minmax(5rem,0.6fr)_auto]">
-            <Select value={auditSource} onValueChange={(value) => setAuditSource(value as typeof auditSource)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部来源</SelectItem>
-                <SelectItem value="cli">CLI</SelectItem>
-                <SelectItem value="mcp">MCP</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={auditStatus} onValueChange={(value) => setAuditStatus(value as typeof auditStatus)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部结果</SelectItem>
-                <SelectItem value="failed">仅失败</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              className="h-8 text-xs"
-              placeholder="action prefix"
-              value={auditActionPrefix}
-              onChange={(event) => setAuditActionPrefix(event.target.value)}
-            />
-            <Input
-              className="h-8 text-xs"
-              type="date"
-              value={auditDate}
-              onChange={(event) => setAuditDate(event.target.value)}
-            />
-            <Input
-              className="h-8 text-xs"
-              inputMode="numeric"
-              min={1}
-              max={50}
-              type="number"
-              value={auditLimit}
-              onChange={(event) => setAuditLimit(event.target.value)}
-            />
-            <div className="flex gap-2">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">来源</p>
+              <Select value={auditSource} onValueChange={(value) => setAuditSource(value as typeof auditSource)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部来源</SelectItem>
+                  <SelectItem value="cli">CLI</SelectItem>
+                  <SelectItem value="mcp">MCP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">结果</p>
+              <Select value={auditStatus} onValueChange={(value) => setAuditStatus(value as typeof auditStatus)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部结果</SelectItem>
+                  <SelectItem value="failed">仅失败</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Action 前缀</p>
+              <Input
+                className="h-8 text-xs"
+                placeholder="如 epub."
+                value={auditActionPrefix}
+                onChange={(event) => setAuditActionPrefix(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">日期</p>
+              <Input
+                className="h-8 text-xs"
+                type="date"
+                value={auditDate}
+                onChange={(event) => setAuditDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">数量</p>
+              <Input
+                className="h-8 text-xs"
+                inputMode="numeric"
+                min={1}
+                max={50}
+                type="number"
+                value={auditLimit}
+                onChange={(event) => setAuditLimit(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <div className="mr-auto text-[11px] text-muted-foreground">
+              当前最多读取 {auditOptions.auditLimit} 条元数据记录。
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
                 应用
               </Button>
@@ -747,22 +783,22 @@ export function ExternalAISettings() {
             ? audit.data.audit.entries.map((entry) => (
                 <div
                   key={`${entry.timestamp}-${entry.source}-${entry.action}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-md bg-background px-3 py-2"
+                  className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-xs text-foreground">{entry.action}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    <p className="break-words font-mono text-xs text-foreground">{entry.action}</p>
+                    <p className="mt-0.5 break-words text-[11px] leading-5 text-muted-foreground">
                       {entry.timestamp} · {entry.source}
                       {entry.profile ? ` · ${entry.profile}` : ""}
                       {entry.code ? ` · ${entry.code}` : ""}
                     </p>
                     {!entry.ok ? (
-                      <p className="mt-1 truncate text-[11px] text-destructive">
+                      <p className="mt-1 break-words text-[11px] leading-5 text-destructive">
                         失败详情：{entry.code || "未返回错误码"}
                       </p>
                     ) : null}
                   </div>
-                  {statusLabel(entry.ok, "成功", "失败")}
+                  <div className="self-start">{statusLabel(entry.ok, "成功", "失败")}</div>
                 </div>
               ))
             : null}
@@ -772,15 +808,13 @@ export function ExternalAISettings() {
             </p>
           ) : null}
           {!audit?.ok ? (
-            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
-              {outputSummary(auditResult, audit)}
-            </p>
+            outputPanel(outputSummary(auditResult, audit), auditResult ? "error" : "default")
           ) : null}
         </div>
         {audit?.ok && failedAuditEntries.length > 0 ? (
           <div className="mt-3 rounded-md bg-background px-3 py-2">
             <p className="text-xs font-medium text-foreground">失败详情</p>
-            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+            <p className="mt-1 break-words font-mono text-xs leading-5 text-muted-foreground">
               {failedAuditEntries
                 .map((entry) => `${entry.action}: ${entry.code || "unknown_error"}`)
                 .join(" · ")}
