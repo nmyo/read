@@ -3,7 +3,7 @@ import { getCliPaths } from "./paths.js";
 import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles.js";
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
-import { installCli, uninstallCli, type InstallMode } from "./install.js";
+import { installCli, uninstallCli, type InstallMode, type InstallOptions } from "./install.js";
 import { getSkillStatus, installSkill, uninstallSkill, updateSkill } from "./skill.js";
 import {
   appendCliAuditEntry,
@@ -233,6 +233,9 @@ export function createHelpText(): string {
 
 Usage:
   readany --version
+  readany install [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany repair [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany doctor [--json] [--profile readonly]
   readany skill install
   readany skill update
@@ -296,6 +299,15 @@ function isEpubNestedCommand(command: string | undefined): boolean {
     command === "metadata" ||
     command === "toc"
   );
+}
+
+function getInstallOptions(command: ParsedCommand, binPath: string): InstallOptions {
+  return {
+    binPath,
+    mode: command.mode,
+    userBinDir: getRequiredStringOption(command, "user-bin-dir"),
+    globalBinDir: getRequiredStringOption(command, "global-bin-dir"),
+  };
 }
 
 async function executeCommand(argv: string[], env = process.env): Promise<CommandResult> {
@@ -386,11 +398,18 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     }
 
     if (command.name === "install") {
-      return success(await installCli({ binPath: paths.binPath, mode: command.mode }));
+      return success(await installCli(getInstallOptions(command, paths.binPath)));
+    }
+
+    if (command.name === "repair") {
+      return success({
+        repaired: true,
+        ...(await installCli(getInstallOptions(command, paths.binPath))),
+      });
     }
 
     if (command.name === "uninstall") {
-      return success(await uninstallCli({ binPath: paths.binPath, mode: command.mode }));
+      return success(await uninstallCli(getInstallOptions(command, paths.binPath)));
     }
 
     if (command.name === "books") {

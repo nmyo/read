@@ -333,6 +333,56 @@ describe("commands", () => {
     }
   });
 
+  it("repairs the managed CLI shim by reinstalling it", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+    const userBinDir = join(workspace.root, "bin");
+    const repair = await runCommand(
+      ["repair", "--user", "--user-bin-dir", userBinDir],
+      env,
+    );
+    expect(repair).toMatchObject({
+      ok: true,
+      data: {
+        repaired: true,
+        installed: true,
+        mode: "user",
+      },
+    });
+    if (!repair.ok) return;
+    const repairData = repair.data as { path: string; target: string };
+    expect(repairData.path).toBe(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"));
+    expect(repairData.target).toContain("readany.js");
+
+    const secondRepair = await runCommand(
+      ["repair", "--user", "--user-bin-dir", userBinDir],
+      env,
+    );
+    expect(secondRepair).toMatchObject({
+      ok: true,
+      data: {
+        repaired: true,
+        path: repairData.path,
+        target: repairData.target,
+      },
+    });
+
+    const uninstall = await runCommand(
+      ["uninstall", "--user", "--user-bin-dir", userBinDir],
+      env,
+    );
+    expect(uninstall).toMatchObject({
+      ok: true,
+      data: {
+        removed: true,
+        path: repairData.path,
+      },
+    });
+  });
+
   it("runs doctor with readonly profile", async () => {
     const workspace = await createWorkspace();
     const result = await runCommand(["doctor", "--profile", "readonly"], workspace.env);

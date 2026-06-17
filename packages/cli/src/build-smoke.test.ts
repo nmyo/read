@@ -657,6 +657,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
 
     const packagedEvidencePath = join(root, "evidence", "packaged-platform.json");
     const packagedExportDir = join(root, "packaged-exports");
+    const packagedRepairBinDir = join(root, "packaged-bin");
     const packaged = spawnSync(
       process.execPath,
       [
@@ -671,6 +672,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         dataRoot,
         "--agent-home",
         join(root, "packaged-agent"),
+        "--repair-bin-dir",
+        packagedRepairBinDir,
         "--with-skill-install",
         "--draft-export",
         "--book",
@@ -693,9 +696,10 @@ Module._load = function patchedLoad(request, parent, isMain) {
       summary: {
         platform: "macOS",
         packageSource: "fixture packaged cli",
-        commandCount: 14,
-        checkCount: 15,
+        commandCount: 15,
+        checkCount: 16,
         skillInstallChecked: true,
+        repairChecked: true,
         builtBundle: true,
         desktopResourceBundle: false,
         nativeBinary: false,
@@ -721,6 +725,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
         commandCount: number;
         checkCount: number;
         skillInstallChecked: boolean;
+        repairChecked: boolean;
         builtBundle: boolean;
         draftExportChecked: boolean;
       };
@@ -754,6 +759,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
       hasSafetyMetadata: true,
     });
     expect(packagedEvidence.summary).toMatchObject({
+      repairChecked: true,
       draftExportChecked: true,
     });
     expect(packagedEvidence.draftExport).toMatchObject({
@@ -771,6 +777,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(packagedEvidence.commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "doctor", ok: true }),
+        expect.objectContaining({ name: "repair", ok: true }),
         expect.objectContaining({ name: "mcp.initialize.tools.list", ok: true }),
         expect.objectContaining({ name: "skill.install", ok: true }),
         expect.objectContaining({ name: "skill.uninstall", ok: true }),

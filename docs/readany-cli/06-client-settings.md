@@ -68,6 +68,7 @@ readany skill status --json
 操作：
 
 - 安装到通用 agent 目录。
+- 修复或重装 CLI shim。
 - 卸载。
 - 更新。
 - 打开所在目录。

@@ -303,6 +303,15 @@ function validatePackagedEvidence(evidence) {
     errors,
     "Packaged evidence must include doctor and MCP checks.",
   );
+  if (evidence?.summary?.repairChecked === true) {
+    assertCondition(evidence?.repair?.repaired === true, errors, "Packaged repair.repaired must be true.");
+    assertCondition(
+      (evidence?.commands ?? []).some((command) => command.name === "repair" && command.ok === true),
+      errors,
+      "Packaged repair evidence must include repair command.",
+    );
+    assertCondition((evidence?.checks ?? []).includes("repair"), errors, "Packaged repair evidence must include repair check.");
+  }
   if (evidence?.summary?.draftExportChecked === true) {
     assertCondition(evidence?.draftExport?.checked === true, errors, "Packaged draftExport.checked must be true.");
     assertCondition(typeof evidence?.draftExport?.bookId === "string", errors, "Packaged draftExport.bookId is required.");

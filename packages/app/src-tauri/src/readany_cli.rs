@@ -64,6 +64,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
     match action {
         "version" => Ok(strings(&["--version"])),
         "install" => Ok(strings(&["install", "--user", "--json"])),
+        "repair" => Ok(strings(&["repair", "--user", "--json"])),
         "uninstall" => Ok(strings(&["uninstall", "--user", "--json"])),
         "doctor" => Ok(strings(&["doctor", "--json"])),
         "mcp_config" => mcp_config_args(options),
@@ -492,6 +493,7 @@ fn action_can_use_bundled_cli(action: &str) -> bool {
         action,
         "version"
             | "install"
+            | "repair"
             | "uninstall"
             | "doctor"
             | "mcp_config"
@@ -630,6 +632,14 @@ mod tests {
         assert_eq!(
             args_for_action("doctor", &ReadAnyCliRunOptions::default()),
             Ok(vec!["doctor".to_string(), "--json".to_string()])
+        );
+        assert_eq!(
+            args_for_action("repair", &ReadAnyCliRunOptions::default()),
+            Ok(vec![
+                "repair".to_string(),
+                "--user".to_string(),
+                "--json".to_string()
+            ])
         );
         assert_eq!(
             args_for_action("mcp_config", &ReadAnyCliRunOptions::default()),
@@ -1118,6 +1128,8 @@ mod tests {
 
         for action in [
             "version",
+            "install",
+            "repair",
             "doctor",
             "mcp_config",
             "tools_list",

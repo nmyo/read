@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from "react";
 type CliAction =
   | "version"
   | "install"
+  | "repair"
   | "uninstall"
   | "doctor"
   | "mcp_config"
@@ -311,6 +312,11 @@ export function ExternalAISettings() {
     await refreshAll();
   }
 
+  async function handleCliRepair() {
+    await runCli("repair");
+    await refreshAll();
+  }
+
   async function handleCliUninstall() {
     await runCli("uninstall");
     await refreshAll();
@@ -392,6 +398,9 @@ export function ExternalAISettings() {
           </Button>
           <Button size="sm" variant="outline" onClick={handleCliInstall} disabled={busy}>
             安装
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCliRepair} disabled={busy}>
+            修复
           </Button>
           <Button size="sm" variant="outline" onClick={handleCliUninstall} disabled={busy}>
             卸载

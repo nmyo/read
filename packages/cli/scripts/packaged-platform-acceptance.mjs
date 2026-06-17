@@ -19,6 +19,7 @@ function parseArgs(argv) {
     agentHome: process.env.AGENT_HOME,
     readanyHome: process.env.READANY_HOME,
     withSkillInstall: false,
+    repairBinDir: undefined,
     draftExport: false,
     bookId: undefined,
     exportDir: undefined,
@@ -50,6 +51,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--with-skill-install") {
       options.withSkillInstall = true;
+    } else if (arg === "--repair-bin-dir") {
+      options.repairBinDir = next;
+      index += 1;
     } else if (arg === "--draft-export") {
       options.draftExport = true;
     } else if (arg === "--book") {
@@ -84,6 +88,7 @@ Readonly by default:
   --evidence <path>            Write JSON evidence to this path.
 
 Explicit write mode:
+  --repair-bin-dir <path>       Run readany repair --user in this temp bin dir for install/repair evidence.
   --with-skill-install         Run skill install/status/uninstall. Use --agent-home with a temp dir for QA.
   --agent-home <path>          Agent home used by skill commands.
   --draft-export               Run EPUB draft create/validate/export/inspect/discard on this packaged CLI.
@@ -355,6 +360,14 @@ async function main() {
 
   const version = assertCommand(checks, commands, "version", runCli(cli, ["--version"], env));
   const doctor = assertCommand(checks, commands, "doctor", runCli(cli, ["doctor", "--json"], env));
+  const repair = options.repairBinDir
+    ? assertCommand(
+        checks,
+        commands,
+        "repair",
+        runCli(cli, ["repair", "--user", "--user-bin-dir", resolveInputPath(options.repairBinDir), "--json"], env),
+      )
+    : undefined;
   assertCommand(checks, commands, "tools.list", runCli(cli, ["tools", "list", "--json"], env));
   assertCommand(checks, commands, "mcp.config.generic", runCli(cli, ["mcp", "config", "--profile", "readonly", "--client", "generic", "--json"], env));
   assertCommand(checks, commands, "mcp.config.codex", runCli(cli, ["mcp", "config", "--profile", "readonly", "--client", "codex", "--json"], env));
@@ -480,6 +493,7 @@ async function main() {
     agentHome: env.AGENT_HOME,
     version,
     doctor,
+    repair,
     skillInstall,
     draftExport,
     mcp: {
@@ -495,6 +509,7 @@ async function main() {
       commandCount: commands.length,
       checkCount: checks.length,
       skillInstallChecked: options.withSkillInstall,
+      repairChecked: Boolean(repair),
       builtBundle: doctor.distribution?.builtBundle === true,
       desktopResourceBundle: doctor.distribution?.desktopResourceBundle === true,
       nativeBinary: doctor.distribution?.nativeBinary === true,
@@ -507,10 +522,11 @@ async function main() {
         label: "Capture the desktop External AI settings page showing this platform doctor runtime/distribution evidence.",
         evidence: [
           "settings page screenshot for runtime/distribution evidence",
-          "CLI install/uninstall or repair operation log from packaged app",
+          "CLI repair operation log from packaged app",
           "readonly/editor/publisher MCP config copy confirmation",
         ],
         commands: [
+          "readany repair --user --json",
           "readany doctor --json",
           "readany mcp config --client generic --profile readonly --json",
         ],
