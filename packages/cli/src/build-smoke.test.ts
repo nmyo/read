@@ -1821,6 +1821,56 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       ]),
     );
 
+    const mismatchManifestPath = join(root, "evidence", "mismatch-final-manifest.json");
+    await writeFile(
+      mismatchManifestPath,
+      `${JSON.stringify(
+        {
+          ...finalManifest,
+          record: {
+            ...finalManifest.record,
+            sha256: "0".repeat(64),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    const rejectedBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-bundle.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--manifest",
+        mismatchManifestPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        darwinPackagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--output-dir",
+        join(root, "evidence", "mismatch-bundle"),
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(rejectedBundle.status).toBe(1);
+    expect(rejectedBundle.stderr).toContain("Acceptance bundle consistency check failed");
+
     const rejectedAssembleDir = join(root, "evidence", "rejected-assemble");
     const rejectedAssemble = spawnSync(
       process.execPath,

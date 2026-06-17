@@ -83,6 +83,65 @@ function sha256(text) {
   return createHash("sha256").update(text).digest("hex");
 }
 
+function parseManifest(text) {
+  const manifest = JSON.parse(text);
+  if (!manifest || typeof manifest !== "object") {
+    throw new Error("Manifest must be a JSON object.");
+  }
+  return manifest;
+}
+
+function assertBundleConsistency({ recordInfo, manifestText, evidenceInfos }) {
+  const errors = [];
+  const manifest = parseManifest(manifestText);
+  const manifestEvidences = Array.isArray(manifest?.evidences) ? manifest.evidences : [];
+  const manifestEvidenceByPath = new Map(
+    manifestEvidences.map((item) => [item.path, item]),
+  );
+  const bundleEvidenceByPath = new Map(
+    evidenceInfos.map((item) => [item.source, item]),
+  );
+
+  if (manifest.ok !== true) errors.push("Manifest ok flag must be true.");
+  if (manifest.record?.path !== recordInfo.source) {
+    errors.push("Manifest record path does not match record file.");
+  }
+  if (manifest.record?.sha256 !== recordInfo.sha256) {
+    errors.push("Manifest record sha256 does not match record file.");
+  }
+  if (manifest.record?.bytes !== recordInfo.bytes) {
+    errors.push("Manifest record bytes do not match record file.");
+  }
+  if (manifestEvidences.length !== evidenceInfos.length) {
+    errors.push("Manifest evidence count does not match bundle evidence count.");
+  }
+
+  for (const evidenceInfo of evidenceInfos) {
+    const manifestEvidence = manifestEvidenceByPath.get(evidenceInfo.source);
+    if (!manifestEvidence) {
+      errors.push(`Manifest is missing evidence entry for ${evidenceInfo.source}.`);
+      continue;
+    }
+    if (manifestEvidence.sha256 !== evidenceInfo.sha256) {
+      errors.push(`Manifest evidence sha256 does not match ${evidenceInfo.source}.`);
+    }
+    if (manifestEvidence.bytes !== evidenceInfo.bytes) {
+      errors.push(`Manifest evidence bytes do not match ${evidenceInfo.source}.`);
+    }
+  }
+
+  for (const manifestEvidence of manifestEvidences) {
+    const bundleEvidence = bundleEvidenceByPath.get(manifestEvidence.path);
+    if (!bundleEvidence) {
+      errors.push(`Bundle evidence is missing ${manifestEvidence.path}.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Acceptance bundle consistency check failed:\n- ${errors.join("\n- ")}`);
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -127,6 +186,11 @@ async function main() {
       };
     }),
   );
+  assertBundleConsistency({
+    recordInfo,
+    manifestText,
+    evidenceInfos,
+  });
   await writeFile(join(outputDir, "record.md"), recordText, "utf8");
   await writeFile(join(outputDir, "manifest.json"), manifestText, "utf8");
   await writeFile(
