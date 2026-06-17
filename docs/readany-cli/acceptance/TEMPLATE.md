@@ -120,8 +120,22 @@ pnpm --filter @readany/cli acceptance:packaged -- \
   --book <epub-book-id> \
   --export-dir <tmp-export-dir> \
   --evidence <packaged-evidence-json>
+pnpm --filter @readany/cli acceptance:agent -- \
+  --client <Codex|Claude Desktop|Cursor> \
+  --client-version <version> \
+  --profile <readonly/editor/publisher> \
+  --uses-mcp \
+  --mcp-config <redacted-mcp-config-file> \
+  --tools-list-summary "<tools/list summary>" \
+  --tool-count <tool-count> \
+  --read-flow "<read/search/RAG summary>" \
+  --readonly-denial "<readonly write denial summary>" \
+  --draft-export-flow "<draft/edit/export summary>" \
+  --audit-summary "<audit summary>" \
+  --evidence <agent-evidence-json>
 pnpm --filter @readany/cli acceptance:scaffold -- \
   --evidence <evidence-json> \
+  --agent-evidence <agent-evidence-json> \
   --packaged-evidence <packaged-evidence-json> \
   --output <acceptance-record.md>
 pnpm --filter @readany/cli acceptance:validate -- \
@@ -134,9 +148,11 @@ pnpm --filter @readany/cli acceptance:validate -- \
 
 `acceptance:packaged` 用来给 macOS / Windows / Linux 打包矩阵逐个平台采证。默认只读，记录 version、doctor runtime/distribution、tools list、MCP config、readonly MCP initialize/tools/list 和 skill status；只有显式 `--repair-bin-dir <tmp-bin-dir>` 才会运行 `readany repair --user` 并把 shim 写入临时 bin 目录；只有显式 `--with-skill-install` 才会执行 skill install/status/uninstall，建议搭配临时 `--agent-home`；只有显式 `--draft-export --book <epub-book-id> --export-dir <dir>` 才会创建 draft、validate、export、检查导出 EPUB 结构并默认 discard draft 清理工作区。该 evidence 只证明单平台安装/运行状态，不能替代真实样本、真实外部 agent 或最终 M5 记录。
 
-`acceptance:scaffold` 可以从 evidence 生成验收记录草稿，自动填入样本 SHA-256、citation target、doctor distribution 和 `Manual Acceptance Closure` 待办项；也可以重复传 `--packaged-evidence <json>`，用单平台 packaged 证据预填 macOS / Windows / Linux 打包矩阵中的 package source、doctor distribution、Skill 和 MCP 检查结果。它只生成 partial 草稿，不会把 pending/TBD 项伪装成通过；packaged 矩阵行也只代表单平台补证，draft export、真实安装器和跨平台完整矩阵仍要人工关闭。
+`acceptance:agent` 用来记录 Codex / Claude Desktop / Cursor 等真实外部客户端的人工验收事实，包括 read/search/RAG、readonly 写入拒绝、draft/export 和 audit 摘要。使用 MCP 的客户端必须传 `--uses-mcp`、脱敏 MCP config、tools/list 摘要和 tool count；脚本会拦截明显未脱敏密钥。每个 evidence 只代表一个真实客户端，不能替代至少两个外部 agent、其中一个使用 MCP 的 strict M5 要求。
 
-`acceptance:validate` 用来检查验收记录、`acceptance:real` evidence 和单平台 packaged evidence 的结构。最终 M5 记录必须使用 `--strict-m5`，确保没有未勾选验收范围、结果不是“部分通过”，没有仍不能对外宣称的能力，外部 agent 表格至少有 Codex + Claude/Cursor 两条完整记录，打包矩阵包含 macOS / Windows / Linux 三平台完整记录，并且 `Manual Acceptance Closure` 逐项关闭 `acceptance:real` 列出的人工补证项。若同时传 `--record` 和真实样本 `--evidence`，strict 模式还会要求验收记录引用 evidence 中的样本 SHA-256、citation target 和 doctor distribution 标记；packaged evidence 是矩阵补证，不触发真实样本锚点检查。
+`acceptance:scaffold` 可以从 evidence 生成验收记录草稿，自动填入样本 SHA-256、citation target、doctor distribution 和 `Manual Acceptance Closure` 待办项；也可以重复传 `--agent-evidence <json>` 和 `--packaged-evidence <json>`，用单客户端 agent 证据和单平台 packaged 证据预填外部 Agent 表格和 macOS / Windows / Linux 打包矩阵。它只生成 partial 草稿，不会把 pending/TBD 项伪装成通过；agent / packaged 矩阵行也只代表已补证的客户端或平台，缺失客户端、draft export、真实安装器和跨平台完整矩阵仍要人工关闭。
+
+`acceptance:validate` 用来检查验收记录、`acceptance:real` evidence、单客户端 agent evidence 和单平台 packaged evidence 的结构。最终 M5 记录必须使用 `--strict-m5`，确保没有未勾选验收范围、结果不是“部分通过”，没有仍不能对外宣称的能力，外部 agent 表格至少有 Codex + Claude/Cursor 两条完整记录，打包矩阵包含 macOS / Windows / Linux 三平台完整记录，并且 `Manual Acceptance Closure` 逐项关闭 `acceptance:real` 列出的人工补证项。若同时传 `--record` 和真实样本 `--evidence`，strict 模式还会要求验收记录引用 evidence 中的样本 SHA-256、citation target 和 doctor distribution 标记；agent / packaged evidence 是补充证据，不触发真实样本锚点检查。
 
 ## 验收结果
 

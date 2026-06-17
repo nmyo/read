@@ -812,6 +812,142 @@ Module._load = function patchedLoad(request, parent, isMain) {
       ]),
     });
 
+    const codexAgentEvidencePath = join(root, "evidence", "agent-codex.json");
+    const codexAgent = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/agent-acceptance.mjs"),
+        "--client",
+        "Codex",
+        "--client-version",
+        "fixture-1.0.0",
+        "--profile",
+        "readonly/editor/publisher",
+        "--uses-mcp",
+        "--mcp-config-text",
+        '{"mcpServers":{"readany":{"command":"readany","args":["mcp","serve","--profile","readonly"]}}}',
+        "--tools-list-summary",
+        "readany tools/list captured 28 tools with risk scopes and minimumProfile metadata",
+        "--tool-count",
+        "28",
+        "--read-flow",
+        "books.search, chapters.get, and rag.search returned bounded ReadAny results",
+        "--readonly-denial",
+        "readonly epub.export returned permission_denied before any draft output",
+        "--draft-export-flow",
+        "editor draft patch and publisher export completed to a new EPUB path",
+        "--audit-summary",
+        "audit.list source=mcp showed bounded MCP operation summaries without full content",
+        "--evidence",
+        codexAgentEvidencePath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(codexAgent.status, codexAgent.stderr).toBe(0);
+    expect(JSON.parse(codexAgent.stdout)).toMatchObject({
+      ok: true,
+      outputPath: codexAgentEvidencePath,
+      client: "Codex",
+      usesMcp: true,
+    });
+
+    const claudeAgentEvidencePath = join(root, "evidence", "agent-claude.json");
+    const claudeAgent = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/agent-acceptance.mjs"),
+        "--client",
+        "Claude Desktop",
+        "--client-version",
+        "fixture-2.0.0",
+        "--profile",
+        "readonly/editor/publisher",
+        "--read-flow",
+        "CLI-backed client prompt listed books and read a chapter through the installed readany command",
+        "--readonly-denial",
+        "readonly write attempt was refused with permission_denied",
+        "--draft-export-flow",
+        "agent requested draft edit and export only after profile elevation was confirmed",
+        "--audit-summary",
+        "audit list showed summarized agent operations and no secrets",
+        "--evidence",
+        claudeAgentEvidencePath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(claudeAgent.status, claudeAgent.stderr).toBe(0);
+    expect(JSON.parse(claudeAgent.stdout)).toMatchObject({
+      ok: true,
+      outputPath: claudeAgentEvidencePath,
+      client: "Claude Desktop",
+      usesMcp: false,
+    });
+
+    const codexAgentEvidence = JSON.parse(await readFile(codexAgentEvidencePath, "utf8")) as {
+      environment: { evidenceType: string };
+      client: { name: string; version: string; profile: string; usesMcp: boolean };
+      mcp: { toolCount?: number; configRedacted?: string; toolsListSummary?: string };
+      flows: { read: { summary: string }; readonlyDenial: { summary: string }; draftExport: { summary: string }; audit: { summary: string } };
+      summary: { completed: boolean; usesMcp: boolean };
+    };
+    expect(codexAgentEvidence).toMatchObject({
+      environment: { evidenceType: "external-agent" },
+      client: {
+        name: "Codex",
+        version: "fixture-1.0.0",
+        profile: "readonly/editor/publisher",
+        usesMcp: true,
+      },
+      mcp: {
+        toolCount: 28,
+        configRedacted: expect.stringContaining("readany"),
+        toolsListSummary: expect.stringContaining("minimumProfile"),
+      },
+      flows: {
+        readonlyDenial: {
+          summary: expect.stringContaining("permission_denied"),
+        },
+      },
+      summary: {
+        completed: true,
+        usesMcp: true,
+      },
+    });
+
+    for (const agentEvidencePath of [codexAgentEvidencePath, claudeAgentEvidencePath]) {
+      const validateAgentEvidence = spawnSync(
+        process.execPath,
+        [
+          resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+          "--evidence",
+          agentEvidencePath,
+          "--json",
+        ],
+        {
+          cwd: cliRoot,
+          env,
+          encoding: "utf8",
+        },
+      );
+      expect(validateAgentEvidence.status, validateAgentEvidence.stderr).toBe(0);
+      expect(JSON.parse(validateAgentEvidence.stdout)).toMatchObject({
+        ok: true,
+        validated: { evidence: agentEvidencePath },
+        errors: [],
+        warnings: expect.arrayContaining([
+          "External agent evidence validates one client only; strict M5 still requires multiple completed client rows in the record.",
+        ]),
+      });
+    }
+
     const scaffoldPath = join(root, "evidence", "scaffold-record.md");
     const scaffold = spawnSync(
       process.execPath,
@@ -821,6 +957,10 @@ Module._load = function patchedLoad(request, parent, isMain) {
         evidencePath,
         "--packaged-evidence",
         packagedEvidencePath,
+        "--agent-evidence",
+        codexAgentEvidencePath,
+        "--agent-evidence",
+        claudeAgentEvidencePath,
         "--output",
         scaffoldPath,
         "--milestone",
@@ -852,6 +992,15 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(scaffoldRecord).toContain("| Linux |  |  |  |  |  |  |  |");
     expect(scaffoldRecord).toContain(
       `- packaged macOS：packageSource: fixture packaged cli / builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true / MCP readany / tools: 28 / safety metadata: yes / draftExport export pass / spine: ${packagedEvidence.draftExport.exportedInspect.spineCount} / hash: ${packagedEvidence.draftExport.outputHash}`,
+    );
+    expect(scaffoldRecord).toContain(
+      "| Codex | fixture-1.0.0 | readonly/editor/publisher / MCP | tools: 28 / captured | books.search, chapters.get, and rag.search returned bounded ReadAny results | editor draft patch and publisher export completed to a new EPUB path | manual evidence captured |",
+    );
+    expect(scaffoldRecord).toContain(
+      "| Claude Desktop | fixture-2.0.0 | readonly/editor/publisher / CLI | CLI flow; MCP not used | CLI-backed client prompt listed books and read a chapter through the installed readany command | agent requested draft edit and export only after profile elevation was confirmed | manual evidence captured |",
+    );
+    expect(scaffoldRecord).toContain(
+      "- external agent Codex：version: fixture-1.0.0 / profile: readonly/editor/publisher / usesMcp: true / tools: 28 / readonly denial: readonly epub.export returned permission_denied before any draft output / audit: audit.list source=mcp showed bounded MCP operation summaries without full content",
     );
     expect(scaffoldRecord).toContain("sample-source | pending");
 

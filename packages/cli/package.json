@@ -9,6 +9,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "smoke:agent": "node scripts/agent-smoke.mjs",
+    "acceptance:agent": "node scripts/agent-acceptance.mjs",
     "acceptance:real": "pnpm build && node scripts/real-sample-acceptance.mjs",
     "acceptance:packaged": "node scripts/packaged-platform-acceptance.mjs",
     "acceptance:scaffold": "node scripts/scaffold-acceptance-record.mjs",

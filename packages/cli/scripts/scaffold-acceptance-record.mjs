@@ -9,6 +9,7 @@ function parseArgs(argv) {
   const options = {
     evidencePath: undefined,
     packagedEvidencePaths: [],
+    agentEvidencePaths: [],
     outputPath: undefined,
     milestone: "M5 acceptance draft",
     reviewer: "TBD",
@@ -25,6 +26,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--packaged-evidence") {
       options.packagedEvidencePaths.push(next);
+      index += 1;
+    } else if (arg === "--agent-evidence") {
+      options.agentEvidencePaths.push(next);
       index += 1;
     } else if (arg === "--output") {
       options.outputPath = next;
@@ -57,6 +61,7 @@ Usage:
 Options:
   --evidence <path>              acceptance:real JSON evidence.
   --packaged-evidence <path>     acceptance:packaged JSON evidence; repeatable.
+  --agent-evidence <path>        acceptance:agent JSON evidence; repeatable.
   --output <path>                Write Markdown record to this path; stdout when omitted.
   --milestone <name>             Milestone label.
   --reviewer <name>              Reviewer name.
@@ -191,6 +196,59 @@ function packagedAnchors(packagedEvidences) {
   });
 }
 
+function agentClientLabel(agentEvidence) {
+  return value(agentEvidence.client?.name);
+}
+
+function agentProfileText(agentEvidence) {
+  const profile = value(agentEvidence.client?.profile);
+  return agentEvidence.client?.usesMcp === true ? `${profile} / MCP` : `${profile} / CLI`;
+}
+
+function agentToolsText(agentEvidence) {
+  if (agentEvidence.client?.usesMcp !== true) return "CLI flow; MCP not used";
+  return [
+    `tools: ${value(agentEvidence.mcp?.toolCount)}`,
+    "captured",
+  ].join(" / ");
+}
+
+function agentResultText(agentEvidence) {
+  return agentEvidence.summary?.completed === true ? "manual evidence captured" : "partial";
+}
+
+function agentRows(agentEvidences) {
+  const remainingPlaceholders = ["Codex", "Claude Desktop / Cursor"].filter((label) => (
+    !agentEvidences.some((agentEvidence) => {
+      const name = agentEvidence.client?.name ?? "";
+      return label === "Codex" ? /codex/i.test(name) : /claude|cursor/i.test(name);
+    })
+  ));
+  return [
+    ...agentEvidences.map((agentEvidence) => [
+      `| ${agentClientLabel(agentEvidence)}`,
+      value(agentEvidence.client?.version),
+      agentProfileText(agentEvidence),
+      agentToolsText(agentEvidence),
+      value(agentEvidence.flows?.read?.summary),
+      value(agentEvidence.flows?.draftExport?.summary),
+      `${agentResultText(agentEvidence)} |`,
+    ].join(" | ")),
+    ...remainingPlaceholders.map((label) => `| ${label} |  |  |  |  |  |  |`),
+  ].join("\n");
+}
+
+function agentAnchors(agentEvidences) {
+  return agentEvidences.map((agentEvidence) => [
+    `- external agent ${agentClientLabel(agentEvidence)}：version: ${value(agentEvidence.client?.version)}`,
+    `profile: ${value(agentEvidence.client?.profile)}`,
+    `usesMcp: ${flag(agentEvidence.client?.usesMcp)}`,
+    `tools: ${value(agentEvidence.mcp?.toolCount, agentEvidence.client?.usesMcp ? "TBD" : "not used")}`,
+    `readonly denial: ${value(agentEvidence.flows?.readonlyDenial?.summary)}`,
+    `audit: ${value(agentEvidence.flows?.audit?.summary)}`,
+  ].join(" / "));
+}
+
 function sampleRows(evidence) {
   return (evidence.sampleFiles ?? [])
     .map((sample) => {
@@ -206,11 +264,12 @@ function closureRows(evidence) {
     .join("\n");
 }
 
-function renderRecord(evidence, options, packagedEvidences) {
+function renderRecord(evidence, options, packagedEvidences, agentEvidences) {
   const sampleHash = evidence.sampleFiles?.[0]?.sha256 ?? "TBD";
   const citationAnchor = firstCitationAnchor(evidence);
   const distribution = distributionAnchors(evidence);
   const packagedAnchorRows = packagedAnchors(packagedEvidences);
+  const agentAnchorRows = agentAnchors(agentEvidences);
   return `# ReadAny CLI Acceptance Record
 
 ## 基本信息
@@ -226,7 +285,7 @@ function renderRecord(evidence, options, packagedEvidences) {
 - ReadAny CLI 版本：${value(evidence.environment?.cliVersion ?? evidence.doctor?.version)}
 - 样本数据位置：${value(evidence.readanyHome)}
 - 样本数据 hash：${sampleHash}
-- 外部 agent 客户端：TBD
+- 外部 agent 客户端：${agentEvidences.length > 0 ? agentEvidences.map(agentClientLabel).join(", ") : "TBD"}
 - 桌面包来源：${options.desktopPackage}
 
 ## 本次验收范围
@@ -307,8 +366,7 @@ ${sampleRows(evidence)}
 
 | 客户端 | 版本 | MCP 配置 profile | tools/list | read flow | draft/export flow | 结果 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Codex |  |  |  |  |  |  |
-| Claude Desktop / Cursor |  |  |  |  |  |  |
+${agentRows(agentEvidences)}
 
 必须附：
 
@@ -336,6 +394,7 @@ ${closureRows(evidence)}
 - sample SHA-256：${sampleHash}
 - citation target：${citationAnchor}
 ${distribution.map((item) => `- distribution：${item}`).join("\n")}
+${agentAnchorRows.length > 0 ? agentAnchorRows.join("\n") : "- external agent evidence：TBD"}
 ${packagedAnchorRows.length > 0 ? packagedAnchorRows.join("\n") : "- packaged evidence：TBD"}
 
 ## 当前可对外说明
@@ -372,7 +431,10 @@ async function main() {
   const packagedEvidences = await Promise.all(
     options.packagedEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
   );
-  const record = renderRecord(evidence, options, packagedEvidences);
+  const agentEvidences = await Promise.all(
+    options.agentEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
+  );
+  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences);
   if (options.outputPath) {
     const outputPath = resolveInputPath(options.outputPath);
     await mkdir(dirname(outputPath), { recursive: true });

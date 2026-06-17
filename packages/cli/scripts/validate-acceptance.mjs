@@ -214,10 +214,39 @@ function validateRecord(text, { strictM5 }) {
   return { errors, warnings };
 }
 
+function validateExternalAgentEvidence(evidence) {
+  const errors = [];
+  const warnings = [];
+
+  assertCondition(evidence?.ok === true, errors, "Evidence ok must be true.");
+  assertCondition(typeof evidence?.generatedAt === "string", errors, "Evidence generatedAt is required.");
+  assertCondition(evidence?.environment?.evidenceType === "external-agent", errors, "External agent evidenceType is required.");
+  assertCondition(typeof evidence?.client?.name === "string" && evidence.client.name.length > 0, errors, "External agent client.name is required.");
+  assertCondition(typeof evidence?.client?.version === "string" && evidence.client.version.length > 0, errors, "External agent client.version is required.");
+  assertCondition(typeof evidence?.client?.profile === "string" && evidence.client.profile.length > 0, errors, "External agent client.profile is required.");
+  assertCondition(typeof evidence?.client?.usesMcp === "boolean", errors, "External agent client.usesMcp is required.");
+  assertCondition(typeof evidence?.flows?.read?.summary === "string" && evidence.flows.read.summary.length > 0, errors, "External agent read flow summary is required.");
+  assertCondition(typeof evidence?.flows?.readonlyDenial?.summary === "string" && evidence.flows.readonlyDenial.summary.length > 0, errors, "External agent readonly denial summary is required.");
+  assertCondition(typeof evidence?.flows?.draftExport?.summary === "string" && evidence.flows.draftExport.summary.length > 0, errors, "External agent draft/export flow summary is required.");
+  assertCondition(typeof evidence?.flows?.audit?.summary === "string" && evidence.flows.audit.summary.length > 0, errors, "External agent audit summary is required.");
+  if (evidence?.client?.usesMcp) {
+    assertCondition(typeof evidence?.mcp?.configRedacted === "string" && evidence.mcp.configRedacted.length > 0, errors, "External agent MCP config evidence is required.");
+    assertCondition(typeof evidence?.mcp?.toolsListSummary === "string" && evidence.mcp.toolsListSummary.length > 0, errors, "External agent tools/list evidence is required.");
+    assertCondition(typeof evidence?.mcp?.toolCount === "number" && evidence.mcp.toolCount > 0, errors, "External agent MCP toolCount is required.");
+  }
+  if (evidence?.mcp?.configRedacted) {
+    assertCondition(!/sk-|authorization|api[_-]?key|password|token/i.test(evidence.mcp.configRedacted), errors, "External agent MCP config must be redacted.");
+  }
+  warnings.push("External agent evidence validates one client only; strict M5 still requires multiple completed client rows in the record.");
+  return { errors, warnings };
+}
+
 function evidenceType(evidence) {
   return evidence?.environment?.evidenceType === "packaged-platform"
     ? "packaged-platform"
-    : "real-sample";
+    : evidence?.environment?.evidenceType === "external-agent"
+      ? "external-agent"
+      : "real-sample";
 }
 
 function validateDoctorEvidence(evidence, errors) {
@@ -431,9 +460,10 @@ function validateRealSampleEvidence(evidence) {
 }
 
 function validateEvidence(evidence) {
-  return evidenceType(evidence) === "packaged-platform"
-    ? validatePackagedEvidence(evidence)
-    : validateRealSampleEvidence(evidence);
+  const type = evidenceType(evidence);
+  if (type === "packaged-platform") return validatePackagedEvidence(evidence);
+  if (type === "external-agent") return validateExternalAgentEvidence(evidence);
+  return validateRealSampleEvidence(evidence);
 }
 
 function citationAnchor(target) {
