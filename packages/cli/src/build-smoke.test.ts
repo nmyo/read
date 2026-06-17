@@ -1452,6 +1452,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       strictM5: true,
       errors: expect.arrayContaining([
         "Strict M5 validation requires at least two external-agent evidence files.",
+        "Strict M5 validation requires at least two distinct external-agent clients.",
         "Strict M5 validation requires desktop-settings evidence.",
         "Strict M5 validation requires packaged-platform evidence for macos.",
       ]),
@@ -1502,6 +1503,82 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       "utf8",
     );
 
+    const darwinPackagedEvidencePath = join(root, "evidence", "packaged-darwin.json");
+    await writeFile(
+      darwinPackagedEvidencePath,
+      JSON.stringify(
+        {
+          ...packagedEvidence,
+          environment: {
+            ...packagedEvidence.environment,
+            platform: "darwin",
+            packageSource: "release dmg",
+          },
+          summary: {
+            ...packagedEvidence.summary,
+            platform: "darwin",
+            packageSource: "release dmg",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const duplicateCodexEvidencePath = join(root, "evidence", "agent-codex-duplicate.json");
+    await writeFile(
+      duplicateCodexEvidencePath,
+      JSON.stringify(
+        {
+          ...codexAgentEvidence,
+          generatedAt: "2026-06-17T00:00:01.000Z",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const duplicateAgentEvidenceSet = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        duplicateCodexEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        packagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(duplicateAgentEvidenceSet.status).toBe(1);
+    expect(JSON.parse(duplicateAgentEvidenceSet.stdout)).toMatchObject({
+      ok: false,
+      strictM5: true,
+      errors: expect.arrayContaining([
+        "Strict M5 validation requires at least two distinct external-agent clients.",
+        "Strict M5 validation requires Claude Desktop or Cursor external-agent evidence.",
+      ]),
+    });
+
     const strictFullEvidenceSet = spawnSync(
       process.execPath,
       [
@@ -1517,7 +1594,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         "--evidence",
         desktopEvidencePath,
         "--evidence",
-        packagedEvidencePath,
+        darwinPackagedEvidencePath,
         "--evidence",
         windowsPackagedEvidencePath,
         "--evidence",
@@ -1541,7 +1618,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
           expect.objectContaining({ path: codexAgentEvidencePath, type: "external-agent" }),
           expect.objectContaining({ path: claudeAgentEvidencePath, type: "external-agent" }),
           expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings" }),
-          expect.objectContaining({ path: packagedEvidencePath, type: "packaged-platform" }),
+          expect.objectContaining({ path: darwinPackagedEvidencePath, type: "packaged-platform" }),
           expect.objectContaining({ path: windowsPackagedEvidencePath, type: "packaged-platform" }),
           expect.objectContaining({ path: linuxPackagedEvidencePath, type: "packaged-platform" }),
         ]),

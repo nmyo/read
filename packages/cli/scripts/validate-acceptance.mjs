@@ -285,6 +285,30 @@ function evidenceLabel(evidence) {
   return type;
 }
 
+function normalizePlatform(platform) {
+  const normalized = String(platform ?? "").trim().toLowerCase();
+  if (["macos", "mac", "darwin"].includes(normalized)) return "macos";
+  if (["windows", "win32", "win"].includes(normalized)) return "windows";
+  if (normalized === "linux") return "linux";
+  return normalized;
+}
+
+function displayPlatform(platform) {
+  const normalized = normalizePlatform(platform);
+  if (normalized === "macos") return "macOS";
+  if (normalized === "windows") return "Windows";
+  if (normalized === "linux") return "Linux";
+  return String(platform ?? "unknown");
+}
+
+function normalizeClientName(name) {
+  const normalized = String(name ?? "").trim().toLowerCase();
+  if (/codex/.test(normalized)) return "codex";
+  if (/claude/.test(normalized)) return "claude";
+  if (/cursor/.test(normalized)) return "cursor";
+  return normalized;
+}
+
 function validateDoctorEvidence(evidence, errors) {
   assertCondition(typeof evidence?.doctor?.version === "string", errors, "Doctor version is required.");
   assertCondition(typeof evidence?.doctor?.runtime?.node === "string", errors, "Doctor runtime.node is required.");
@@ -566,7 +590,9 @@ function validateStrictM5EvidenceSet(recordText, evidences, errors) {
   }
 
   const agentEvidences = byType.get("external-agent") ?? [];
+  const agentClients = new Set(agentEvidences.map((evidence) => normalizeClientName(evidence.client?.name)).filter(Boolean));
   assertCondition(agentEvidences.length >= 2, errors, "Strict M5 validation requires at least two external-agent evidence files.");
+  assertCondition(agentClients.size >= 2, errors, "Strict M5 validation requires at least two distinct external-agent clients.");
   assertCondition(
     agentEvidences.some((evidence) => /codex/i.test(evidence.client?.name ?? "")),
     errors,
@@ -588,7 +614,7 @@ function validateStrictM5EvidenceSet(recordText, evidences, errors) {
 
   const packagedEvidences = byType.get("packaged-platform") ?? [];
   const packagedPlatforms = new Set(
-    packagedEvidences.map((evidence) => String(evidence.environment?.platform ?? "").toLowerCase()),
+    packagedEvidences.map((evidence) => normalizePlatform(evidence.environment?.platform)),
   );
   for (const platform of ["macos", "windows", "linux"]) {
     assertCondition(
@@ -614,7 +640,7 @@ function validateStrictM5EvidenceSet(recordText, evidences, errors) {
     );
   }
   for (const packagedEvidence of packagedEvidences) {
-    const platform = packagedEvidence.environment?.platform;
+    const platform = displayPlatform(packagedEvidence.environment?.platform);
     assertCondition(
       Boolean(recordText) && platform && recordText.toLowerCase().includes(String(platform).toLowerCase()),
       errors,
