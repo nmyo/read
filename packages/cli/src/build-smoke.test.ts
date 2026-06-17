@@ -651,7 +651,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateEvidence.status, validateEvidence.stderr).toBe(0);
     expect(JSON.parse(validateEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidence: evidencePath },
+      validated: { evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })] },
       errors: [],
     });
 
@@ -805,7 +805,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validatePackagedEvidence.status, validatePackagedEvidence.stderr).toBe(0);
     expect(JSON.parse(validatePackagedEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidence: packagedEvidencePath },
+      validated: { evidences: [expect.objectContaining({ path: packagedEvidencePath, type: "packaged-platform" })] },
       errors: [],
       warnings: expect.arrayContaining([
         "Packaged evidence validates one platform only; strict M5 still requires macOS/Windows/Linux matrix rows.",
@@ -940,7 +940,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
       expect(validateAgentEvidence.status, validateAgentEvidence.stderr).toBe(0);
       expect(JSON.parse(validateAgentEvidence.stdout)).toMatchObject({
         ok: true,
-        validated: { evidence: agentEvidencePath },
+        validated: { evidences: [expect.objectContaining({ path: agentEvidencePath, type: "external-agent" })] },
         errors: [],
         warnings: expect.arrayContaining([
           "External agent evidence validates one client only; strict M5 still requires multiple completed client rows in the record.",
@@ -1091,7 +1091,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateDesktopEvidence.status, validateDesktopEvidence.stderr).toBe(0);
     expect(JSON.parse(validateDesktopEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidence: desktopEvidencePath },
+      validated: { evidences: [expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings" })] },
       errors: [],
       warnings: expect.arrayContaining([
         "Desktop settings evidence validates the settings page snapshot only; strict M5 still requires final record closure.",
@@ -1184,7 +1184,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateScaffold.status, validateScaffold.stderr).toBe(0);
     expect(JSON.parse(validateScaffold.stdout)).toMatchObject({
       ok: true,
-      validated: { record: scaffoldPath, evidence: evidencePath },
+      validated: { record: scaffoldPath, evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })] },
     });
 
     const strictScaffold = spawnSync(
@@ -1377,11 +1377,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(strictFullRecord.status, strictFullRecord.stderr || strictFullRecord.stdout).toBe(0);
+    expect(strictFullRecord.status).toBe(1);
     expect(JSON.parse(strictFullRecord.stdout)).toMatchObject({
-      ok: true,
+      ok: false,
       strictM5: true,
-      errors: [],
+      errors: expect.arrayContaining(["Strict M5 validation requires evidence files."]),
     });
 
     const strictFullRecordWithEvidence = spawnSync(
@@ -1409,6 +1409,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         "Strict M5 record must reference at least one sample SHA-256 from evidence.",
         "Strict M5 record must reference at least one citation target from evidence.",
         "Strict M5 record must reference doctor distribution flags from evidence.",
+        "Strict M5 validation requires at least two external-agent evidence files.",
+        "Strict M5 validation requires desktop-settings evidence.",
+        "Strict M5 validation requires packaged-platform evidence for macos.",
       ]),
     });
 
@@ -1443,10 +1446,106 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(anchoredStrictFullRecord.status, anchoredStrictFullRecord.stderr || anchoredStrictFullRecord.stdout).toBe(0);
+    expect(anchoredStrictFullRecord.status).toBe(1);
     expect(JSON.parse(anchoredStrictFullRecord.stdout)).toMatchObject({
+      ok: false,
+      strictM5: true,
+      errors: expect.arrayContaining([
+        "Strict M5 validation requires at least two external-agent evidence files.",
+        "Strict M5 validation requires desktop-settings evidence.",
+        "Strict M5 validation requires packaged-platform evidence for macos.",
+      ]),
+    });
+
+    const windowsPackagedEvidencePath = join(root, "evidence", "packaged-windows.json");
+    const linuxPackagedEvidencePath = join(root, "evidence", "packaged-linux.json");
+    await writeFile(
+      windowsPackagedEvidencePath,
+      JSON.stringify(
+        {
+          ...packagedEvidence,
+          environment: {
+            ...packagedEvidence.environment,
+            platform: "Windows",
+            packageSource: "release msi",
+          },
+          summary: {
+            ...packagedEvidence.summary,
+            platform: "Windows",
+            packageSource: "release msi",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await writeFile(
+      linuxPackagedEvidencePath,
+      JSON.stringify(
+        {
+          ...packagedEvidence,
+          environment: {
+            ...packagedEvidence.environment,
+            platform: "Linux",
+            packageSource: "release appimage",
+          },
+          summary: {
+            ...packagedEvidence.summary,
+            platform: "Linux",
+            packageSource: "release appimage",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const strictFullEvidenceSet = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        packagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(strictFullEvidenceSet.status, strictFullEvidenceSet.stderr || strictFullEvidenceSet.stdout).toBe(0);
+    expect(JSON.parse(strictFullEvidenceSet.stdout)).toMatchObject({
       ok: true,
       strictM5: true,
+      validated: {
+        evidences: expect.arrayContaining([
+          expect.objectContaining({ path: evidencePath, type: "real-sample" }),
+          expect.objectContaining({ path: codexAgentEvidencePath, type: "external-agent" }),
+          expect.objectContaining({ path: claudeAgentEvidencePath, type: "external-agent" }),
+          expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings" }),
+          expect.objectContaining({ path: packagedEvidencePath, type: "packaged-platform" }),
+          expect.objectContaining({ path: windowsPackagedEvidencePath, type: "packaged-platform" }),
+          expect.objectContaining({ path: linuxPackagedEvidencePath, type: "packaged-platform" }),
+        ]),
+      },
       errors: [],
     });
   });

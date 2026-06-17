@@ -38,7 +38,7 @@ const STRICT_M5_HEADINGS = [
 function parseArgs(argv) {
   const options = {
     recordPath: undefined,
-    evidencePath: undefined,
+    evidencePaths: [],
     strictM5: false,
     json: false,
   };
@@ -52,7 +52,7 @@ function parseArgs(argv) {
       options.recordPath = next;
       index += 1;
     } else if (arg === "--evidence") {
-      options.evidencePath = next;
+      options.evidencePaths.push(next);
       index += 1;
     } else if (arg === "--strict-m5") {
       options.strictM5 = true;
@@ -86,7 +86,7 @@ Usage:
 
 Options:
   --record <path>      Validate an acceptance Markdown record.
-  --evidence <path>    Validate acceptance:real or acceptance:packaged JSON evidence.
+  --evidence <path>    Validate acceptance JSON evidence; repeatable.
   --strict-m5          Enforce full M5 record gates.
   --json               Print machine-readable result.
 `;
@@ -276,6 +276,13 @@ function evidenceType(evidence) {
       : evidence?.environment?.evidenceType === "desktop-settings"
         ? "desktop-settings"
         : "real-sample";
+}
+
+function evidenceLabel(evidence) {
+  const type = evidenceType(evidence);
+  if (type === "external-agent") return `external-agent:${evidence.client?.name ?? "unknown"}`;
+  if (type === "packaged-platform") return `packaged-platform:${evidence.environment?.platform ?? "unknown"}`;
+  return type;
 }
 
 function validateDoctorEvidence(evidence, errors) {
@@ -542,13 +549,87 @@ function validateStrictM5RecordEvidenceLinks(recordText, evidence, errors) {
   }
 }
 
+function validateStrictM5EvidenceSet(recordText, evidences, errors) {
+  assertCondition(Boolean(recordText), errors, "Strict M5 validation requires an acceptance record.");
+  const byType = new Map();
+  for (const evidence of evidences) {
+    const type = evidenceType(evidence);
+    const list = byType.get(type) ?? [];
+    list.push(evidence);
+    byType.set(type, list);
+  }
+
+  const realSample = byType.get("real-sample")?.[0];
+  assertCondition(Boolean(realSample), errors, "Strict M5 validation requires acceptance:real evidence.");
+  if (realSample && recordText) {
+    validateStrictM5RecordEvidenceLinks(recordText, realSample, errors);
+  }
+
+  const agentEvidences = byType.get("external-agent") ?? [];
+  assertCondition(agentEvidences.length >= 2, errors, "Strict M5 validation requires at least two external-agent evidence files.");
+  assertCondition(
+    agentEvidences.some((evidence) => /codex/i.test(evidence.client?.name ?? "")),
+    errors,
+    "Strict M5 validation requires Codex external-agent evidence.",
+  );
+  assertCondition(
+    agentEvidences.some((evidence) => /claude|cursor/i.test(evidence.client?.name ?? "")),
+    errors,
+    "Strict M5 validation requires Claude Desktop or Cursor external-agent evidence.",
+  );
+  assertCondition(
+    agentEvidences.some((evidence) => evidence.client?.usesMcp === true),
+    errors,
+    "Strict M5 validation requires at least one MCP-backed external-agent evidence.",
+  );
+
+  const desktopSettings = byType.get("desktop-settings")?.[0];
+  assertCondition(Boolean(desktopSettings), errors, "Strict M5 validation requires desktop-settings evidence.");
+
+  const packagedEvidences = byType.get("packaged-platform") ?? [];
+  const packagedPlatforms = new Set(
+    packagedEvidences.map((evidence) => String(evidence.environment?.platform ?? "").toLowerCase()),
+  );
+  for (const platform of ["macos", "windows", "linux"]) {
+    assertCondition(
+      packagedPlatforms.has(platform),
+      errors,
+      `Strict M5 validation requires packaged-platform evidence for ${platform}.`,
+    );
+  }
+
+  for (const agentEvidence of agentEvidences) {
+    assertCondition(
+      Boolean(recordText) && recordText.toLowerCase().includes(String(agentEvidence.client?.name ?? "").toLowerCase()),
+      errors,
+      `Strict M5 record must reference external-agent evidence for ${agentEvidence.client?.name ?? "unknown"}.`,
+    );
+  }
+  if (desktopSettings) {
+    assertCondition(
+      Boolean(recordText) &&
+        (recordText.includes("desktop settings") || recordText.includes("desktop-settings") || recordText.includes("桌面设置页")),
+      errors,
+      "Strict M5 record must reference desktop settings evidence.",
+    );
+  }
+  for (const packagedEvidence of packagedEvidences) {
+    const platform = packagedEvidence.environment?.platform;
+    assertCondition(
+      Boolean(recordText) && platform && recordText.toLowerCase().includes(String(platform).toLowerCase()),
+      errors,
+      `Strict M5 record must reference packaged-platform evidence for ${platform ?? "unknown"}.`,
+    );
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     process.stdout.write(usage());
     return;
   }
-  if (!options.recordPath && !options.evidencePath) {
+  if (!options.recordPath && options.evidencePaths.length === 0) {
     throw new Error("Pass --record <path>, --evidence <path>, or both.");
   }
 
@@ -556,7 +637,7 @@ async function main() {
   const warnings = [];
   const validated = {};
   let recordText;
-  let evidence;
+  const evidences = [];
 
   if (options.recordPath) {
     const recordPath = resolveInputPath(options.recordPath);
@@ -567,21 +648,22 @@ async function main() {
     validated.record = recordPath;
   }
 
-  if (options.evidencePath) {
-    const evidencePath = resolveInputPath(options.evidencePath);
-    evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+  for (const evidencePathInput of options.evidencePaths) {
+    const evidencePath = resolveInputPath(evidencePathInput);
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
     const result = validateEvidence(evidence);
     errors.push(...result.errors);
     warnings.push(...result.warnings);
-    validated.evidence = evidencePath;
+    evidences.push(evidence);
+    validated.evidences = [...(validated.evidences ?? []), { path: evidencePath, type: evidenceType(evidence), label: evidenceLabel(evidence) }];
   }
 
-  if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "real-sample") {
-    validateStrictM5RecordEvidenceLinks(recordText, evidence, errors);
-  } else if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "packaged-platform") {
-    warnings.push("Strict M5 evidence anchor checks require real-sample evidence; packaged evidence is supplemental.");
-  } else if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "desktop-settings") {
-    warnings.push("Strict M5 evidence anchor checks require real-sample evidence; desktop settings evidence is supplemental.");
+  if (options.strictM5 && recordText && evidences.length === 0) {
+    errors.push("Strict M5 validation requires evidence files.");
+  }
+
+  if (options.strictM5 && evidences.length > 0) {
+    validateStrictM5EvidenceSet(recordText, evidences, errors);
   }
 
   const output = {
