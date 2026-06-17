@@ -18,6 +18,7 @@
     "acceptance:real": "pnpm build && node scripts/real-sample-acceptance.mjs",
     "acceptance:packaged": "node scripts/packaged-platform-acceptance.mjs",
     "acceptance:scaffold": "node scripts/scaffold-acceptance-record.mjs",
+    "acceptance:status": "node scripts/acceptance-status.mjs",
     "acceptance:validate": "node scripts/validate-acceptance.mjs",
     "preflight:release": "node scripts/release-preflight.mjs",
     "dev": "tsx src/bin/readany.ts",

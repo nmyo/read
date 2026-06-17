@@ -145,6 +145,14 @@ pnpm --filter @readany/cli acceptance:scaffold -- \
   --desktop-evidence <desktop-evidence-json> \
   --packaged-evidence <packaged-evidence-json> \
   --output <acceptance-record.md>
+pnpm --filter @readany/cli acceptance:status -- \
+  --record <acceptance-record.md> \
+  --evidence <evidence-json> \
+  --evidence <agent-evidence-json> \
+  --evidence <desktop-evidence-json> \
+  --evidence <macos-packaged-evidence-json> \
+  --evidence <windows-packaged-evidence-json> \
+  --evidence <linux-packaged-evidence-json>
 pnpm --filter @readany/cli acceptance:validate -- \
   --record <acceptance-record.md> \
   --evidence <evidence-json> \
@@ -200,6 +208,8 @@ pnpm --filter @readany/cli acceptance:assemble -- \
 `acceptance:desktop` 用来把设置页“复制证据”快照整理成结构化 evidence。它要求 snapshot 里能看到 CLI 可用、doctor distribution、Skill 状态、MCP 配置、tools、audit 和 last action 摘要；它不会去执行桌面 UI 自动化，因此需要人工先在设置页点一次复制证据再采证。
 
 `acceptance:scaffold` 可以从 evidence 生成验收记录草稿，自动填入样本 SHA-256、citation target、doctor distribution 和 `Manual Acceptance Closure` 待办项；也可以重复传 `--agent-evidence <json>`、`--desktop-evidence <json>` 和 `--packaged-evidence <json>`，用单客户端 agent 证据、桌面设置页证据和单平台 packaged 证据预填对应表格。它只生成 partial 草稿，不会把 pending/TBD 项伪装成通过；agent / desktop / packaged 矩阵行也只代表已补证的客户端或平台，缺失客户端、draft export、真实安装器和跨平台完整矩阵仍要人工关闭。
+
+`acceptance:status` 用来在 strict M5 前做 readiness 检查。它会汇总当前传入的 evidence 类型、外部 agent 客户端、MCP 覆盖和打包平台覆盖，指出离 strict M5 还缺哪些证据，并给出建议下一步命令。它不会替代 `acceptance:validate`，但很适合在补证过程中快速扫缺口。
 
 `acceptance:validate` 用来检查验收记录、`acceptance:real` evidence、单客户端 agent evidence、桌面设置页 evidence 和单平台 packaged evidence 的结构，`--evidence` 可重复传入多份证据。最终 M5 记录必须使用 `--strict-m5` 并传完整组合 evidence，确保没有未勾选验收范围、结果不是“部分通过”，没有仍不能对外宣称的能力，外部 agent 表格至少有 Codex + Claude/Cursor 两个不同客户端的完整记录，其中至少一条使用 MCP，打包矩阵包含 macOS / Windows / Linux 三平台完整记录，有桌面设置页证据，并且 `Manual Acceptance Closure` 逐项关闭 `acceptance:real` 列出的人工补证项。packaged 平台名支持 `darwin` / `macOS` / `win32` / `Windows` / `linux` 归一。若同时传 `--record` 和真实样本 `--evidence`，strict 模式还会要求验收记录引用 evidence 中的样本 SHA-256、citation target 和 doctor distribution 标记；agent / desktop / packaged evidence 是补充证据，不触发真实样本锚点检查。
 

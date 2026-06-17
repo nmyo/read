@@ -1174,6 +1174,60 @@ Module._load = function patchedLoad(request, parent, isMain) {
     );
     expect(scaffoldRecord).toContain("sample-source | pending");
 
+    const statusSummary = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-status.mjs"),
+        "--record",
+        scaffoldPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        packagedEvidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(statusSummary.status, statusSummary.stderr || statusSummary.stdout).toBe(0);
+    expect(JSON.parse(statusSummary.stdout)).toMatchObject({
+      ok: true,
+      recordPath: scaffoldPath,
+      summary: {
+        evidenceCount: 5,
+        evidenceTypes: ["desktop-settings", "external-agent", "packaged-platform", "real-sample"],
+        agentClients: ["claude", "codex"],
+        packagedPlatforms: ["macos"],
+      },
+      readiness: {
+        strictM5Ready: false,
+        missing: expect.arrayContaining([
+          "Windows packaged-platform evidence",
+          "Linux packaged-platform evidence",
+        ]),
+      },
+      validation: {
+        strictM5: {
+          ok: false,
+          performed: true,
+          strictM5: true,
+        },
+      },
+      nextSteps: expect.arrayContaining([
+        expect.stringContaining("acceptance:validate -- --record"),
+        expect.stringContaining("acceptance:assemble -- --record"),
+      ]),
+    });
+
     const validateScaffold = spawnSync(
       process.execPath,
       [
@@ -1633,6 +1687,56 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         ]),
       },
       errors: [],
+    });
+
+    const readyStatusSummary = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-status.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        darwinPackagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(readyStatusSummary.status, readyStatusSummary.stderr || readyStatusSummary.stdout).toBe(0);
+    expect(JSON.parse(readyStatusSummary.stdout)).toMatchObject({
+      ok: true,
+      recordPath: anchoredStrictRecordPath,
+      readiness: {
+        strictM5Ready: true,
+        missing: [],
+      },
+      validation: {
+        strictM5: {
+          ok: true,
+          performed: true,
+          strictM5: true,
+          errors: [],
+        },
+      },
+      nextSteps: expect.arrayContaining([
+        expect.stringContaining("acceptance:validate -- --record"),
+        expect.stringContaining("acceptance:assemble -- --record"),
+      ]),
     });
 
     const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
