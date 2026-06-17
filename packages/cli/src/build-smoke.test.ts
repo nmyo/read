@@ -655,6 +655,119 @@ Module._load = function patchedLoad(request, parent, isMain) {
       errors: [],
     });
 
+    const packagedEvidencePath = join(root, "evidence", "packaged-platform.json");
+    const packaged = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/packaged-platform-acceptance.mjs"),
+        "--cli",
+        binPath,
+        "--package-source",
+        "fixture packaged cli",
+        "--platform",
+        "macOS",
+        "--readany-home",
+        join(root, "packaged-readany-home"),
+        "--agent-home",
+        join(root, "packaged-agent"),
+        "--with-skill-install",
+        "--evidence",
+        packagedEvidencePath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(packaged.status, packaged.stderr).toBe(0);
+    expect(JSON.parse(packaged.stdout)).toMatchObject({
+      ok: true,
+      evidencePath: packagedEvidencePath,
+      summary: {
+        platform: "macOS",
+        packageSource: "fixture packaged cli",
+        commandCount: 10,
+        checkCount: 10,
+        skillInstallChecked: true,
+        builtBundle: true,
+        desktopResourceBundle: false,
+        nativeBinary: false,
+        usesNodeRuntime: true,
+      },
+      manualAcceptanceRequired: expect.arrayContaining(["desktop-settings", "draft-export"]),
+    });
+    const packagedEvidence = JSON.parse(await readFile(packagedEvidencePath, "utf8")) as {
+      environment: {
+        evidenceType: string;
+        platform: string;
+        packageSource: string;
+        cliPath: string;
+      };
+      doctor: typeof evidence.doctor;
+      mcp: {
+        serverName: string;
+        toolCount: number;
+        hasSafetyMetadata: boolean;
+      };
+      summary: {
+        commandCount: number;
+        checkCount: number;
+        skillInstallChecked: boolean;
+        builtBundle: boolean;
+      };
+      commands: Array<{ name: string; ok: boolean }>;
+    };
+    expect(packagedEvidence.environment).toMatchObject({
+      evidenceType: "packaged-platform",
+      platform: "macOS",
+      packageSource: "fixture packaged cli",
+      cliPath: binPath,
+    });
+    expect(packagedEvidence.doctor.distribution).toMatchObject({
+      builtBundle: true,
+      desktopResourceBundle: false,
+      nativeBinary: false,
+      usesNodeRuntime: true,
+    });
+    expect(packagedEvidence.mcp).toMatchObject({
+      serverName: "readany",
+      toolCount: 28,
+      hasSafetyMetadata: true,
+    });
+    expect(packagedEvidence.commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "doctor", ok: true }),
+        expect.objectContaining({ name: "mcp.initialize.tools.list", ok: true }),
+        expect.objectContaining({ name: "skill.install", ok: true }),
+        expect.objectContaining({ name: "skill.uninstall", ok: true }),
+      ]),
+    );
+
+    const validatePackagedEvidence = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--evidence",
+        packagedEvidencePath,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(validatePackagedEvidence.status, validatePackagedEvidence.stderr).toBe(0);
+    expect(JSON.parse(validatePackagedEvidence.stdout)).toMatchObject({
+      ok: true,
+      validated: { evidence: packagedEvidencePath },
+      errors: [],
+      warnings: expect.arrayContaining([
+        "Packaged evidence validates one platform only; strict M5 still requires macOS/Windows/Linux matrix rows.",
+      ]),
+    });
+
     const scaffoldPath = join(root, "evidence", "scaffold-record.md");
     const scaffold = spawnSync(
       process.execPath,

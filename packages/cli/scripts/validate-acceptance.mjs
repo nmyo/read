@@ -82,11 +82,11 @@ function usage() {
 
 Usage:
   pnpm --filter @readany/cli acceptance:validate -- --record <acceptance.md> [options]
-  pnpm --filter @readany/cli acceptance:validate -- --evidence <real-sample.json> [options]
+  pnpm --filter @readany/cli acceptance:validate -- --evidence <evidence.json> [options]
 
 Options:
   --record <path>      Validate an acceptance Markdown record.
-  --evidence <path>    Validate acceptance:real JSON evidence.
+  --evidence <path>    Validate acceptance:real or acceptance:packaged JSON evidence.
   --strict-m5          Enforce full M5 record gates.
   --json               Print machine-readable result.
 `;
@@ -214,18 +214,13 @@ function validateRecord(text, { strictM5 }) {
   return { errors, warnings };
 }
 
-function validateEvidence(evidence) {
-  const errors = [];
-  const warnings = [];
+function evidenceType(evidence) {
+  return evidence?.environment?.evidenceType === "packaged-platform"
+    ? "packaged-platform"
+    : "real-sample";
+}
 
-  assertCondition(evidence?.ok === true, errors, "Evidence ok must be true.");
-  assertCondition(typeof evidence?.generatedAt === "string", errors, "Evidence generatedAt is required.");
-  assertCondition(typeof evidence?.readanyHome === "string", errors, "Evidence readanyHome is required.");
-  assertCondition(Array.isArray(evidence?.checks), errors, "Evidence checks must be an array.");
-  assertCondition(Array.isArray(evidence?.commands), errors, "Evidence commands must be an array.");
-  assertCondition(Array.isArray(evidence?.sampleFiles), errors, "Evidence sampleFiles must be an array.");
-  assertCondition(Array.isArray(evidence?.citationTargets), errors, "Evidence citationTargets must be an array.");
-
+function validateDoctorEvidence(evidence, errors) {
   assertCondition(typeof evidence?.doctor?.version === "string", errors, "Doctor version is required.");
   assertCondition(typeof evidence?.doctor?.runtime?.node === "string", errors, "Doctor runtime.node is required.");
   assertCondition(
@@ -262,7 +257,9 @@ function validateEvidence(evidence) {
   assertCondition(evidence?.doctor?.mcp?.defaultProfile === "readonly", errors, "Doctor MCP default profile must be readonly.");
   assertCondition(Array.isArray(evidence?.doctor?.mcp?.serveArgs), errors, "Doctor MCP serveArgs are required.");
   assertCondition(typeof evidence?.doctor?.mcp?.toolCount === "number", errors, "Doctor MCP toolCount is required.");
+}
 
+function validateSummaryCounts(evidence, errors, warnings) {
   if (evidence?.summary) {
     assertCondition(
       evidence.summary.commandCount === evidence.commands?.length,
@@ -274,6 +271,70 @@ function validateEvidence(evidence) {
       errors,
       "Summary checkCount must match checks length.",
     );
+  } else {
+    warnings.push("Evidence has no summary field.");
+  }
+}
+
+function validatePackagedEvidence(evidence) {
+  const errors = [];
+  const warnings = [];
+
+  assertCondition(evidence?.ok === true, errors, "Evidence ok must be true.");
+  assertCondition(typeof evidence?.generatedAt === "string", errors, "Evidence generatedAt is required.");
+  assertCondition(Array.isArray(evidence?.checks), errors, "Evidence checks must be an array.");
+  assertCondition(Array.isArray(evidence?.commands), errors, "Evidence commands must be an array.");
+  assertCondition(evidence?.environment?.evidenceType === "packaged-platform", errors, "Packaged evidenceType is required.");
+  assertCondition(typeof evidence?.environment?.platform === "string", errors, "Packaged environment.platform is required.");
+  assertCondition(typeof evidence?.environment?.packageSource === "string", errors, "Packaged packageSource is required.");
+  assertCondition(typeof evidence?.environment?.cliPath === "string", errors, "Packaged cliPath is required.");
+  validateDoctorEvidence(evidence, errors);
+  validateSummaryCounts(evidence, errors, warnings);
+  assertCondition(evidence?.mcp?.serverName === "readany", errors, "Packaged MCP initialize serverName is required.");
+  assertCondition(typeof evidence?.mcp?.toolCount === "number" && evidence.mcp.toolCount > 0, errors, "Packaged MCP toolCount is required.");
+  assertCondition(evidence?.mcp?.hasSafetyMetadata === true, errors, "Packaged MCP tools/list safety metadata is required.");
+  assertCondition(
+    (evidence?.commands ?? []).some((command) => command.name === "mcp.initialize.tools.list" && command.ok === true),
+    errors,
+    "Packaged evidence must include MCP initialize/tools.list command evidence.",
+  );
+  assertCondition(
+    (evidence?.checks ?? []).includes("doctor") && (evidence?.checks ?? []).includes("mcp.initialize.tools.list"),
+    errors,
+    "Packaged evidence must include doctor and MCP checks.",
+  );
+
+  for (const item of evidence?.manualAcceptanceRequired ?? []) {
+    assertCondition(typeof item.id === "string", errors, "Manual requirement id is required.");
+    assertCondition(typeof item.label === "string", errors, `Manual requirement ${item.id} label is required.`);
+    assertCondition(
+      Array.isArray(item.evidence) && item.evidence.length > 0,
+      errors,
+      `Manual requirement ${item.id} evidence hints are required.`,
+    );
+    assertCondition(Array.isArray(item.commands), errors, `Manual requirement ${item.id} commands must be an array.`);
+  }
+
+  warnings.push("Packaged evidence validates one platform only; strict M5 still requires macOS/Windows/Linux matrix rows.");
+  return { errors, warnings };
+}
+
+function validateRealSampleEvidence(evidence) {
+  const errors = [];
+  const warnings = [];
+
+  assertCondition(evidence?.ok === true, errors, "Evidence ok must be true.");
+  assertCondition(typeof evidence?.generatedAt === "string", errors, "Evidence generatedAt is required.");
+  assertCondition(typeof evidence?.readanyHome === "string", errors, "Evidence readanyHome is required.");
+  assertCondition(Array.isArray(evidence?.checks), errors, "Evidence checks must be an array.");
+  assertCondition(Array.isArray(evidence?.commands), errors, "Evidence commands must be an array.");
+  assertCondition(Array.isArray(evidence?.sampleFiles), errors, "Evidence sampleFiles must be an array.");
+  assertCondition(Array.isArray(evidence?.citationTargets), errors, "Evidence citationTargets must be an array.");
+
+  validateDoctorEvidence(evidence, errors);
+  validateSummaryCounts(evidence, errors, warnings);
+
+  if (evidence?.summary) {
     assertCondition(
       evidence.summary.sampleFileCount === evidence.sampleFiles?.length,
       errors,
@@ -332,6 +393,12 @@ function validateEvidence(evidence) {
   }
 
   return { errors, warnings };
+}
+
+function validateEvidence(evidence) {
+  return evidenceType(evidence) === "packaged-platform"
+    ? validatePackagedEvidence(evidence)
+    : validateRealSampleEvidence(evidence);
 }
 
 function citationAnchor(target) {
@@ -414,8 +481,10 @@ async function main() {
     validated.evidence = evidencePath;
   }
 
-  if (options.strictM5 && recordText && evidence) {
+  if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "real-sample") {
     validateStrictM5RecordEvidenceLinks(recordText, evidence, errors);
+  } else if (options.strictM5 && recordText && evidence && evidenceType(evidence) === "packaged-platform") {
+    warnings.push("Strict M5 evidence anchor checks require real-sample evidence; packaged evidence is supplemental.");
   }
 
   const output = {
