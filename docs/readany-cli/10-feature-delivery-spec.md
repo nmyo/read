@@ -677,6 +677,18 @@ docs/readany-cli/acceptance/TEMPLATE.md
 - 已知问题。
 - 是否允许进入下一阶段。
 
+M5 最终收口时还要补：
+
+- `pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence ... --strict-m5`
+- `pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence ... --output <manifest.json>`
+
+其中 strict M5 的组合 evidence 至少包含：
+
+- 1 份 real-sample evidence
+- 2 份不同客户端 external-agent evidence，其中 1 份 MCP-backed
+- 1 份 desktop-settings evidence
+- macOS / Windows / Linux 三平台 packaged evidence
+
 外部 agent smoke 可先用下列命令形成自动化证据：
 
 ```bash

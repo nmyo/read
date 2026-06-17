@@ -480,3 +480,9 @@ M5 可以停下来验收：
 - 外部 agent 验证结果。
 - 已知问题。
 - 是否允许进入下一阶段。
+
+M5 最终验收还必须附：
+
+- `acceptance:validate --strict-m5` 的组合 evidence 校验结果。
+- `acceptance:finalize` 生成的最终 manifest。
+- 真实样本、两个不同外部 agent（其中一个 MCP-backed）、桌面设置页、macOS / Windows / Linux packaged evidence 的 SHA-256 锚点。

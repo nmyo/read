@@ -371,6 +371,11 @@ docs/readany-cli/acceptance/YYYY-MM-DD-Mx.md
 - 已知问题。
 - 是否通过。
 
+M5 结束前不要只停在 Markdown 记录；还需要：
+
+- 用 `acceptance:validate --strict-m5` 跑完整组合 evidence
+- 用 `acceptance:finalize` 产出最终 manifest
+
 ## 必须保留的验收证据
 
 M1：
