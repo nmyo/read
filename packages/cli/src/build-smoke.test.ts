@@ -1625,5 +1625,107 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       },
       errors: [],
     });
+
+    const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
+    const rejectedFinalize = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/finalize-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--output",
+        rejectedManifestPath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(rejectedFinalize.status).toBe(1);
+    expect(rejectedFinalize.stderr).toContain("Strict M5 validation failed; manifest was not written.");
+
+    const finalManifestPath = join(root, "evidence", "final-manifest.json");
+    const finalize = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/finalize-acceptance.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        darwinPackagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--reviewer",
+        "Vitest",
+        "--release",
+        "fixture-release",
+        "--output",
+        finalManifestPath,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(finalize.status, finalize.stderr || finalize.stdout).toBe(0);
+    expect(JSON.parse(finalize.stdout)).toMatchObject({
+      ok: true,
+      outputPath: finalManifestPath,
+      summary: {
+        evidenceCount: 7,
+        evidenceTypes: ["desktop-settings", "external-agent", "packaged-platform", "real-sample"],
+      },
+    });
+    const finalManifest = JSON.parse(await readFile(finalManifestPath, "utf8")) as {
+      ok: boolean;
+      release?: string;
+      reviewer?: string;
+      record: { path: string; sha256: string; bytes: number };
+      evidences: Array<{ path: string; sha256: string; bytes: number; type: string; label: string }>;
+      validation: { ok: boolean; strictM5: boolean; errors: string[] };
+      summary: { evidenceCount: number; evidenceTypes: string[] };
+    };
+    expect(finalManifest).toMatchObject({
+      ok: true,
+      release: "fixture-release",
+      reviewer: "Vitest",
+      record: {
+        path: anchoredStrictRecordPath,
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        bytes: expect.any(Number),
+      },
+      validation: {
+        ok: true,
+        strictM5: true,
+        errors: [],
+      },
+      summary: {
+        evidenceCount: 7,
+        evidenceTypes: ["desktop-settings", "external-agent", "packaged-platform", "real-sample"],
+      },
+    });
+    expect(finalManifest.evidences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: evidencePath, type: "real-sample", label: "real-sample" }),
+        expect.objectContaining({ path: codexAgentEvidencePath, type: "external-agent", label: "Codex" }),
+        expect.objectContaining({ path: claudeAgentEvidencePath, type: "external-agent", label: "Claude Desktop" }),
+        expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings", label: "desktop-settings" }),
+        expect.objectContaining({ path: darwinPackagedEvidencePath, type: "packaged-platform", label: "darwin" }),
+      ]),
+    );
   });
 });
