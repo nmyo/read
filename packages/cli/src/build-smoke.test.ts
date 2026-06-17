@@ -1152,6 +1152,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
       "pnpm --filter @readany/cli acceptance:finalize -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output <final-manifest.json>",
     );
     expect(scaffoldRecord).toContain(
+      "pnpm --filter @readany/cli acceptance:assemble -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output-dir <acceptance-bundle-dir>",
+    );
+    expect(scaffoldRecord).toContain(
       "| Codex | fixture-1.0.0 | readonly/editor/publisher / MCP | tools: 28 / captured | books.search, chapters.get, and rag.search returned bounded ReadAny results | editor draft patch and publisher export completed to a new EPUB path | manual evidence captured |",
     );
     expect(scaffoldRecord).toContain(

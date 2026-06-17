@@ -473,6 +473,12 @@ M5 通过条件：
 找书 -> 读内容 -> 查笔记/高亮 -> RAG 检索 -> 创建 draft -> AI 修改 -> 用户编辑 -> 校验 -> 导出 -> 审计
 ```
 
+最终归档必须能留下机器可校验产物：
+
+- 至少执行 `acceptance:validate --strict-m5`。
+- 需要分步留痕时执行 `acceptance:finalize` 后再执行 `acceptance:bundle`。
+- 需要一条命令收口时执行 `acceptance:assemble`，它会先卡 strict M5，再写出 `final-manifest.json` 和最终 bundle。
+
 ## 7. 停止线
 
 ### 当前可以停止并对外说明的程度

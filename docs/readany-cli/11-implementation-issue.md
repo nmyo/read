@@ -61,6 +61,8 @@ books.get
 chapters.list
 chapters.get
 context.get
+bookmarks.list
+skills.list
 notes.search
 notes.export
 knowledge.export
@@ -73,6 +75,7 @@ epub.draft.create
 epub.draft.discard
 epub.chapter.read
 epub.chapter.patch
+epub.chapters.patch
 epub.metadata.patch
 epub.toc.rebuild
 epub.history
@@ -100,6 +103,8 @@ epub.export
 - CLI 命令、MCP tool、桌面入口分别是什么。
 - 需要哪些测试命令和验收证据。
 - 做到什么程度就停下来进入验收。
+
+最终 M5 收口时，验收记录除了 `acceptance:validate --strict-m5` 和 `acceptance:finalize` 外，也可以直接使用 `acceptance:assemble` 一步产出 `final-manifest.json` 与最终 bundle；issue 中的交付物说明需要明确采用哪条链路。
 
 ### 1. CLI 和安装能力
 
