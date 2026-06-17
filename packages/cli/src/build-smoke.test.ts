@@ -1902,6 +1902,47 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputPath: join(acceptanceInitWorkspace, "final-manifest.json"),
     });
+    const workspaceBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-bundle.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--release",
+        "workspace-release",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceBundle.status, workspaceBundle.stderr || workspaceBundle.stdout).toBe(0);
+    expect(JSON.parse(workspaceBundle.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputDir: join(acceptanceInitWorkspace, "bundle"),
+      files: expect.arrayContaining(["record.md", "manifest.json", "index.json"]),
+    });
+    const workspaceVerifyBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceVerifyBundle.status, workspaceVerifyBundle.stderr || workspaceVerifyBundle.stdout).toBe(0);
+    expect(JSON.parse(workspaceVerifyBundle.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      bundleDir: join(acceptanceInitWorkspace, "bundle"),
+    });
     const workspaceAssemble = spawnSync(
       process.execPath,
       [

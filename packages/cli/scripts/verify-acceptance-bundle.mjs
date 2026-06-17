@@ -1,14 +1,20 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
+import {
+  loadWorkspaceConfig,
+  repoRoot,
+  resolveInputPath,
+  workspaceBundleDir,
+} from "./acceptance-workspace.mjs";
 
 const cliRoot = resolve(import.meta.dirname, "..");
-const repoRoot = resolve(import.meta.dirname, "../..");
 
 function parseArgs(argv) {
   const options = {
     bundleDir: undefined,
+    workspacePath: undefined,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -18,6 +24,9 @@ function parseArgs(argv) {
       continue;
     } else if (arg === "--bundle-dir") {
       options.bundleDir = next;
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
@@ -37,16 +46,8 @@ Usage:
 
 Options:
   --bundle-dir <path>   Acceptance bundle directory created by acceptance:bundle or acceptance:assemble.
+  --workspace <path>    Acceptance workspace root or workspace.json.
 `;
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function sha256(text) {
@@ -88,9 +89,19 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  if (!options.bundleDir) throw new Error("Pass --bundle-dir <path>.");
 
-  const bundleDir = resolveInputPath(options.bundleDir);
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const bundleDir = options.bundleDir
+    ? resolveInputPath(options.bundleDir)
+    : workspaceBundleDir(workspace);
+  if (!bundleDir) throw new Error("Pass --bundle-dir <path> or use --workspace <path> with outputs.bundleDir.");
   const indexPath = join(bundleDir, "index.json");
   const recordPath = join(bundleDir, "record.md");
   const manifestPath = join(bundleDir, "manifest.json");
@@ -201,6 +212,7 @@ async function main() {
     `${JSON.stringify(
       {
         ok: true,
+        workspaceFile,
         bundleDir,
         recordPath,
         manifestPath,
