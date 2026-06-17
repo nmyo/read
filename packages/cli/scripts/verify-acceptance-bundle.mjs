@@ -167,6 +167,36 @@ async function main() {
     return;
   }
 
+  if (manifest?.bundle) {
+    assertCondition(manifest.bundle.verified === true, errors, "Manifest bundle.verified must be true when present.");
+    assertCondition(manifest.bundle.indexPath === "index.json", errors, "Manifest bundle indexPath must be index.json.");
+    assertCondition(
+      manifest.bundle.verification?.ok === true,
+      errors,
+      "Manifest bundle verification.ok must be true when present.",
+    );
+    assertCondition(
+      manifest.bundle.verification?.strictM5?.ok === true,
+      errors,
+      "Manifest bundle verification.strictM5.ok must be true when present.",
+    );
+    assertCondition(
+      manifest.bundle.verification?.strictM5?.strictM5 === true,
+      errors,
+      "Manifest bundle verification.strictM5.strictM5 must be true when present.",
+    );
+    assertCondition(
+      manifest.bundle.verification?.evidenceCount === strictValidation.result.evidenceCount,
+      errors,
+      "Manifest bundle verification evidenceCount must match the current verification result.",
+    );
+    assertCondition(
+      manifest.bundle.verification?.bundleDir === bundleDir,
+      errors,
+      "Manifest bundle verification bundleDir must match the current bundle directory.",
+    );
+  }
+
   process.stdout.write(
     `${JSON.stringify(
       {

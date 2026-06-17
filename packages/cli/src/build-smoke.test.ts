@@ -2016,6 +2016,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
           ok: true,
           bundleDir: assembledDir,
           evidenceCount: 7,
+          strictM5: {
+            ok: true,
+            strictM5: true,
+            errors: [],
+          },
         },
       },
     });
