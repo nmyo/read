@@ -11,6 +11,7 @@
     "smoke:agent": "node scripts/agent-smoke.mjs",
     "acceptance:agent": "node scripts/agent-acceptance.mjs",
     "acceptance:desktop": "node scripts/desktop-settings-acceptance.mjs",
+    "acceptance:bundle": "node scripts/acceptance-bundle.mjs",
     "acceptance:finalize": "node scripts/finalize-acceptance.mjs",
     "acceptance:real": "pnpm build && node scripts/real-sample-acceptance.mjs",
     "acceptance:packaged": "node scripts/packaged-platform-acceptance.mjs",

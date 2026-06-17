@@ -1733,5 +1733,66 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         expect.objectContaining({ path: darwinPackagedEvidencePath, type: "packaged-platform", label: "darwin" }),
       ]),
     );
+
+    const bundleDir = join(root, "evidence", "final-bundle");
+    const bundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-bundle.mjs"),
+        "--record",
+        anchoredStrictRecordPath,
+        "--manifest",
+        finalManifestPath,
+        "--evidence",
+        evidencePath,
+        "--evidence",
+        codexAgentEvidencePath,
+        "--evidence",
+        claudeAgentEvidencePath,
+        "--evidence",
+        desktopEvidencePath,
+        "--evidence",
+        darwinPackagedEvidencePath,
+        "--evidence",
+        windowsPackagedEvidencePath,
+        "--evidence",
+        linuxPackagedEvidencePath,
+        "--release",
+        "fixture-release",
+        "--output-dir",
+        bundleDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(bundle.status, bundle.stderr || bundle.stdout).toBe(0);
+    expect(JSON.parse(bundle.stdout)).toMatchObject({
+      ok: true,
+      outputDir: bundleDir,
+      files: expect.arrayContaining(["record.md", "manifest.json", "index.json"]),
+    });
+    const bundleIndex = JSON.parse(await readFile(join(bundleDir, "index.json"), "utf8")) as {
+      ok: boolean;
+      release?: string;
+      record: string;
+      manifest: string;
+      evidences: Array<{ source: string; target: string }>;
+    };
+    expect(bundleIndex).toMatchObject({
+      ok: true,
+      release: "fixture-release",
+      record: "record.md",
+      manifest: "manifest.json",
+    });
+    expect(bundleIndex.evidences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: evidencePath }),
+        expect.objectContaining({ source: codexAgentEvidencePath }),
+        expect.objectContaining({ source: desktopEvidencePath }),
+      ]),
+    );
   });
 });

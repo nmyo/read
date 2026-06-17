@@ -165,6 +165,17 @@ pnpm --filter @readany/cli acceptance:finalize -- \
   --release <release-label> \
   --reviewer <name> \
   --output <final-manifest.json>
+pnpm --filter @readany/cli acceptance:bundle -- \
+  --record <acceptance-record.md> \
+  --manifest <final-manifest.json> \
+  --evidence <evidence-json> \
+  --evidence <agent-evidence-json> \
+  --evidence <desktop-evidence-json> \
+  --evidence <macos-packaged-evidence-json> \
+  --evidence <windows-packaged-evidence-json> \
+  --evidence <linux-packaged-evidence-json> \
+  --release <release-label> \
+  --output-dir <acceptance-bundle-dir>
 ```
 
 `acceptance:real` 默认只读；只有加 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理验收工作区。需要保留 draft 手工检查时可额外传 `--keep-draft`。该脚本会在 stdout 输出脱敏摘要，并写入完整 JSON 证据；证据会自动记录 environment（平台、Node、pnpm、CLI version、git commit/branch）、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和 `manualAcceptanceRequired` 清单。每个 `manualAcceptanceRequired` 项都带 `evidence` 和 `commands`，用于指导后续人工补证，但不能替代样本来源、真实外部 agent 和打包产物记录。
@@ -180,6 +191,8 @@ pnpm --filter @readany/cli acceptance:finalize -- \
 `acceptance:validate` 用来检查验收记录、`acceptance:real` evidence、单客户端 agent evidence、桌面设置页 evidence 和单平台 packaged evidence 的结构，`--evidence` 可重复传入多份证据。最终 M5 记录必须使用 `--strict-m5` 并传完整组合 evidence，确保没有未勾选验收范围、结果不是“部分通过”，没有仍不能对外宣称的能力，外部 agent 表格至少有 Codex + Claude/Cursor 两个不同客户端的完整记录，其中至少一条使用 MCP，打包矩阵包含 macOS / Windows / Linux 三平台完整记录，有桌面设置页证据，并且 `Manual Acceptance Closure` 逐项关闭 `acceptance:real` 列出的人工补证项。packaged 平台名支持 `darwin` / `macOS` / `win32` / `Windows` / `linux` 归一。若同时传 `--record` 和真实样本 `--evidence`，strict 模式还会要求验收记录引用 evidence 中的样本 SHA-256、citation target 和 doctor distribution 标记；agent / desktop / packaged evidence 是补充证据，不触发真实样本锚点检查。
 
 `acceptance:finalize` 用来生成最终验收 manifest。它会先执行 strict M5 组合证据校验，失败时不会写 manifest；通过后会记录验收 record、每份 evidence 的 SHA-256、git commit/branch、验证结果和证据类型摘要，作为发布归档锚点。
+
+`acceptance:bundle` 用来把最终验收 record、manifest 和 evidence 复制到一个 bundle 目录，并生成 `index.json`。它不替代 `acceptance:finalize`；推荐在 manifest 生成后执行，用于归档、交接和上传发布证据。
 
 ## 验收结果
 
