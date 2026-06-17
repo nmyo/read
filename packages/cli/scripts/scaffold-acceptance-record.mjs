@@ -8,6 +8,7 @@ const repoRoot = resolve(scriptDir, "../../..");
 function parseArgs(argv) {
   const options = {
     evidencePath: undefined,
+    packagedEvidencePaths: [],
     outputPath: undefined,
     milestone: "M5 acceptance draft",
     reviewer: "TBD",
@@ -21,6 +22,9 @@ function parseArgs(argv) {
       continue;
     } else if (arg === "--evidence") {
       options.evidencePath = next;
+      index += 1;
+    } else if (arg === "--packaged-evidence") {
+      options.packagedEvidencePaths.push(next);
       index += 1;
     } else if (arg === "--output") {
       options.outputPath = next;
@@ -51,11 +55,12 @@ Usage:
   pnpm --filter @readany/cli acceptance:scaffold -- --evidence <real-sample.json> [options]
 
 Options:
-  --evidence <path>          acceptance:real JSON evidence.
-  --output <path>            Write Markdown record to this path; stdout when omitted.
-  --milestone <name>         Milestone label.
-  --reviewer <name>          Reviewer name.
-  --desktop-package <source> Desktop package source.
+  --evidence <path>              acceptance:real JSON evidence.
+  --packaged-evidence <path>     acceptance:packaged JSON evidence; repeatable.
+  --output <path>                Write Markdown record to this path; stdout when omitted.
+  --milestone <name>             Milestone label.
+  --reviewer <name>              Reviewer name.
+  --desktop-package <source>     Desktop package source.
 `;
 }
 
@@ -86,6 +91,94 @@ function distributionAnchors(evidence) {
   ];
 }
 
+function packagedDistribution(packagedEvidence) {
+  const distribution = packagedEvidence.doctor?.distribution ?? {};
+  const summary = packagedEvidence.summary ?? {};
+  return {
+    builtBundle: distribution.builtBundle ?? summary.builtBundle,
+    desktopResourceBundle: distribution.desktopResourceBundle ?? summary.desktopResourceBundle,
+    nativeBinary: distribution.nativeBinary ?? summary.nativeBinary,
+    usesNodeRuntime: distribution.usesNodeRuntime ?? summary.usesNodeRuntime,
+  };
+}
+
+function flag(value) {
+  return value === true ? "true" : "false";
+}
+
+function distributionText(packagedEvidence) {
+  const distribution = packagedDistribution(packagedEvidence);
+  return [
+    `builtBundle: ${flag(distribution.builtBundle)}`,
+    `desktopResourceBundle: ${flag(distribution.desktopResourceBundle)}`,
+    `nativeBinary: ${flag(distribution.nativeBinary)}`,
+    `usesNodeRuntime: ${flag(distribution.usesNodeRuntime)}`,
+  ].join(" / ");
+}
+
+function normalizePlatform(platform) {
+  const normalized = String(platform ?? "").trim().toLowerCase();
+  if (["macos", "mac", "darwin"].includes(normalized)) return "macOS";
+  if (["windows", "win32", "win"].includes(normalized)) return "Windows";
+  if (normalized === "linux") return "Linux";
+  return platform ? String(platform) : "TBD";
+}
+
+function packagedEvidenceByPlatform(packagedEvidences) {
+  const rows = new Map();
+  for (const packagedEvidence of packagedEvidences) {
+    const platform = normalizePlatform(packagedEvidence.environment?.platform ?? packagedEvidence.summary?.platform);
+    if (platform !== "TBD") {
+      rows.set(platform, packagedEvidence);
+    }
+  }
+  return rows;
+}
+
+function packagedSkillText(packagedEvidence) {
+  return packagedEvidence.summary?.skillInstallChecked === true ? "install/status/uninstall pass" : "status pass";
+}
+
+function packagedMcpText(packagedEvidence) {
+  const mcp = packagedEvidence.mcp ?? {};
+  return [
+    value(mcp.serverName, "readany"),
+    `tools: ${value(mcp.toolCount)}`,
+    `safety metadata: ${mcp.hasSafetyMetadata === true ? "yes" : "TBD"}`,
+  ].join(" / ");
+}
+
+function packageMatrixRows(packagedEvidences) {
+  const byPlatform = packagedEvidenceByPlatform(packagedEvidences);
+  return ["macOS", "Windows", "Linux"]
+    .map((platform) => {
+      const packagedEvidence = byPlatform.get(platform);
+      if (!packagedEvidence) {
+        return `| ${platform} |  |  |  |  |  |  |  |`;
+      }
+      const packageSource = value(packagedEvidence.environment?.packageSource ?? packagedEvidence.summary?.packageSource);
+      return [
+        `| ${platform}`,
+        packageSource,
+        "CLI executable checked; installer install TBD",
+        distributionText(packagedEvidence),
+        packagedSkillText(packagedEvidence),
+        packagedMcpText(packagedEvidence),
+        "TBD",
+        "partial |",
+      ].join(" | ");
+    })
+    .join("\n");
+}
+
+function packagedAnchors(packagedEvidences) {
+  return packagedEvidences.map((packagedEvidence) => {
+    const platform = normalizePlatform(packagedEvidence.environment?.platform ?? packagedEvidence.summary?.platform);
+    const packageSource = value(packagedEvidence.environment?.packageSource ?? packagedEvidence.summary?.packageSource);
+    return `- packaged ${platform}：packageSource: ${packageSource} / ${distributionText(packagedEvidence)} / MCP ${packagedMcpText(packagedEvidence)}`;
+  });
+}
+
 function sampleRows(evidence) {
   return (evidence.sampleFiles ?? [])
     .map((sample) => {
@@ -101,10 +194,11 @@ function closureRows(evidence) {
     .join("\n");
 }
 
-function renderRecord(evidence, options) {
+function renderRecord(evidence, options, packagedEvidences) {
   const sampleHash = evidence.sampleFiles?.[0]?.sha256 ?? "TBD";
   const citationAnchor = firstCitationAnchor(evidence);
   const distribution = distributionAnchors(evidence);
+  const packagedAnchorRows = packagedAnchors(packagedEvidences);
   return `# ReadAny CLI Acceptance Record
 
 ## 基本信息
@@ -217,9 +311,7 @@ ${sampleRows(evidence)}
 
 | 平台 | 包来源 | 安装 | \`readany doctor --json\` | Skill install/status | MCP initialize/tools/list | Draft export | 结果 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| macOS |  |  |  |  |  |  |  |
-| Windows |  |  |  |  |  |  |  |
-| Linux |  |  |  |  |  |  |  |
+${packageMatrixRows(packagedEvidences)}
 
 ## Manual Acceptance Closure
 
@@ -232,6 +324,7 @@ ${closureRows(evidence)}
 - sample SHA-256：${sampleHash}
 - citation target：${citationAnchor}
 ${distribution.map((item) => `- distribution：${item}`).join("\n")}
+${packagedAnchorRows.length > 0 ? packagedAnchorRows.join("\n") : "- packaged evidence：TBD"}
 
 ## 当前可对外说明
 
@@ -264,7 +357,10 @@ async function main() {
 
   const evidencePath = resolveInputPath(options.evidencePath);
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-  const record = renderRecord(evidence, options);
+  const packagedEvidences = await Promise.all(
+    options.packagedEvidencePaths.map(async (path) => JSON.parse(await readFile(resolveInputPath(path), "utf8"))),
+  );
+  const record = renderRecord(evidence, options, packagedEvidences);
   if (options.outputPath) {
     const outputPath = resolveInputPath(options.outputPath);
     await mkdir(dirname(outputPath), { recursive: true });

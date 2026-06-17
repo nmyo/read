@@ -775,6 +775,8 @@ Module._load = function patchedLoad(request, parent, isMain) {
         resolve(cliRoot, "scripts/scaffold-acceptance-record.mjs"),
         "--evidence",
         evidencePath,
+        "--packaged-evidence",
+        packagedEvidencePath,
         "--output",
         scaffoldPath,
         "--milestone",
@@ -799,6 +801,14 @@ Module._load = function patchedLoad(request, parent, isMain) {
       `citation target：${evidence.citationTargets.find((target) => target.type === "rag-chunk")?.cfi}`,
     );
     expect(scaffoldRecord).toContain("distribution：builtBundle: true");
+    expect(scaffoldRecord).toContain(
+      "| macOS | fixture packaged cli | CLI executable checked; installer install TBD | builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true | install/status/uninstall pass | readany / tools: 28 / safety metadata: yes | TBD | partial |",
+    );
+    expect(scaffoldRecord).toContain("| Windows |  |  |  |  |  |  |  |");
+    expect(scaffoldRecord).toContain("| Linux |  |  |  |  |  |  |  |");
+    expect(scaffoldRecord).toContain(
+      "- packaged macOS：packageSource: fixture packaged cli / builtBundle: true / desktopResourceBundle: false / nativeBinary: false / usesNodeRuntime: true / MCP readany / tools: 28 / safety metadata: yes",
+    );
     expect(scaffoldRecord).toContain("sample-source | pending");
 
     const validateScaffold = spawnSync(
