@@ -2067,8 +2067,12 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputPath: join(acceptanceInitWorkspace, "record.md"),
     });
-    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("# ReadAny CLI Acceptance Record");
-    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("sample SHA-256");
+    const workspaceRecord = await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8");
+    expect(workspaceRecord).toContain("# ReadAny CLI Acceptance Record");
+    expect(workspaceRecord).toContain("sample SHA-256");
+    expect(workspaceRecord).toContain(`acceptance:status -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
+    expect(workspaceRecord).toContain(`acceptance:validate -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --strict-m5`);
+    expect(workspaceRecord).toContain(`acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`);
     await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
     const workspaceStrictValidate = spawnSync(
       process.execPath,

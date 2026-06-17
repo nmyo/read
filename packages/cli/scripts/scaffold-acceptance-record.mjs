@@ -305,7 +305,25 @@ function closureRows(evidence, desktopEvidence) {
     .join("\n");
 }
 
-function renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence) {
+function renderCommandBlock(options, workspaceFile) {
+  if (workspaceFile) {
+    return `\`\`\`bash
+pnpm --filter @readany/cli acceptance:status -- --workspace ${workspaceFile}
+pnpm --filter @readany/cli acceptance:validate -- --workspace ${workspaceFile} --strict-m5
+pnpm --filter @readany/cli acceptance:finalize -- --workspace ${workspaceFile} --release <release-label> --reviewer <name>
+pnpm --filter @readany/cli acceptance:assemble -- --workspace ${workspaceFile} --release <release-label> --reviewer <name>
+\`\`\``;
+  }
+
+  return `\`\`\`bash
+pnpm --filter @readany/cli acceptance:real -- --evidence <evidence-json>
+pnpm --filter @readany/cli acceptance:validate -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --strict-m5
+pnpm --filter @readany/cli acceptance:finalize -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output <final-manifest.json>
+pnpm --filter @readany/cli acceptance:assemble -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output-dir <acceptance-bundle-dir>
+\`\`\``;
+}
+
+function renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile) {
   const sampleHash = evidence.sampleFiles?.[0]?.sha256 ?? "TBD";
   const citationAnchor = firstCitationAnchor(evidence);
   const distribution = distributionAnchors(evidence);
@@ -352,12 +370,7 @@ function renderRecord(evidence, options, packagedEvidences, agentEvidences, desk
 
 ## 执行命令
 
-\`\`\`bash
-pnpm --filter @readany/cli acceptance:real -- --evidence <evidence-json>
-pnpm --filter @readany/cli acceptance:validate -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --strict-m5
-pnpm --filter @readany/cli acceptance:finalize -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output <final-manifest.json>
-pnpm --filter @readany/cli acceptance:assemble -- --record <acceptance-record.md> --evidence <evidence-json> --evidence <agent-evidence-json> --evidence <desktop-evidence-json> --evidence <macos-packaged-evidence-json> --evidence <windows-packaged-evidence-json> --evidence <linux-packaged-evidence-json> --release <release-label> --reviewer <name> --output-dir <acceptance-bundle-dir>
-\`\`\`
+${renderCommandBlock(options, workspaceFile)}
 
 ## 验收结果
 
@@ -523,7 +536,7 @@ async function main() {
   const desktopEvidence = desktopEvidencePath
     ? JSON.parse(await readFile(desktopEvidencePath, "utf8"))
     : undefined;
-  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence);
+  const record = renderRecord(evidence, options, packagedEvidences, agentEvidences, desktopEvidence, workspaceFile);
   if (outputPath) {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, record, "utf8");
