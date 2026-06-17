@@ -1,9 +1,15 @@
 import { readFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  filterExistingPaths,
+  loadWorkspaceConfig,
+  resolveInputPath,
+  workspaceEvidenceFiles,
+  workspaceRecordPath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, "../../..");
 
 const KNOWN_MANUAL_REQUIREMENTS = [
   "sample-source",
@@ -39,6 +45,7 @@ function parseArgs(argv) {
   const options = {
     recordPath: undefined,
     evidencePaths: [],
+    workspacePath: undefined,
     strictM5: false,
     json: false,
   };
@@ -54,6 +61,9 @@ function parseArgs(argv) {
     } else if (arg === "--evidence") {
       options.evidencePaths.push(next);
       index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
+      index += 1;
     } else if (arg === "--strict-m5") {
       options.strictM5 = true;
     } else if (arg === "--json") {
@@ -68,15 +78,6 @@ function parseArgs(argv) {
   return options;
 }
 
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
-}
-
 function usage() {
   return `ReadAny acceptance validator
 
@@ -87,6 +88,7 @@ Usage:
 Options:
   --record <path>      Validate an acceptance Markdown record.
   --evidence <path>    Validate acceptance JSON evidence; repeatable.
+  --workspace <path>   Acceptance workspace root or workspace.json.
   --strict-m5          Enforce full M5 record gates.
   --json               Print machine-readable result.
 `;
@@ -655,7 +657,27 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  if (!options.recordPath && options.evidencePaths.length === 0) {
+
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const recordPath = options.recordPath
+    ? resolveInputPath(options.recordPath)
+    : workspaceRecordPath(workspace);
+  const evidencePathInputs = options.evidencePaths.length > 0
+    ? options.evidencePaths
+    : workspaceEvidenceFiles(workspace);
+  const resolvedEvidencePaths = evidencePathInputs.map(resolveInputPath);
+  const evidencePaths = options.evidencePaths.length > 0
+    ? resolvedEvidencePaths
+    : await filterExistingPaths(resolvedEvidencePaths);
+
+  if (!recordPath && evidencePaths.length === 0) {
     throw new Error("Pass --record <path>, --evidence <path>, or both.");
   }
 
@@ -665,8 +687,7 @@ async function main() {
   let recordText;
   const evidences = [];
 
-  if (options.recordPath) {
-    const recordPath = resolveInputPath(options.recordPath);
+  if (recordPath) {
     recordText = await readFile(recordPath, "utf8");
     const result = validateRecord(recordText, { strictM5: options.strictM5 });
     errors.push(...result.errors);
@@ -674,8 +695,7 @@ async function main() {
     validated.record = recordPath;
   }
 
-  for (const evidencePathInput of options.evidencePaths) {
-    const evidencePath = resolveInputPath(evidencePathInput);
+  for (const evidencePath of evidencePaths) {
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
     const result = validateEvidence(evidence);
     errors.push(...result.errors);
@@ -694,6 +714,7 @@ async function main() {
 
   const output = {
     ok: errors.length === 0,
+    workspaceFile,
     strictM5: options.strictM5,
     validated,
     errors,

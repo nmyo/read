@@ -1,16 +1,25 @@
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  filterExistingPaths,
+  loadWorkspaceConfig,
+  repoRoot,
+  resolveInputPath,
+  workspaceBundleDir,
+  workspaceEvidenceFiles,
+  workspaceRecordPath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(cliRoot, "../..");
 
 function parseArgs(argv) {
   const options = {
     recordPath: undefined,
     evidencePaths: [],
+    workspacePath: undefined,
     outputDir: undefined,
     reviewer: undefined,
     release: undefined,
@@ -27,6 +36,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--evidence") {
       options.evidencePaths.push(next);
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--output-dir") {
       options.outputDir = next;
@@ -59,6 +71,7 @@ Usage:
 Options:
   --record <path>         Final M5 acceptance Markdown record.
   --evidence <path>       Acceptance evidence JSON; repeatable.
+  --workspace <path>      Acceptance workspace root or workspace.json.
   --output-dir <path>     Target acceptance bundle directory. Writes <output-dir>/final-manifest.json and bundle files.
   --reviewer <name>       Reviewer name.
   --release <label>       Release or build label.
@@ -68,15 +81,6 @@ Options:
 
 function assertOption(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function runNodeScript(scriptName, args) {
@@ -111,13 +115,33 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  assertOption(options.recordPath, "Pass --record <path>.");
-  assertOption(options.evidencePaths.length > 0, "Pass at least one --evidence <path>.");
-  assertOption(options.outputDir, "Pass --output-dir <path>.");
 
-  const recordPath = resolveInputPath(options.recordPath);
-  const evidencePaths = options.evidencePaths.map(resolveInputPath);
-  const outputDir = resolveInputPath(options.outputDir);
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const recordPath = options.recordPath
+    ? resolveInputPath(options.recordPath)
+    : workspaceRecordPath(workspace);
+  const evidencePathInputs = options.evidencePaths.length > 0
+    ? options.evidencePaths
+    : workspaceEvidenceFiles(workspace);
+  const resolvedEvidencePaths = evidencePathInputs.map(resolveInputPath);
+  const evidencePaths = options.evidencePaths.length > 0
+    ? resolvedEvidencePaths
+    : await filterExistingPaths(resolvedEvidencePaths);
+  const outputDir = options.outputDir
+    ? resolveInputPath(options.outputDir)
+    : workspaceBundleDir(workspace);
+
+  assertOption(recordPath, "Pass --record <path> or --workspace <path>.");
+  assertOption(evidencePaths.length > 0, "Pass at least one --evidence <path> or provide evidence files through --workspace <path>.");
+  assertOption(outputDir, "Pass --output-dir <path> or use --workspace <path> with outputs.bundleDir.");
+
   const manifestPath = join(outputDir, options.manifestName);
 
   const finalize = runNodeScript("finalize-acceptance.mjs", [
@@ -183,6 +207,7 @@ async function main() {
     `${JSON.stringify(
       {
         ok: true,
+        workspaceFile,
         outputDir,
         manifestPath,
         verified: true,

@@ -1,17 +1,26 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  filterExistingPaths,
+  loadWorkspaceConfig,
+  repoRoot,
+  resolveInputPath,
+  workspaceEvidenceFiles,
+  workspaceFinalManifestPath,
+  workspaceRecordPath,
+} from "./acceptance-workspace.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const cliRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(cliRoot, "../..");
 
 function parseArgs(argv) {
   const options = {
     recordPath: undefined,
     evidencePaths: [],
+    workspacePath: undefined,
     outputPath: undefined,
     reviewer: undefined,
     release: undefined,
@@ -27,6 +36,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--evidence") {
       options.evidencePaths.push(next);
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--output") {
       options.outputPath = next;
@@ -56,6 +68,7 @@ Usage:
 Options:
   --record <path>       Final M5 acceptance Markdown record.
   --evidence <path>     Acceptance evidence JSON; repeatable.
+  --workspace <path>    Acceptance workspace root or workspace.json.
   --output <path>       Write final manifest JSON to this path.
   --reviewer <name>     Reviewer name.
   --release <label>     Release or build label.
@@ -64,15 +77,6 @@ Options:
 
 function assertOption(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function resolveInputPath(path) {
-  if (isAbsolute(path)) return path;
-  const fromCwd = resolve(process.cwd(), path);
-  if (process.cwd() !== repoRoot && path.startsWith("docs/")) {
-    return resolve(repoRoot, path);
-  }
-  return fromCwd;
 }
 
 function sha256(text) {
@@ -146,12 +150,33 @@ async function main() {
     process.stdout.write(usage());
     return;
   }
-  assertOption(options.recordPath, "Pass --record <path>.");
-  assertOption(options.evidencePaths.length > 0, "Pass at least one --evidence <path>.");
-  assertOption(options.outputPath, "Pass --output <path>.");
 
-  const recordPath = resolveInputPath(options.recordPath);
-  const evidencePaths = options.evidencePaths.map(resolveInputPath);
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const recordPath = options.recordPath
+    ? resolveInputPath(options.recordPath)
+    : workspaceRecordPath(workspace);
+  const evidencePathInputs = options.evidencePaths.length > 0
+    ? options.evidencePaths
+    : workspaceEvidenceFiles(workspace);
+  const resolvedEvidencePaths = evidencePathInputs.map(resolveInputPath);
+  const evidencePaths = options.evidencePaths.length > 0
+    ? resolvedEvidencePaths
+    : await filterExistingPaths(resolvedEvidencePaths);
+  const outputPath = options.outputPath
+    ? resolveInputPath(options.outputPath)
+    : workspaceFinalManifestPath(workspace);
+
+  assertOption(recordPath, "Pass --record <path> or --workspace <path>.");
+  assertOption(evidencePaths.length > 0, "Pass at least one --evidence <path> or provide evidence files through --workspace <path>.");
+  assertOption(outputPath, "Pass --output <path> or use --workspace <path> with outputs.finalManifestPath.");
+
   const validation = runStrictValidation(recordPath, evidencePaths);
   if (validation.status !== 0 || validation.result?.ok !== true) {
     process.stderr.write(
@@ -192,10 +217,9 @@ async function main() {
     },
   };
 
-  const outputPath = resolveInputPath(options.outputPath);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  process.stdout.write(`${JSON.stringify({ ok: true, outputPath, summary: manifest.summary }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, workspaceFile, outputPath, summary: manifest.summary }, null, 2)}\n`);
 }
 
 try {

@@ -1690,7 +1690,6 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       },
       errors: [],
     });
-
     const readyStatusSummary = spawnSync(
       process.execPath,
       [
@@ -1828,6 +1827,104 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
           "Windows packaged-platform evidence",
         ]),
       },
+    });
+    const workspaceValidate = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceValidate.status, workspaceValidate.stderr || workspaceValidate.stdout).toBe(0);
+    expect(JSON.parse(workspaceValidate.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      validated: {
+        record: join(acceptanceInitWorkspace, "record.md"),
+        evidences: [expect.objectContaining({ path: workspaceJson.evidenceFiles.realSample, type: "real-sample" })],
+      },
+    });
+    await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.agentCodex, await readFile(codexAgentEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.agentSecondClient, await readFile(claudeAgentEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.desktopSettings, await readFile(desktopEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.packagedMacos, await readFile(darwinPackagedEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.packagedWindows, await readFile(windowsPackagedEvidencePath, "utf8"), "utf8");
+    await writeFile(workspaceJson.evidenceFiles.packagedLinux, await readFile(linuxPackagedEvidencePath, "utf8"), "utf8");
+    const workspaceStrictValidate = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--strict-m5",
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceStrictValidate.status, workspaceStrictValidate.stderr || workspaceStrictValidate.stdout).toBe(0);
+    expect(JSON.parse(workspaceStrictValidate.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      strictM5: true,
+    });
+    const workspaceFinalize = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/finalize-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--reviewer",
+        "Vitest",
+        "--release",
+        "workspace-release",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceFinalize.status, workspaceFinalize.stderr || workspaceFinalize.stdout).toBe(0);
+    expect(JSON.parse(workspaceFinalize.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputPath: join(acceptanceInitWorkspace, "final-manifest.json"),
+    });
+    const workspaceAssemble = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/assemble-acceptance.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--reviewer",
+        "Vitest",
+        "--release",
+        "workspace-release",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceAssemble.status, workspaceAssemble.stderr || workspaceAssemble.stdout).toBe(0);
+    expect(JSON.parse(workspaceAssemble.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      outputDir: join(acceptanceInitWorkspace, "bundle"),
+      verified: true,
     });
 
     const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
