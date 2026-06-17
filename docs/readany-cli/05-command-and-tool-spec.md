@@ -62,6 +62,7 @@ pnpm --filter @readany/cli acceptance:scaffold -- --evidence <real-sample.json> 
 pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json> [--strict-m5]
 pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence <evidence.json>... --output <manifest.json>
 pnpm --filter @readany/cli acceptance:bundle -- --record <record.md> --manifest <manifest.json> --evidence <evidence.json>... --output-dir <bundle-dir>
+pnpm --filter @readany/cli acceptance:verify-bundle -- --bundle-dir <bundle-dir>
 pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidence <evidence.json>... --output-dir <bundle-dir>
 ```
 
@@ -73,6 +74,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 - `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。
 - `acceptance:finalize` 会先跑 strict M5，再写出最终 manifest。
 - `acceptance:bundle` 把 record、manifest 和 evidence 整理成归档目录。
+- `acceptance:verify-bundle` 独立复验 bundle 目录里的 `index.json`、record、manifest 和 evidence 是否匹配，适合交接或 CI 二次校验。
 - `acceptance:assemble` 是 `acceptance:finalize + acceptance:bundle` 的一键入口，会先卡 strict M5，再在 bundle 目录下写出 `final-manifest.json` 和对外交付用的 `manifest.json`。
 
 ### 只读数据命令

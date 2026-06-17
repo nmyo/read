@@ -1820,6 +1820,25 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         }),
       ]),
     );
+    const verifyBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
+        "--bundle-dir",
+        bundleDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(verifyBundle.status, verifyBundle.stderr || verifyBundle.stdout).toBe(0);
+    expect(JSON.parse(verifyBundle.stdout)).toMatchObject({
+      ok: true,
+      bundleDir,
+      evidenceCount: 7,
+    });
 
     const mismatchManifestPath = join(root, "evidence", "mismatch-final-manifest.json");
     await writeFile(
@@ -1870,6 +1889,20 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     );
     expect(rejectedBundle.status).toBe(1);
     expect(rejectedBundle.stderr).toContain("Acceptance bundle consistency check failed");
+    const rejectedVerifyBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
+        "--bundle-dir",
+        bundleDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(rejectedVerifyBundle.status, rejectedVerifyBundle.stderr || rejectedVerifyBundle.stdout).toBe(0);
 
     const rejectedAssembleDir = join(root, "evidence", "rejected-assemble");
     const rejectedAssemble = spawnSync(
@@ -1941,5 +1974,19 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       release: "fixture-release",
       reviewer: "Vitest",
     });
+    const verifyAssembledBundle = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
+        "--bundle-dir",
+        assembledDir,
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(verifyAssembledBundle.status, verifyAssembledBundle.stderr || verifyAssembledBundle.stdout).toBe(0);
   });
 });
