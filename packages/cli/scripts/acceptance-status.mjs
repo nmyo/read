@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -6,11 +6,13 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../../..");
 const validateScriptPath = resolve(scriptDir, "validate-acceptance.mjs");
+const defaultWorkspaceFile = "workspace.json";
 
 function parseArgs(argv) {
   const options = {
     recordPath: undefined,
     evidencePaths: [],
+    workspacePath: undefined,
     json: false,
   };
 
@@ -24,6 +26,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--evidence") {
       options.evidencePaths.push(next);
+      index += 1;
+    } else if (arg === "--workspace") {
+      options.workspacePath = next;
       index += 1;
     } else if (arg === "--json") {
       options.json = true;
@@ -46,6 +51,7 @@ Usage:
 Options:
   --record <path>      Acceptance Markdown record to analyze.
   --evidence <path>    Acceptance evidence JSON; repeatable.
+  --workspace <path>   Acceptance workspace root or workspace.json.
   --json               Print machine-readable output.
 `;
 }
@@ -98,6 +104,41 @@ function parseJsonMaybe(text) {
   const start = trimmed.indexOf("{");
   if (start < 0) return undefined;
   return JSON.parse(trimmed.slice(start));
+}
+
+async function loadWorkspaceConfig(workspacePathInput) {
+  const resolved = resolveInputPath(workspacePathInput);
+  const workspaceFile = resolved.endsWith(".json") ? resolved : resolve(resolved, defaultWorkspaceFile);
+  const workspace = JSON.parse(await readFile(workspaceFile, "utf8"));
+  return {
+    workspaceFile,
+    workspace,
+  };
+}
+
+function workspaceStrictEvidencePaths(workspace) {
+  return [
+    workspace?.evidenceFiles?.realSample,
+    workspace?.evidenceFiles?.agentCodex,
+    workspace?.evidenceFiles?.agentSecondClient,
+    workspace?.evidenceFiles?.desktopSettings,
+    workspace?.evidenceFiles?.packagedMacos,
+    workspace?.evidenceFiles?.packagedWindows,
+    workspace?.evidenceFiles?.packagedLinux,
+  ].filter(Boolean);
+}
+
+async function filterExistingPaths(paths) {
+  const existing = [];
+  for (const path of paths) {
+    try {
+      await access(path);
+      existing.push(path);
+    } catch {
+      // Ignore missing evidence files; readiness should report the gap instead of throwing.
+    }
+  }
+  return existing;
 }
 
 function runValidate(options) {
@@ -376,8 +417,24 @@ async function main() {
     return;
   }
 
-  const recordPath = options.recordPath ? resolveInputPath(options.recordPath) : undefined;
-  const evidencePaths = options.evidencePaths.map(resolveInputPath);
+  let workspaceFile;
+  let workspace;
+  if (options.workspacePath) {
+    const loaded = await loadWorkspaceConfig(options.workspacePath);
+    workspaceFile = loaded.workspaceFile;
+    workspace = loaded.workspace;
+  }
+
+  const recordPath = options.recordPath
+    ? resolveInputPath(options.recordPath)
+    : workspace?.paths?.recordPath;
+  const evidencePathInputs = options.evidencePaths.length > 0
+    ? options.evidencePaths
+    : workspaceStrictEvidencePaths(workspace);
+  const resolvedEvidencePaths = evidencePathInputs.map(resolveInputPath);
+  const evidencePaths = options.evidencePaths.length > 0
+    ? resolvedEvidencePaths
+    : await filterExistingPaths(resolvedEvidencePaths);
   const evidenceEntries = await Promise.all(
     evidencePaths.map(async (path) => {
       const evidence = JSON.parse(await readFile(path, "utf8"));
@@ -399,6 +456,7 @@ async function main() {
 
   const output = {
     ok: true,
+    workspaceFile,
     recordPath,
     summary,
     readiness: {

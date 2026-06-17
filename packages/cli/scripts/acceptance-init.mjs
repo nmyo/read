@@ -127,11 +127,26 @@ function renderWorkspaceJson(paths) {
   return `${JSON.stringify(
     {
       workspacePath: paths.workspacePath,
-      recordPath: paths.recordPath,
-      evidenceDir: paths.evidenceDir,
-      bundleDir: paths.bundleDir,
-      exportsDir: paths.exportsDir,
-      logsDir: paths.logsDir,
+      paths: {
+        recordPath: paths.recordPath,
+        evidenceDir: paths.evidenceDir,
+        bundleDir: paths.bundleDir,
+        exportsDir: paths.exportsDir,
+        logsDir: paths.logsDir,
+      },
+      evidenceFiles: {
+        realSample: resolve(paths.evidenceDir, "real-sample.json"),
+        agentCodex: resolve(paths.evidenceDir, "agent-codex.json"),
+        agentSecondClient: resolve(paths.evidenceDir, "agent-second-client.json"),
+        desktopSettings: resolve(paths.evidenceDir, "desktop-settings.json"),
+        packagedMacos: resolve(paths.evidenceDir, "packaged-macos.json"),
+        packagedWindows: resolve(paths.evidenceDir, "packaged-windows.json"),
+        packagedLinux: resolve(paths.evidenceDir, "packaged-linux.json"),
+      },
+      outputs: {
+        finalManifestPath: resolve(paths.workspacePath, "final-manifest.json"),
+        bundleDir: paths.bundleDir,
+      },
     },
     null,
     2,

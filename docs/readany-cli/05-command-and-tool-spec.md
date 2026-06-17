@@ -61,6 +61,7 @@ pnpm --filter @readany/cli acceptance:packaged -- --package-source <artifact> --
 pnpm --filter @readany/cli acceptance:init -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:scaffold -- --evidence <real-sample.json> --output <record.md>
 pnpm --filter @readany/cli acceptance:status -- --record <record.md> --evidence <evidence.json>
+pnpm --filter @readany/cli acceptance:status -- --workspace docs/readany-cli/acceptance/<workspace-dir>
 pnpm --filter @readany/cli acceptance:validate -- --record <record.md> --evidence <evidence.json> [--strict-m5]
 pnpm --filter @readany/cli acceptance:finalize -- --record <record.md> --evidence <evidence.json>... --output <manifest.json>
 pnpm --filter @readany/cli acceptance:bundle -- --record <record.md> --manifest <manifest.json> --evidence <evidence.json>... --output-dir <bundle-dir>
@@ -74,7 +75,7 @@ pnpm --filter @readany/cli acceptance:assemble -- --record <record.md> --evidenc
 - `acceptance:agent`、`acceptance:desktop`、`acceptance:packaged` 只记录对应人工或半自动证据，不替代 strict M5 的完整组合证据。
 - `acceptance:init` 会先搭好一个本地 acceptance workspace，包含 `record.md`、`evidence/`、`bundle/`、`exports/` 和 `logs/`，适合作为真实 M5 采证起点。
 - `acceptance:scaffold` 生成 partial 验收草稿，用于减少手工填表漏项，不把 pending/TBD 伪装成通过。
-- `acceptance:status` 是验收收口助手，会汇总当前 record/evidence 距离 strict M5 还缺什么，并给出下一步建议命令。
+- `acceptance:status` 是验收收口助手，会汇总当前 record/evidence 距离 strict M5 还缺什么，并给出下一步建议命令；如果已经用 `acceptance:init` 建好了 workspace，也可以直接传 `--workspace` 让它自动读取 `workspace.json` 里的 record/evidence 约定。
 - `acceptance:validate --strict-m5` 是最终 M5 的机器闸门。
 - `acceptance:finalize` 会先跑 strict M5，再写出最终 manifest。
 - `acceptance:bundle` 把 record、manifest 和 evidence 整理成归档目录。

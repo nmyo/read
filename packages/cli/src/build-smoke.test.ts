@@ -1784,6 +1784,51 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     });
     expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("ReadAny CLI Acceptance Record");
     expect(await readFile(join(acceptanceInitWorkspace, "README.md"), "utf8")).toContain("ReadAny Acceptance Workspace");
+    const workspaceJson = JSON.parse(await readFile(join(acceptanceInitWorkspace, "workspace.json"), "utf8")) as {
+      paths: { recordPath: string };
+      evidenceFiles: { realSample: string; packagedWindows: string };
+    };
+    expect(workspaceJson).toMatchObject({
+      paths: {
+        recordPath: join(acceptanceInitWorkspace, "record.md"),
+      },
+      evidenceFiles: {
+        realSample: join(acceptanceInitWorkspace, "evidence", "real-sample.json"),
+        packagedWindows: join(acceptanceInitWorkspace, "evidence", "packaged-windows.json"),
+      },
+    });
+    await writeFile(workspaceJson.evidenceFiles.realSample, await readFile(evidencePath, "utf8"), "utf8");
+    const workspaceStatus = spawnSync(
+      process.execPath,
+      [
+        resolve(cliRoot, "scripts/acceptance-status.mjs"),
+        "--workspace",
+        acceptanceInitWorkspace,
+        "--json",
+      ],
+      {
+        cwd: cliRoot,
+        env,
+        encoding: "utf8",
+      },
+    );
+    expect(workspaceStatus.status, workspaceStatus.stderr || workspaceStatus.stdout).toBe(0);
+    expect(JSON.parse(workspaceStatus.stdout)).toMatchObject({
+      ok: true,
+      workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
+      recordPath: join(acceptanceInitWorkspace, "record.md"),
+      summary: {
+        evidenceCount: 1,
+        evidenceTypes: ["real-sample"],
+      },
+      readiness: {
+        strictM5Ready: false,
+        missing: expect.arrayContaining([
+          "Codex external-agent evidence",
+          "Windows packaged-platform evidence",
+        ]),
+      },
+    });
 
     const rejectedManifestPath = join(root, "evidence", "rejected-final-manifest.json");
     const rejectedFinalize = spawnSync(
