@@ -5,11 +5,7 @@ import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode, type InstallOptions } from "./install.js";
 import { getSkillStatus, installSkill, uninstallSkill, updateSkill } from "./skill.js";
-import {
-  appendCliAuditEntry,
-  isCliAuditSource,
-  listCliAuditEntries,
-} from "./audit-log.js";
+import { appendCliAuditEntry, isCliAuditSource, listCliAuditEntries } from "./audit-log.js";
 import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 
@@ -23,6 +19,23 @@ export type ParsedCommand = {
 };
 
 type McpConfigClient = "generic" | "claude" | "cursor" | "codex";
+
+type AgentSetupResult = {
+  setup: true;
+  command: string;
+  install: Awaited<ReturnType<typeof installCli>>;
+  skill: Awaited<ReturnType<typeof installSkill>> | Awaited<ReturnType<typeof updateSkill>>;
+  mcp: ReturnType<typeof createMcpConfig>;
+  nextSteps: string[];
+};
+
+type AgentUninstallResult = {
+  uninstalled: true;
+  command: string;
+  install: Awaited<ReturnType<typeof uninstallCli>>;
+  skill: Awaited<ReturnType<typeof uninstallSkill>>;
+  nextSteps: string[];
+};
 
 export function parseCommand(argv: string[]): ParsedCommand {
   const args = [...argv];
@@ -173,6 +186,26 @@ function parseEpubChapterPatchPlan(value: unknown): unknown[] {
   return patches;
 }
 
+function parseEpubMetadataPatch(value: unknown): {
+  title?: string;
+  creator?: string;
+  language?: string;
+  publisher?: string;
+  description?: string;
+  modified?: string;
+  subjects?: string[];
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  const record = value as Record<string, unknown>;
+  const metadata = record.metadata;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    return metadata as ReturnType<typeof parseEpubMetadataPatch>;
+  }
+  return record as ReturnType<typeof parseEpubMetadataPatch>;
+}
+
 function parseMcpConfigClient(value: string | undefined): McpConfigClient {
   if (!value) return "generic";
   if (value === "generic" || value === "claude" || value === "cursor" || value === "codex") {
@@ -234,6 +267,8 @@ export function createHelpText(): string {
 
 Usage:
   readany --version
+  readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany agent uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany install [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany repair [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
@@ -311,6 +346,104 @@ function getInstallOptions(command: ParsedCommand, binPath: string): InstallOpti
   };
 }
 
+function quoteShellArg(value: string): string {
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function createAgentSetupCommand(command: ParsedCommand): string {
+  const args = ["readany", "agent", "setup"];
+  if (command.mode === "global") args.push("--global");
+  else args.push("--user");
+
+  const client = getRequiredStringOption(command, "client") ?? "generic";
+  args.push("--client", client);
+  args.push("--profile", parseAccessProfile(command.profile));
+  args.push("--json");
+
+  const userBinDir = getRequiredStringOption(command, "user-bin-dir");
+  if (userBinDir) args.push("--user-bin-dir", userBinDir);
+  const globalBinDir = getRequiredStringOption(command, "global-bin-dir");
+  if (globalBinDir) args.push("--global-bin-dir", globalBinDir);
+
+  return args.map(quoteShellArg).join(" ");
+}
+
+function createAgentUninstallCommand(command: ParsedCommand): string {
+  const args = ["readany", "agent", "uninstall"];
+  if (command.mode === "global") args.push("--global");
+  else args.push("--user");
+  args.push("--json");
+
+  const userBinDir = getRequiredStringOption(command, "user-bin-dir");
+  if (userBinDir) args.push("--user-bin-dir", userBinDir);
+  const globalBinDir = getRequiredStringOption(command, "global-bin-dir");
+  if (globalBinDir) args.push("--global-bin-dir", globalBinDir);
+
+  return args.map(quoteShellArg).join(" ");
+}
+
+async function installOrUpdateReadAnySkill(skillFile: string): Promise<AgentSetupResult["skill"]> {
+  const status = await getSkillStatus(skillFile);
+  return status.installed ? updateSkill(skillFile) : installSkill(skillFile);
+}
+
+async function assertSkillCanBeManaged(skillFile: string): Promise<void> {
+  const status = await getSkillStatus(skillFile);
+  if (status.installed) return;
+
+  try {
+    const { readFile } = await import("node:fs/promises");
+    await readFile(skillFile, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+
+  throw new Error(`Skill file already exists and is not managed by ReadAny CLI: ${skillFile}`);
+}
+
+async function setupAgent(
+  command: ParsedCommand,
+  paths: ReturnType<typeof getCliPaths>,
+): Promise<AgentSetupResult> {
+  const setupCommand = createAgentSetupCommand(command);
+  const mcp = createMcpConfig(command.profile, getRequiredStringOption(command, "client"));
+  await assertSkillCanBeManaged(paths.skillFile);
+  const install = await installCli(getInstallOptions(command, paths.binPath));
+  const skill = await installOrUpdateReadAnySkill(paths.skillFile);
+
+  return {
+    setup: true,
+    command: setupCommand,
+    install,
+    skill,
+    mcp,
+    nextSteps: [
+      `Run ${setupCommand} from the external agent if setup needs to be repeated.`,
+      "Paste mcp.snippet into the selected agent client config if the client does not import it automatically.",
+      "Use readonly profile by default; switch to editor or publisher only after the user approves write/export access.",
+    ],
+  };
+}
+
+async function uninstallAgent(
+  command: ParsedCommand,
+  paths: ReturnType<typeof getCliPaths>,
+): Promise<AgentUninstallResult> {
+  const uninstallCommand = createAgentUninstallCommand(command);
+
+  return {
+    uninstalled: true,
+    command: uninstallCommand,
+    install: await uninstallCli(getInstallOptions(command, paths.binPath)),
+    skill: await uninstallSkill(paths.skillFile),
+    nextSteps: [
+      "Remove any readany MCP server snippet from external agent client configs that were edited manually.",
+    ],
+  };
+}
+
 async function executeCommand(argv: string[], env = process.env): Promise<CommandResult> {
   const command = parseCommand(argv);
   const paths = getCliPaths(env);
@@ -331,6 +464,20 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (command.name === "doctor") {
       const profile = parseAccessProfile(command.profile);
       return success(await runDoctor(paths, profile));
+    }
+
+    if (command.name === "agent") {
+      const subcommand = command.args[0] ?? "setup";
+
+      if (subcommand === "setup" || subcommand === "install") {
+        return success(await setupAgent(command, paths));
+      }
+
+      if (subcommand === "uninstall") {
+        return success(await uninstallAgent(command, paths));
+      }
+
+      return failure("unknown_agent_command", `Unknown agent command: ${subcommand}`);
     }
 
     if (command.name === "skill") {
@@ -389,7 +536,9 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (command.name === "mcp") {
       const subcommand = command.args[0];
       if (subcommand === "config") {
-        return success(createMcpConfig(command.profile, getRequiredStringOption(command, "client")));
+        return success(
+          createMcpConfig(command.profile, getRequiredStringOption(command, "client")),
+        );
       }
       if (subcommand === "serve") {
         return failure("mcp_serve_requires_stdio", "mcp serve must be run from the CLI entrypoint");
@@ -500,7 +649,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const bookId = command.args[1];
         const outputPath = getStringOption(command, "output");
         if (!bookId) return failure("missing_book_id", "notes export requires a book id");
-        if (!outputPath) return failure("missing_output_path", "notes export requires --output <path>");
+        if (!outputPath)
+          return failure("missing_output_path", "notes export requires --output <path>");
         const format = getStringOption(command, "format") ?? "markdown";
         if (!isNotesExportFormat(format)) {
           return failure(
@@ -569,7 +719,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
       if (subcommand === "export") {
         const profile = parseAccessProfile(command.profile);
         if (!profileHasScope(profile, "epub.export")) {
-          return failure("permission_denied", "knowledge export requires publisher profile or higher");
+          return failure(
+            "permission_denied",
+            "knowledge export requires publisher profile or higher",
+          );
         }
         const outputPath = getStringOption(command, "output");
         if (!outputPath) {
@@ -659,7 +812,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (draftCommand === "create") {
           const profile = parseAccessProfile(command.profile);
           if (!profileHasScope(profile, "epub.draft")) {
-            return failure("permission_denied", "epub draft create requires editor profile or higher");
+            return failure(
+              "permission_denied",
+              "epub draft create requires editor profile or higher",
+            );
           }
           const bookId = command.args[2];
           if (!bookId) return failure("missing_book_id", "epub draft create requires a book id");
@@ -670,10 +826,14 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (draftCommand === "discard") {
           const profile = parseAccessProfile(command.profile);
           if (!profileHasScope(profile, "epub.draft")) {
-            return failure("permission_denied", "epub draft discard requires editor profile or higher");
+            return failure(
+              "permission_denied",
+              "epub draft discard requires editor profile or higher",
+            );
           }
           const draftId = command.args[2];
-          if (!draftId) return failure("missing_draft_id", "epub draft discard requires a draft id");
+          if (!draftId)
+            return failure("missing_draft_id", "epub draft discard requires a draft id");
           const discarded = await data.discardEpubDraftWorkspace({
             draftId,
             reason: getStringOption(command, "reason"),
@@ -727,7 +887,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           const draftId = command.args[2];
           const chapterId = command.args[3];
           const xhtmlPath = getStringOption(command, "xhtml");
-          if (!draftId) return failure("missing_draft_id", "epub chapter patch requires a draft id");
+          if (!draftId)
+            return failure("missing_draft_id", "epub chapter patch requires a draft id");
           if (!chapterId) {
             return failure("missing_chapter_id", "epub chapter patch requires a chapter id");
           }
@@ -761,7 +922,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           }
           const draftId = command.args[2];
           const patchPath = getStringOption(command, "patch");
-          if (!draftId) return failure("missing_draft_id", "epub chapters patch requires a draft id");
+          if (!draftId)
+            return failure("missing_draft_id", "epub chapters patch requires a draft id");
           if (!patchPath) {
             return failure("missing_patch_file", "epub chapters patch requires --patch <file>");
           }
@@ -791,20 +953,13 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
           }
           const draftId = command.args[2];
           const patchPath = getStringOption(command, "patch");
-          if (!draftId) return failure("missing_draft_id", "epub metadata patch requires a draft id");
+          if (!draftId)
+            return failure("missing_draft_id", "epub metadata patch requires a draft id");
           if (!patchPath) {
             return failure("missing_patch_file", "epub metadata patch requires --patch <file>");
           }
           const { readFile } = await import("node:fs/promises");
-          const patch = JSON.parse(await readFile(patchPath, "utf8")) as {
-            title?: string;
-            creator?: string;
-            language?: string;
-            publisher?: string;
-            description?: string;
-            modified?: string;
-            subjects?: string[];
-          };
+          const patch = parseEpubMetadataPatch(JSON.parse(await readFile(patchPath, "utf8")));
           const result = await data.patchEpubMetadata({
             draftId,
             patch,
@@ -822,7 +977,10 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         if (tocCommand === "rebuild") {
           const profile = parseAccessProfile(command.profile);
           if (!profileHasScope(profile, "epub.draft")) {
-            return failure("permission_denied", "epub toc rebuild requires editor profile or higher");
+            return failure(
+              "permission_denied",
+              "epub toc rebuild requires editor profile or higher",
+            );
           }
           const draftId = command.args[2];
           if (!draftId) return failure("missing_draft_id", "epub toc rebuild requires a draft id");
@@ -890,7 +1048,8 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
         const draftId = command.args[1];
         const outputPath = getStringOption(command, "output");
         if (!draftId) return failure("missing_draft_id", "epub export requires a draft id");
-        if (!outputPath) return failure("missing_output_path", "epub export requires --output <path>");
+        if (!outputPath)
+          return failure("missing_output_path", "epub export requires --output <path>");
         const exported = await data.exportEpubDraftWorkspace({
           draftId,
           outputPath,
@@ -927,10 +1086,7 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     if (error instanceof InvalidCommandOptionError) {
       return failure(error.code, error.message);
     }
-    return failure(
-      "command_failed",
-      error instanceof Error ? error.message : String(error),
-    );
+    return failure("command_failed", error instanceof Error ? error.message : String(error));
   }
 }
 

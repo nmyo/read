@@ -34,6 +34,24 @@ function buildEpub(): Uint8Array {
   ]);
 }
 
+function buildEpubWithEncodedChapterHref(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Encoded Chapter Draft</dc:title></metadata><manifest><item id="chapter-encoded" href="Text/%2A%3Achapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter-encoded"/></spine></package>`,
+    ),
+    textEntry(
+      "OPS/Text/*:chapter.xhtml",
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Encoded Chapter</h1><p>Decoded path text.</p></body></html>`,
+    ),
+  ]);
+}
+
 async function createPlatform(root: string) {
   const dataDir = join(root, "library");
   await mkdir(join(dataDir, "books"), { recursive: true });
@@ -233,7 +251,10 @@ describe("readEpubChapterFromDraft", () => {
 
     const historyLines = (
       await readFile(join(dataDir, "drafts", "epub", "draft-1", "history.jsonl"), "utf8")
-    ).trim().split("\n").map((line) => JSON.parse(line));
+    )
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
     expect(historyLines).toHaveLength(2);
     expect(historyLines[1]).toMatchObject({
       action: "epub.chapter.patch",
@@ -244,5 +265,46 @@ describe("readEpubChapterFromDraft", () => {
       beforeHash: patched.beforeHash,
       afterHash: patched.afterHash,
     });
+  });
+
+  it("reads and patches a chapter whose manifest href is percent-encoded", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-chapter-"));
+    const dataDir = await createPlatform(root);
+    await writeFile(join(dataDir, "books", "encoded.epub"), buildEpubWithEncodedChapterHref());
+    const book = {
+      id: "book-encoded",
+      filePath: "books/encoded.epub",
+      format: "epub",
+      meta: { title: "Encoded Chapter Draft" },
+    } as Book;
+    const draft = await createEpubDraft(book, { draftId: "draft-encoded" });
+
+    const chapter = await readEpubChapterFromDraft(draft.draftId, "chapter-encoded");
+
+    expect(chapter).toMatchObject({
+      id: "chapter-encoded",
+      href: "Text/%2A%3Achapter.xhtml",
+      title: "Encoded Chapter",
+      content: "Encoded Chapter Decoded path text.",
+    });
+
+    const patched = await patchEpubChapterInDraft(
+      draft.draftId,
+      "chapter-encoded",
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Patched Encoded Chapter</h1><p>Still writes the decoded zip entry.</p></body></html>`,
+    );
+
+    expect(patched).toMatchObject({
+      href: "Text/%2A%3Achapter.xhtml",
+      resourcePath: "OPS/Text/*:chapter.xhtml",
+      changed: true,
+      title: "Patched Encoded Chapter",
+    });
+    await expect(readEpubChapterFromDraft(draft.draftId, "chapter-encoded")).resolves.toMatchObject(
+      {
+        title: "Patched Encoded Chapter",
+        content: "Patched Encoded Chapter Still writes the decoded zip entry.",
+      },
+    );
   });
 });

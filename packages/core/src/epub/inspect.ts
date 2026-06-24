@@ -66,14 +66,17 @@ export type EpubPackageResourceReader = {
 configure({ useWebWorkers: false });
 
 export async function inspectEpubBytes(bytes: Uint8Array): Promise<EpubInspectResult> {
-  return withEpubPackageResourceReader(bytes, async ({ packagePath, readTextEntry }) => {
-    const opfXml = await readTextEntry(packagePath);
-    if (!opfXml) {
-      throw new Error(`EPUB package document was not found: ${packagePath}`);
-    }
+  return withEpubPackageResourceReader(
+    bytes,
+    async ({ packagePath, entryPaths, readTextEntry }) => {
+      const opfXml = await readTextEntry(packagePath);
+      if (!opfXml) {
+        throw new Error(`EPUB package document was not found: ${packagePath}`);
+      }
 
-    return inspectPackageDocument({ opfXml, packagePath, readTextEntry });
-  });
+      return inspectPackageDocument({ opfXml, packagePath, entryPaths, readTextEntry });
+    },
+  );
 }
 
 export async function withEpubPackageResourceReader<T>(
@@ -140,6 +143,7 @@ function parsePackagePath(containerXml: string): string {
 async function inspectPackageDocument(options: {
   opfXml: string;
   packagePath: string;
+  entryPaths: string[];
   readTextEntry: (path: string) => Promise<string | null>;
 }): Promise<EpubInspectResult> {
   const doc = parseXml(options.opfXml);
@@ -167,6 +171,7 @@ async function inspectPackageDocument(options: {
     manifestItems,
     packageDir,
     spineTocId: spineElement?.getAttribute("toc") || undefined,
+    entryPaths: options.entryPaths,
     readTextEntry: options.readTextEntry,
   });
 
@@ -198,9 +203,11 @@ function parseMetadata(doc: Document): EpubInspectResult["metadata"] {
     metadataElements.find((element) => element.localName === localName)?.textContent?.trim() ||
     undefined;
   const metaByProperty = (property: string) =>
-    metadataElements.find(
-      (element) => element.localName === "meta" && element.getAttribute("property") === property,
-    )?.textContent?.trim() || undefined;
+    metadataElements
+      .find(
+        (element) => element.localName === "meta" && element.getAttribute("property") === property,
+      )
+      ?.textContent?.trim() || undefined;
 
   return {
     title: textByLocalName("title"),
@@ -221,13 +228,15 @@ async function extractTocItems(options: {
   manifestItems: EpubInspectManifestItem[];
   packageDir: string;
   spineTocId?: string;
+  entryPaths: string[];
   readTextEntry: (path: string) => Promise<string | null>;
 }): Promise<EpubInspectTocItem[]> {
   const navItem = options.manifestItems.find((item) =>
     item.properties?.split(/\s+/).includes("nav"),
   );
   if (navItem?.href) {
-    const navXml = await options.readTextEntry(resolvePackagePath(options.packageDir, navItem.href));
+    const navPath = findPackageResourcePath(options.entryPaths, options.packageDir, navItem.href);
+    const navXml = navPath ? await options.readTextEntry(navPath) : null;
     if (navXml) return parseNavDocument(navXml);
   }
 
@@ -235,7 +244,8 @@ async function extractTocItems(options: {
     ? options.manifestItems.find((item) => item.id === options.spineTocId)
     : options.manifestItems.find((item) => item.mediaType === "application/x-dtbncx+xml");
   if (ncxItem?.href) {
-    const ncxXml = await options.readTextEntry(resolvePackagePath(options.packageDir, ncxItem.href));
+    const ncxPath = findPackageResourcePath(options.entryPaths, options.packageDir, ncxItem.href);
+    const ncxXml = ncxPath ? await options.readTextEntry(ncxPath) : null;
     if (ncxXml) return parseNcxDocument(ncxXml);
   }
 
@@ -298,7 +308,42 @@ export function resolvePackagePath(packageDir: string, href: string): string {
 }
 
 export function getPackageDir(packagePath: string): string {
-  return packagePath.includes("/")
-    ? packagePath.slice(0, packagePath.lastIndexOf("/") + 1)
-    : "";
+  return packagePath.includes("/") ? packagePath.slice(0, packagePath.lastIndexOf("/") + 1) : "";
+}
+
+export function resolvePackagePathCandidates(packageDir: string, href: string): string[] {
+  const candidates = [resolvePackagePath(packageDir, href)];
+  const decodedHref = safeDecodeURIComponent(href);
+  if (decodedHref && decodedHref !== href) {
+    candidates.push(resolvePackagePath(packageDir, decodedHref));
+  }
+  return unique(candidates);
+}
+
+export function findPackageResourcePath(
+  entryPaths: string[],
+  packageDir: string,
+  href: string,
+): string | undefined {
+  const candidates = resolvePackagePathCandidates(packageDir, href);
+  const entrySet = new Set(entryPaths);
+  const exact = candidates.find((candidate) => entrySet.has(candidate));
+  if (exact) return exact;
+
+  const lowerEntries = new Map(entryPaths.map((entryPath) => [entryPath.toLowerCase(), entryPath]));
+  return candidates
+    .map((candidate) => lowerEntries.get(candidate.toLowerCase()))
+    .find((entryPath): entryPath is string => Boolean(entryPath));
+}
+
+function safeDecodeURIComponent(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values));
 }

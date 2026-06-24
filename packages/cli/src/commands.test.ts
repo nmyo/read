@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -63,7 +63,9 @@ function buildSimplePdf(pages: string[]): Uint8Array {
   for (const text of pages) {
     const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
     const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
-    const contentId = addObject(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const contentId = addObject(
+      `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`,
+    );
     const pageId = addObject(
       `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
     );
@@ -228,7 +230,10 @@ async function seedVectorLibrary(dataRoot: string): Promise<void> {
   localDb.close();
 }
 
-async function writeReaderContextSnapshot(dataRoot: string, bookTitle = "Agent Systems"): Promise<void> {
+async function writeReaderContextSnapshot(
+  dataRoot: string,
+  bookTitle = "Agent Systems",
+): Promise<void> {
   await mkdir(join(dataRoot, "readany-store"), { recursive: true });
   await writeFile(
     join(dataRoot, "readany-store", "reader-context.json"),
@@ -265,6 +270,15 @@ async function writeReaderContextSnapshot(dataRoot: string, bookTitle = "Agent S
     }),
     "utf8",
   );
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("commands", () => {
@@ -340,10 +354,7 @@ describe("commands", () => {
     await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
     const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
     const userBinDir = join(workspace.root, "bin");
-    const repair = await runCommand(
-      ["repair", "--user", "--user-bin-dir", userBinDir],
-      env,
-    );
+    const repair = await runCommand(["repair", "--user", "--user-bin-dir", userBinDir], env);
     expect(repair).toMatchObject({
       ok: true,
       data: {
@@ -354,13 +365,12 @@ describe("commands", () => {
     });
     if (!repair.ok) return;
     const repairData = repair.data as { path: string; target: string };
-    expect(repairData.path).toBe(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"));
+    expect(repairData.path).toBe(
+      join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"),
+    );
     expect(repairData.target).toContain("readany.js");
 
-    const secondRepair = await runCommand(
-      ["repair", "--user", "--user-bin-dir", userBinDir],
-      env,
-    );
+    const secondRepair = await runCommand(["repair", "--user", "--user-bin-dir", userBinDir], env);
     expect(secondRepair).toMatchObject({
       ok: true,
       data: {
@@ -370,10 +380,7 @@ describe("commands", () => {
       },
     });
 
-    const uninstall = await runCommand(
-      ["uninstall", "--user", "--user-bin-dir", userBinDir],
-      env,
-    );
+    const uninstall = await runCommand(["uninstall", "--user", "--user-bin-dir", userBinDir], env);
     expect(uninstall).toMatchObject({
       ok: true,
       data: {
@@ -381,6 +388,153 @@ describe("commands", () => {
         path: repairData.path,
       },
     });
+  });
+
+  it("sets up and uninstalls the external agent entrypoint", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const userBinDir = join(workspace.root, "bin with spaces");
+    const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+
+    const setup = await runCommand(
+      [
+        "agent",
+        "setup",
+        "--user",
+        "--user-bin-dir",
+        userBinDir,
+        "--client",
+        "codex",
+        "--profile",
+        "readonly",
+      ],
+      env,
+    );
+
+    expect(setup).toMatchObject({
+      ok: true,
+      data: {
+        setup: true,
+        command: expect.stringContaining(
+          "readany agent setup --user --client codex --profile readonly --json",
+        ),
+        install: {
+          installed: true,
+          mode: "user",
+          path: join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"),
+          target: cliBinPath,
+        },
+        skill: {
+          installed: true,
+          path: skillFile,
+          version: "0.1.0",
+        },
+        mcp: {
+          client: "codex",
+          format: "toml",
+          profile: "readonly",
+          snippet: expect.stringContaining("[mcp_servers.readany]"),
+        },
+        nextSteps: expect.arrayContaining([expect.stringContaining("mcp.snippet")]),
+      },
+    });
+    expect(
+      await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
+    ).toBe(true);
+    expect(await readFile(skillFile, "utf8")).toContain(
+      "readany mcp config --profile readonly --client codex --json",
+    );
+
+    const repeatedSetup = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "generic"],
+      env,
+    );
+    expect(repeatedSetup).toMatchObject({
+      ok: true,
+      data: {
+        skill: {
+          updated: true,
+          path: skillFile,
+          previousVersion: "0.1.0",
+          version: "0.1.0",
+        },
+        mcp: {
+          client: "generic",
+          profile: "readonly",
+          snippet: expect.stringContaining('"mcpServers"'),
+        },
+      },
+    });
+
+    const uninstall = await runCommand(
+      ["agent", "uninstall", "--user", "--user-bin-dir", userBinDir],
+      env,
+    );
+    expect(uninstall).toMatchObject({
+      ok: true,
+      data: {
+        uninstalled: true,
+        command: expect.stringContaining("readany agent uninstall --user --json"),
+        install: {
+          removed: true,
+          path: join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"),
+        },
+        skill: {
+          removed: true,
+          path: skillFile,
+        },
+      },
+    });
+    expect(
+      await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
+    ).toBe(false);
+    expect(await pathExists(skillFile)).toBe(false);
+  });
+
+  it("does not install agent files when setup options are invalid", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const userBinDir = join(workspace.root, "bin");
+    const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+
+    const setup = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "vscode"],
+      env,
+    );
+
+    expect(setup).toMatchObject({ ok: false, error: { code: "command_failed" } });
+    expect(
+      await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
+    ).toBe(false);
+    expect(await pathExists(skillFile)).toBe(false);
+  });
+
+  it("does not install the agent shim when the skill file is unmanaged", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const userBinDir = join(workspace.root, "bin");
+    const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    await writeFile(skillFile, "# User-owned skill\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+
+    const setup = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "codex"],
+      env,
+    );
+
+    expect(setup).toMatchObject({ ok: false, error: { code: "command_failed" } });
+    expect(
+      await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
+    ).toBe(false);
+    expect(await readFile(skillFile, "utf8")).toBe("# User-owned skill\n");
   });
 
   it("runs doctor with readonly profile", async () => {
@@ -427,7 +581,15 @@ describe("commands", () => {
         mcpServers: {
           readany: {
             command: process.execPath,
-            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
+            args: [
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
           },
         },
       },
@@ -444,7 +606,15 @@ describe("commands", () => {
         mcpServers: {
           readany: {
             command: process.execPath,
-            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "publisher"],
+            args: [
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "publisher",
+            ],
           },
         },
       },
@@ -455,7 +625,15 @@ describe("commands", () => {
         mcpServers: {
           readany: {
             command: process.execPath,
-            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "publisher"],
+            args: [
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "publisher",
+            ],
           },
         },
       });
@@ -495,7 +673,15 @@ describe("commands", () => {
         mcpServers: {
           readany: {
             command: process.execPath,
-            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
+            args: [
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
           },
         },
       },
@@ -731,17 +917,7 @@ describe("commands", () => {
     });
 
     const result = await runCommand(
-      [
-        "epub",
-        "chapter",
-        "read",
-        draftId,
-        "chapter-1",
-        "--profile",
-        "editor",
-        "--limit",
-        "12",
-      ],
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor", "--limit", "12"],
       workspace.env,
     );
     expect(result.ok).toBe(true);
@@ -761,17 +937,7 @@ describe("commands", () => {
     }
 
     const xhtmlResult = await runCommand(
-      [
-        "epub",
-        "chapter",
-        "read",
-        draftId,
-        "chapter-1",
-        "--profile",
-        "editor",
-        "--format",
-        "xhtml",
-      ],
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor", "--format", "xhtml"],
       workspace.env,
     );
     expect(xhtmlResult.ok).toBe(true);
@@ -788,17 +954,7 @@ describe("commands", () => {
     }
 
     const invalidFormat = await runCommand(
-      [
-        "epub",
-        "chapter",
-        "read",
-        draftId,
-        "chapter-1",
-        "--profile",
-        "editor",
-        "--format",
-        "html",
-      ],
+      ["epub", "chapter", "read", draftId, "chapter-1", "--profile", "editor", "--format", "html"],
       workspace.env,
     );
     expect(invalidFormat).toMatchObject({
@@ -906,9 +1062,11 @@ describe("commands", () => {
     );
     expect(draftResult.ok).toBe(true);
     if (!draftResult.ok) return;
-    const draft = (draftResult.data as {
-      draft: { draftId: string; draftFilePath: string; historyPath: string };
-    }).draft;
+    const draft = (
+      draftResult.data as {
+        draft: { draftId: string; draftFilePath: string; historyPath: string };
+      }
+    ).draft;
     const draftPath = join(workspace.dataRoot, draft.draftFilePath);
     const historyPath = join(workspace.dataRoot, draft.historyPath);
     const draftBefore = await readFile(draftPath);
@@ -1073,9 +1231,11 @@ describe("commands", () => {
     );
     expect(draftResult.ok).toBe(true);
     if (!draftResult.ok) return;
-    const draft = (draftResult.data as {
-      draft: { draftId: string; draftFilePath: string; historyPath: string };
-    }).draft;
+    const draft = (
+      draftResult.data as {
+        draft: { draftId: string; draftFilePath: string; historyPath: string };
+      }
+    ).draft;
     const draftPath = join(workspace.dataRoot, draft.draftFilePath);
     const historyPath = join(workspace.dataRoot, draft.historyPath);
     const draftBefore = await readFile(draftPath);
@@ -1188,16 +1348,7 @@ describe("commands", () => {
     });
 
     const result = await runCommand(
-      [
-        "epub",
-        "metadata",
-        "patch",
-        draftId,
-        "--patch",
-        patchPath,
-        "--profile",
-        "editor",
-      ],
+      ["epub", "metadata", "patch", draftId, "--patch", patchPath, "--profile", "editor"],
       workspace.env,
     );
     expect(result.ok).toBe(true);
@@ -1230,6 +1381,46 @@ describe("commands", () => {
       draftId,
       bookId: "book-1",
       fields: ["title", "creator", "language", "publisher", "description", "modified", "subjects"],
+    });
+  });
+
+  it("accepts metadata patch files with a metadata wrapper", async () => {
+    const workspace = await createWorkspace();
+    await seedLibrary(workspace.dataRoot);
+    const draftResult = await runCommand(
+      ["epub", "draft", "create", "book-1", "--profile", "editor"],
+      workspace.env,
+    );
+    expect(draftResult.ok).toBe(true);
+    if (!draftResult.ok) return;
+    const draftId = (draftResult.data as { draft: { draftId: string } }).draft.draftId;
+    const patchPath = join(workspace.root, "metadata-wrapper.json");
+    await writeFile(
+      patchPath,
+      JSON.stringify({
+        metadata: {
+          description: "Wrapped metadata patch from an external agent.",
+        },
+      }),
+      "utf8",
+    );
+
+    const result = await runCommand(
+      ["epub", "metadata", "patch", draftId, "--patch", patchPath, "--profile", "editor"],
+      workspace.env,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        metadata: {
+          changed: true,
+          fields: ["description"],
+          metadata: {
+            description: "Wrapped metadata patch from an external agent.",
+          },
+        },
+      },
     });
   });
 
@@ -1447,7 +1638,17 @@ describe("commands", () => {
       "utf8",
     );
     const patchResult = await runCommand(
-      ["epub", "chapter", "patch", draftId, "chapter-1", "--xhtml", xhtmlPath, "--profile", "editor"],
+      [
+        "epub",
+        "chapter",
+        "patch",
+        draftId,
+        "chapter-1",
+        "--xhtml",
+        xhtmlPath,
+        "--profile",
+        "editor",
+      ],
       workspace.env,
     );
     expect(patchResult.ok).toBe(true);
@@ -1663,7 +1864,10 @@ describe("commands", () => {
     expect(draftResult.ok).toBe(true);
     if (!draftResult.ok) return;
     const draft = (draftResult.data as { draft: { draftId: string; draftFilePath: string } }).draft;
-    await writeFile(join(workspace.dataRoot, draft.draftFilePath), buildInvalidMissingResourceEpub());
+    await writeFile(
+      join(workspace.dataRoot, draft.draftFilePath),
+      buildInvalidMissingResourceEpub(),
+    );
 
     const validation = await runCommand(
       ["epub", "validate", draft.draftId, "--profile", "publisher"],

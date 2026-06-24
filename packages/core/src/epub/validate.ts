@@ -2,6 +2,7 @@ import { DOMParser } from "@xmldom/xmldom";
 import { getPlatformService } from "../services";
 import { readActiveEpubDraftManifest } from "./draft";
 import {
+  findPackageResourcePath,
   inspectEpubBytes,
   resolvePackagePath,
   withEpubPackageResourceReader,
@@ -184,11 +185,16 @@ async function validateResourceReferences(
   return withEpubPackageResourceReader(bytes, async ({ packageDir, entryPaths, readTextEntry }) => {
     const issues: EpubValidationIssue[] = [];
     const entrySet = new Set(entryPaths);
+    const lowerEntryMap = new Map(
+      entryPaths.map((entryPath) => [entryPath.toLowerCase(), entryPath]),
+    );
     const manifestByHref = new Map<string, string>();
 
     for (const item of inspect.manifest.items) {
       if (!item.href) continue;
-      const resourcePath = resolvePackagePath(packageDir, item.href);
+      const resourcePath =
+        findPackageResourcePath(entryPaths, packageDir, item.href) ??
+        resolvePackagePath(packageDir, item.href);
       manifestByHref.set(resourcePath, item.id);
       if (!entrySet.has(resourcePath)) {
         issues.push({
@@ -203,20 +209,22 @@ async function validateResourceReferences(
 
     for (const item of inspect.toc.items) {
       if (!item.href) continue;
-      const resourcePath = resolvePackagePath(packageDir, stripFragment(item.href));
-      if (!entrySet.has(resourcePath)) {
+      const href = stripFragment(item.href);
+      const resourcePath = findPackageResourcePath(entryPaths, packageDir, href);
+      if (!resourcePath) {
         issues.push({
           severity: "error",
           code: "toc_href_missing_resource",
           message: `EPUB table of contents references a missing resource: ${item.href}`,
-          path: resourcePath,
+          path: resourcePath ?? resolvePackagePath(packageDir, href),
         });
       }
     }
 
     for (const item of inspect.manifest.items) {
       if (!item.href || !isHtmlMediaType(item.mediaType)) continue;
-      const resourcePath = resolvePackagePath(packageDir, item.href);
+      const resourcePath = findPackageResourcePath(entryPaths, packageDir, item.href);
+      if (!resourcePath) continue;
       const xml = await readTextEntry(resourcePath);
       if (!xml) continue;
       issues.push(
@@ -224,6 +232,7 @@ async function validateResourceReferences(
           resourcePath,
           xml,
           entrySet,
+          lowerEntryMap,
           manifestByHref,
         }),
       );
@@ -237,10 +246,14 @@ function validateHtmlResourceLinks(options: {
   resourcePath: string;
   xml: string;
   entrySet: Set<string>;
+  lowerEntryMap: Map<string, string>;
   manifestByHref: Map<string, string>;
 }): EpubValidationIssue[] {
   const issues: EpubValidationIssue[] = [];
-  const doc = new DOMParser().parseFromString(options.xml, "application/xml") as unknown as Document;
+  const doc = new DOMParser().parseFromString(
+    options.xml,
+    "application/xml",
+  ) as unknown as Document;
   const elements = Array.from(doc.getElementsByTagName("*"));
   for (const element of elements) {
     const rawHref =
@@ -248,8 +261,8 @@ function validateHtmlResourceLinks(options: {
       element.getAttribute("src") ??
       element.getAttribute("xlink:href");
     if (!rawHref || shouldIgnoreHref(rawHref)) continue;
-    const target = normalizeRelativePath(options.resourcePath, stripFragment(rawHref));
-    if (!options.entrySet.has(target)) {
+    const targets = resolveRelativePathCandidates(options.resourcePath, stripFragment(rawHref));
+    if (!findExistingEntryPath(targets, options.entrySet, options.lowerEntryMap)) {
       issues.push({
         severity: "error",
         code: "resource_reference_missing",
@@ -276,8 +289,38 @@ function shouldIgnoreHref(href: string): boolean {
     href.startsWith("http://") ||
     href.startsWith("https://") ||
     href.startsWith("mailto:") ||
-    href.startsWith("data:")
+    href.startsWith("data:") ||
+    href.startsWith("kindle:")
   );
+}
+
+function resolveRelativePathCandidates(fromPath: string, relativePath: string): string[] {
+  const candidates = [normalizeRelativePath(fromPath, relativePath)];
+  const decodedRelativePath = safeDecodeURIComponent(relativePath);
+  if (decodedRelativePath && decodedRelativePath !== relativePath) {
+    candidates.push(normalizeRelativePath(fromPath, decodedRelativePath));
+  }
+  return Array.from(new Set(candidates));
+}
+
+function findExistingEntryPath(
+  candidates: string[],
+  entrySet: Set<string>,
+  lowerEntryMap: Map<string, string>,
+): string | undefined {
+  const exact = candidates.find((candidate) => entrySet.has(candidate));
+  if (exact) return exact;
+  return candidates
+    .map((candidate) => lowerEntryMap.get(candidate.toLowerCase()))
+    .find((entryPath): entryPath is string => Boolean(entryPath));
+}
+
+function safeDecodeURIComponent(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizeRelativePath(fromPath: string, relativePath: string): string {

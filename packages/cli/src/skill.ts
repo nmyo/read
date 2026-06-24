@@ -74,6 +74,8 @@ ${renderMcpToolList()}
 ## Commands
 
 \`\`\`bash
+readany agent setup --user --client generic --profile readonly --json
+readany agent setup --user --client codex --profile readonly --json
 readany doctor --json
 readany mcp serve --profile readonly
 readany mcp config --profile readonly --client generic --json

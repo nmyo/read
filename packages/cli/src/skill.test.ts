@@ -20,6 +20,8 @@ describe("skill management", () => {
 
     const content = await readFile(skillFile, "utf8");
     expect(content).toContain("readany-cli-managed");
+    expect(content).toContain("readany agent setup --user --client generic --profile readonly --json");
+    expect(content).toContain("readany agent setup --user --client codex --profile readonly --json");
     expect(content).toContain("readany mcp serve --profile readonly");
     expect(content).toContain("readany mcp config --profile readonly --client generic --json");
     expect(content).toContain("readany mcp config --profile readonly --client codex --json");

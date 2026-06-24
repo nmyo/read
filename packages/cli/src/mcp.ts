@@ -1,14 +1,10 @@
-import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import type { Readable, Writable } from "node:stream";
 import type { CommandResult } from "./result.js";
 import { failure, success } from "./result.js";
 import type { AccessProfile, PermissionScope } from "./profiles.js";
 import { getMinimumProfileForScopes, parseAccessProfile, profileHasScope } from "./profiles.js";
-import {
-  appendCliAuditEntry,
-  isCliAuditSource,
-  listCliAuditEntries,
-} from "./audit-log.js";
+import { appendCliAuditEntry, isCliAuditSource, listCliAuditEntries } from "./audit-log.js";
 import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
@@ -47,6 +43,11 @@ type JsonRpcRequest = {
   id?: string | number | null;
   method?: string;
   params?: unknown;
+};
+
+type McpRequestEnvelope = {
+  request: JsonRpcRequest;
+  framing: "header" | "line";
 };
 
 type ToolCallParams = {
@@ -295,10 +296,7 @@ function validateValueSchema(
     );
   }
   if (Array.isArray(schema.enum) && !schema.enum.some((allowedValue) => allowedValue === value)) {
-    return failure(
-      "invalid_tool_arguments",
-      `${path} must be one of: ${schema.enum.join(", ")}`,
-    );
+    return failure("invalid_tool_arguments", `${path} must be one of: ${schema.enum.join(", ")}`);
   }
 
   return undefined;
@@ -353,7 +351,9 @@ async function callReadAnyTool(
       chapterId,
       chunkStart: getNumber(args, "chunkStart", 1),
       chunkCount:
-        typeof args.chunkCount === "number" && Number.isFinite(args.chunkCount) && args.chunkCount > 0
+        typeof args.chunkCount === "number" &&
+        Number.isFinite(args.chunkCount) &&
+        args.chunkCount > 0
           ? Math.floor(args.chunkCount)
           : undefined,
       contentLimit: getNumber(args, "contentLimit", 12000),
@@ -368,12 +368,9 @@ async function callReadAnyTool(
   if (toolName === "context.get") {
     return success({
       readerContext: await getReaderContextSnapshot({
-        includeSelection:
-          typeof args.includeSelection === "boolean" ? args.includeSelection : true,
+        includeSelection: typeof args.includeSelection === "boolean" ? args.includeSelection : true,
         includeSurroundingText:
-          typeof args.includeSurroundingText === "boolean"
-            ? args.includeSurroundingText
-            : true,
+          typeof args.includeSurroundingText === "boolean" ? args.includeSurroundingText : true,
         includeHighlights:
           typeof args.includeHighlights === "boolean" ? args.includeHighlights : true,
         contentLimit: getNumber(args, "contentLimit", 12000),
@@ -705,6 +702,12 @@ export async function handleMcpRequest(
     return result;
   }
 
+  if (request.method === "notifications/initialized") {
+    result = {};
+    await recordMcpAudit(env, profile, action, result);
+    return result;
+  }
+
   if (request.method === "tools/list") {
     result = {
       tools: listTools().map(toMcpTool),
@@ -752,18 +755,74 @@ export async function handleMcpRequest(
 
 export async function serveMcp(argvProfile: string | undefined, env = process.env): Promise<void> {
   const profile = parseAccessProfile(argvProfile);
-  const rl = createInterface({ input, terminal: false });
 
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    const request = JSON.parse(line) as JsonRpcRequest;
+  for await (const { request, framing } of readMcpRequests(input)) {
     const result = await handleMcpRequest(request, profile, env);
-    output.write(
-      `${JSON.stringify({
-        jsonrpc: "2.0",
-        id: request.id ?? null,
-        result,
-      })}\n`,
-    );
+    writeMcpResponse(output, request, result, framing);
   }
+}
+
+async function* readMcpRequests(stream: Readable): AsyncGenerator<McpRequestEnvelope> {
+  let buffer = Buffer.alloc(0);
+  for await (const chunk of stream) {
+    buffer = Buffer.concat([buffer, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
+
+    while (buffer.length > 0) {
+      const firstNonWhitespace = buffer.findIndex((byte) => byte !== 10 && byte !== 13);
+      if (firstNonWhitespace > 0) buffer = buffer.slice(firstNonWhitespace);
+      if (buffer.length === 0) break;
+
+      if (startsWithContentLength(buffer)) {
+        const headerEnd = buffer.indexOf("\r\n\r\n");
+        if (headerEnd < 0) break;
+        const header = buffer.slice(0, headerEnd).toString("utf8");
+        const match = /(?:^|\r\n)Content-Length:\s*(\d+)(?:\r\n|$)/i.exec(header);
+        if (!match) throw new Error("MCP message is missing Content-Length.");
+        const contentLength = Number.parseInt(match[1], 10);
+        const bodyStart = headerEnd + 4;
+        const messageEnd = bodyStart + contentLength;
+        if (buffer.length < messageEnd) break;
+        const body = buffer.slice(bodyStart, messageEnd).toString("utf8");
+        buffer = buffer.slice(messageEnd);
+        yield { request: JSON.parse(body) as JsonRpcRequest, framing: "header" };
+        continue;
+      }
+
+      const lineEnd = buffer.indexOf("\n");
+      if (lineEnd < 0) break;
+      const line = buffer.slice(0, lineEnd).toString("utf8").trim();
+      buffer = buffer.slice(lineEnd + 1);
+      if (!line) continue;
+      yield { request: JSON.parse(line) as JsonRpcRequest, framing: "line" };
+    }
+  }
+
+  const rest = buffer.toString("utf8").trim();
+  if (rest) yield { request: JSON.parse(rest) as JsonRpcRequest, framing: "line" };
+}
+
+function writeMcpResponse(
+  stream: Writable,
+  request: JsonRpcRequest,
+  result: unknown,
+  framing: McpRequestEnvelope["framing"],
+): void {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: request.id ?? null,
+    result,
+  });
+  if (framing === "header") {
+    stream.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+    return;
+  }
+  stream.write(`${body}\n`);
+}
+
+function startsWithContentLength(buffer: Buffer): boolean {
+  return buffer
+    .slice(0, Math.min(buffer.length, "Content-Length".length))
+    .toString("utf8")
+    .toLowerCase()
+    .startsWith("content-length");
 }

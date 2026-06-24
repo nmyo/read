@@ -30,6 +30,8 @@ type CliAction =
   | "install"
   | "repair"
   | "uninstall"
+  | "agent_setup"
+  | "agent_uninstall"
   | "doctor"
   | "mcp_config"
   | "tools_list"
@@ -117,6 +119,23 @@ type AuditList = {
   limit: number;
 };
 
+type AgentSetupData = {
+  setup: true;
+  command: string;
+  install: { installed: true; path: string; target: string; mode: "user" | "global" };
+  skill: { installed?: true; updated?: true; path: string; version: string; previousVersion?: string };
+  mcp: { client: McpClient; format: "json" | "toml"; profile: McpProfile; snippet: string };
+  nextSteps: string[];
+};
+
+type AgentUninstallData = {
+  uninstalled: true;
+  command: string;
+  install: { removed: boolean; path: string; mode: "user" | "global" };
+  skill: { removed: boolean; path: string };
+  nextSteps: string[];
+};
+
 const PROFILE_DESCRIPTIONS: Record<McpProfile, string> = {
   readonly: "只读访问：书库、章节、笔记、高亮、RAG、审计读取。",
   editor: "编辑访问：包含 readonly，并允许创建 EPUB draft 和修改 draft 内容。",
@@ -151,6 +170,10 @@ function createMcpConfig(profile: McpProfile, client: McpClient) {
     null,
     2,
   );
+}
+
+function createAgentSetupCommand(profile: McpProfile, client: McpClient) {
+  return `readany agent setup --user --client ${client} --profile ${profile} --json`;
 }
 
 function parseCliJson<T>(result?: CliRunResult): CommandResult<T> | undefined {
@@ -245,10 +268,11 @@ export function ExternalAISettings() {
   const [versionResult, setVersionResult] = useState<CliRunResult>();
   const [doctorResult, setDoctorResult] = useState<CliRunResult>();
   const [skillResult, setSkillResult] = useState<CliRunResult>();
+  const [agentResult, setAgentResult] = useState<CliRunResult>();
   const [toolsResult, setToolsResult] = useState<CliRunResult>();
   const [auditResult, setAuditResult] = useState<CliRunResult>();
   const [lastActionResult, setLastActionResult] = useState<CliRunResult>();
-  const [copied, setCopied] = useState(false);
+  const [copiedTarget, setCopiedTarget] = useState<"agent" | "mcp" | "evidence" | null>(null);
   const [auditSource, setAuditSource] = useState<"all" | "cli" | "mcp">("all");
   const [auditStatus, setAuditStatus] = useState<"all" | "failed">("all");
   const [auditActionPrefix, setAuditActionPrefix] = useState("");
@@ -260,6 +284,17 @@ export function ExternalAISettings() {
 
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
   const skill = useMemo(() => parseCliJson<SkillStatus>(skillResult), [skillResult]);
+  const agentSetup = useMemo(
+    () => (agentResult?.action === "agent_setup" ? parseCliJson<AgentSetupData>(agentResult) : undefined),
+    [agentResult],
+  );
+  const agentUninstall = useMemo(
+    () =>
+      agentResult?.action === "agent_uninstall"
+        ? parseCliJson<AgentUninstallData>(agentResult)
+        : undefined,
+    [agentResult],
+  );
   const tools = useMemo(
     () => parseCliJson<{ tools: Array<{ name: string; risk: string }> }>(toolsResult),
     [toolsResult],
@@ -288,6 +323,11 @@ export function ExternalAISettings() {
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
+  const agentSetupCommand = useMemo(
+    () => createAgentSetupCommand(mcpProfile, mcpClient),
+    [mcpClient, mcpProfile],
+  );
+  const canBootstrapAgent = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const evidenceSnapshot = useMemo(
     () =>
       JSON.stringify(
@@ -300,6 +340,10 @@ export function ExternalAISettings() {
           },
           doctor: doctor?.ok ? doctor.data : null,
           skill: skill?.ok ? skill.data : null,
+          agentBootstrap: {
+            command: agentSetupCommand,
+            lastResult: agentSetup?.ok ? agentSetup.data : null,
+          },
           mcp: {
             profile: mcpProfile,
             client: mcpClient,
@@ -326,6 +370,8 @@ export function ExternalAISettings() {
       cliVersion,
       doctor,
       lastActionResult,
+      agentSetup,
+      agentSetupCommand,
       mcpClient,
       mcpConfig,
       mcpProfile,
@@ -346,6 +392,7 @@ export function ExternalAISettings() {
       setLastActionResult(result);
       if (action === "version") setVersionResult(result);
       if (action === "doctor") setDoctorResult(result);
+      if (action.startsWith("agent_")) setAgentResult(result);
       if (action === "tools_list") setToolsResult(result);
       if (action === "audit_list") setAuditResult(result);
       if (action.startsWith("skill_")) setSkillResult(result);
@@ -363,6 +410,7 @@ export function ExternalAISettings() {
       setLastActionResult(failed);
       if (action === "version") setVersionResult(failed);
       if (action === "doctor") setDoctorResult(failed);
+      if (action.startsWith("agent_")) setAgentResult(failed);
       if (action === "tools_list") setToolsResult(failed);
       if (action === "audit_list") setAuditResult(failed);
       if (action.startsWith("skill_")) setSkillResult(failed);
@@ -407,6 +455,19 @@ export function ExternalAISettings() {
     await refreshAll();
   }
 
+  async function handleAgentSetup() {
+    if (!canBootstrapAgent) return;
+    await runCli("agent_setup", { mcpProfile, mcpClient });
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
+  async function handleAgentUninstall() {
+    await runCli("agent_uninstall");
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
   async function handleSkillUninstall() {
     await runCli("skill_uninstall");
     await runCli("skill_status");
@@ -426,20 +487,27 @@ export function ExternalAISettings() {
       ? parsed.data.snippet ?? JSON.stringify(parsed.data, null, 2)
       : mcpConfig;
     await getPlatformService().copyToClipboard(config);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    setCopiedTarget("mcp");
+    window.setTimeout(() => setCopiedTarget(null), 1600);
+  }
+
+  async function copyAgentSetupCommand() {
+    if (!canBootstrapAgent) return;
+    await getPlatformService().copyToClipboard(agentSetupCommand);
+    setCopiedTarget("agent");
+    window.setTimeout(() => setCopiedTarget(null), 1600);
   }
 
   async function copyEvidenceSnapshot() {
     await getPlatformService().copyToClipboard(evidenceSnapshot);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    setCopiedTarget("evidence");
+    window.setTimeout(() => setCopiedTarget(null), 1600);
   }
 
   function handleMcpProfileChange(value: string) {
     const nextProfile = value as McpProfile;
     setMcpProfile(nextProfile);
-    setCopied(false);
+    setCopiedTarget(null);
     if (nextProfile === "readonly") {
       setProfileRiskConfirmed(false);
     }
@@ -447,7 +515,7 @@ export function ExternalAISettings() {
 
   function handleMcpClientChange(value: string) {
     setMcpClient(value as McpClient);
-    setCopied(false);
+    setCopiedTarget(null);
   }
 
   async function refreshAudit() {
@@ -492,7 +560,7 @@ export function ExternalAISettings() {
               卸载
             </Button>
             <Button size="sm" variant="outline" onClick={copyEvidenceSnapshot} disabled={busy}>
-              复制证据
+              {copiedTarget === "evidence" ? "已复制" : "复制证据"}
             </Button>
           </>,
         )}
@@ -578,6 +646,77 @@ export function ExternalAISettings() {
 
       <section className="rounded-lg bg-muted/60 p-4">
         {sectionHeader(
+          <PackageCheck className="h-4 w-4 text-muted-foreground" />,
+          "Agent bootstrap",
+          statusLabel(canBootstrapAgent, "可复制", "等待确认"),
+          "把这条命令复制给外部 AI，它会安装 ReadAny CLI、安装 skill，并返回 MCP 配置片段。",
+          <>
+            <Button size="sm" variant="outline" onClick={copyAgentSetupCommand} disabled={!canBootstrapAgent}>
+              <Clipboard className="mr-1.5 h-3.5 w-3.5" />
+              {copiedTarget === "agent" ? "已复制" : "复制命令"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleAgentSetup} disabled={!canBootstrapAgent || busy}>
+              一键安装
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleAgentUninstall} disabled={busy}>
+              卸载接入
+            </Button>
+          </>,
+        )}
+
+        <pre className="mt-3 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+          {agentSetupCommand}
+        </pre>
+
+        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+          {evidenceValue("client", MCP_CLIENT_LABELS[mcpClient], false)}
+          {evidenceValue("profile", mcpProfile)}
+          {evidenceValue("skill target", "$AGENT_HOME/skills/readany/SKILL.md")}
+        </div>
+
+        {needsProfileConfirmation ? (
+          <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            当前 profile 会开放 draft 写入或导出能力；确认上方风险开关后才允许复制或执行 bootstrap。
+          </div>
+        ) : null}
+
+        {agentSetup?.ok ? (
+          <div className="mt-3 rounded-md bg-background/40 p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              <p className="text-xs font-medium text-foreground">最近一键安装结果</p>
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+              {evidenceValue("CLI shim", agentSetup.data.install.path)}
+              {evidenceValue("Skill", agentSetup.data.skill.path)}
+              {evidenceValue("MCP format", agentSetup.data.mcp.format)}
+              {evidenceValue("返回命令", agentSetup.data.command)}
+            </div>
+            <pre className="mt-3 max-h-36 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+              {agentSetup.data.mcp.snippet}
+            </pre>
+          </div>
+        ) : null}
+
+        {agentUninstall?.ok ? (
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {evidenceValue("已移除 CLI shim", agentUninstall.data.install.removed)}
+            {evidenceValue("已移除 Skill", agentUninstall.data.skill.removed)}
+          </div>
+        ) : null}
+
+        {agentResult && !agentSetup?.ok && !agentUninstall?.ok ? (
+          <div className="mt-3">
+            {outputPanel(
+              outputSummary(agentResult, agentSetup ?? agentUninstall),
+              agentResult.ok ? "default" : "error",
+            )}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-lg bg-muted/60 p-4">
+        {sectionHeader(
           <Bot className="h-4 w-4 text-muted-foreground" />,
           "External AI Skill",
           statusLabel(skillInstalled, "已安装", "未安装"),
@@ -615,7 +754,7 @@ export function ExternalAISettings() {
           "默认 readonly。editor / publisher 需要用户显式确认，安装 CLI 或 Skill 不等于授权写入。",
           <Button size="sm" variant="outline" onClick={copyMcpConfig} disabled={!canCopyMcpConfig}>
             <Clipboard className="mr-1.5 h-3.5 w-3.5" />
-            {copied ? "已复制" : "复制配置"}
+            {copiedTarget === "mcp" ? "已复制" : "复制配置"}
           </Button>,
         )}
 

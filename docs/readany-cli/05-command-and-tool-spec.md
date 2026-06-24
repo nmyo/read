@@ -13,11 +13,23 @@
 ```bash
 readany --version
 readany doctor [--json]
+readany agent setup [--user|--global] [--client generic|claude|cursor|codex] [--profile readonly|editor|publisher] [--json]
+readany agent uninstall [--user|--global] [--json]
 readany install [--global | --user]
 readany uninstall [--global | --user]
 ```
 
 `install` 和 `uninstall` 用于安装或卸载全局 CLI shim。客户端随包携带 CLI binary，但全局命令由 CLI 自己管理。
+
+`agent setup` 是给外部 AI agent 使用的统一 bootstrap 命令，适合设置页直接复制给大模型执行：
+
+```bash
+readany agent setup --user --client codex --profile readonly --json
+```
+
+它会按安全顺序先校验 `profile/client`，再安装或修复本机 `readany` 命令 shim，安装或更新 `$AGENT_HOME/skills/readany/SKILL.md`，最后返回目标客户端的 MCP `snippet` 和下一步提示。它不会静默写入 Claude/Cursor/Codex 等外部客户端配置；需要由用户或外部 agent 把返回的 `mcp.snippet` 显式放到对应客户端配置里。默认建议只读 `readonly`，`editor` / `publisher` 必须由用户明确授权。
+
+`agent uninstall` 会卸载 ReadAny 管理的 CLI shim 和 ReadAny skill；它不会修改外部客户端配置，返回结果会提醒用户删除曾经手动写入的 MCP 配置片段。
 
 `doctor --json` 输出机器可读诊断，包含路径、profile、Node / native sqlite runtime、CLI distribution（Node script、是否 built bundle、是否桌面资源包、是否 native binary）、工具数量、MCP 默认启动参数、支持的 profile/client、Skill 状态和检查项。
 

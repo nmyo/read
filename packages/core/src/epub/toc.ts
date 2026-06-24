@@ -6,7 +6,12 @@ import {
   writeEpubDraftUndoSnapshot,
   type EpubDraftManifest,
 } from "./draft";
-import { inspectEpubBytes, resolvePackagePath, withEpubPackageResourceReader } from "./inspect";
+import {
+  findPackageResourcePath,
+  inspectEpubBytes,
+  resolvePackagePath,
+  withEpubPackageResourceReader,
+} from "./inspect";
 import { readZipTextEntry, replaceZipTextEntry, sha256Hex } from "./zip";
 
 type ManifestItem = {
@@ -51,7 +56,8 @@ export async function rebuildEpubTocInDraft(
   options: { now?: Date } = {},
 ): Promise<EpubTocRebuildResult> {
   const platform = getPlatformService();
-  const { dataDir, manifestPath, historyPath, manifest } = await readActiveEpubDraftManifest(draftId);
+  const { dataDir, manifestPath, historyPath, manifest } =
+    await readActiveEpubDraftManifest(draftId);
   const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
   if (!(await platform.exists(draftPath))) {
     throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);
@@ -88,7 +94,9 @@ export async function rebuildEpubTocInDraft(
   const nextManifest: EpubDraftManifest = {
     ...manifest,
     updatedAt,
-    inspect: changed ? await inspectEpubBytes(await platform.readFile(draftPath)) : manifest.inspect,
+    inspect: changed
+      ? await inspectEpubBytes(await platform.readFile(draftPath))
+      : manifest.inspect,
   };
   await platform.writeTextFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
 
@@ -123,49 +131,54 @@ async function buildTocPlan(bytes: Uint8Array): Promise<{
   navPath: string;
   items: TocRebuildItem[];
 }> {
-  return withEpubPackageResourceReader(bytes, async ({ packagePath, packageDir, readTextEntry }) => {
-    const opfXml = await readTextEntry(packagePath);
-    if (!opfXml) throw new Error(`EPUB package document was not found: ${packagePath}`);
+  return withEpubPackageResourceReader(
+    bytes,
+    async ({ packagePath, packageDir, entryPaths, readTextEntry }) => {
+      const opfXml = await readTextEntry(packagePath);
+      if (!opfXml) throw new Error(`EPUB package document was not found: ${packagePath}`);
 
-    const manifestItems = parseManifestItems(opfXml);
-    const spineItems = parseSpineItems(opfXml);
-    const navItem = manifestItems.find((item) =>
-      item.properties?.split(/\s+/).includes("nav"),
-    );
-    if (!navItem?.href) {
-      throw new Error("EPUB package manifest does not contain an EPUB3 nav document.");
-    }
+      const manifestItems = parseManifestItems(opfXml);
+      const spineItems = parseSpineItems(opfXml);
+      const navItem = manifestItems.find((item) => item.properties?.split(/\s+/).includes("nav"));
+      if (!navItem?.href) {
+        throw new Error("EPUB package manifest does not contain an EPUB3 nav document.");
+      }
 
-    const manifestById = new Map(manifestItems.map((item) => [item.id, item]));
-    const items: TocRebuildItem[] = [];
-    for (const spine of spineItems) {
-      const item = manifestById.get(spine.idref);
-      if (!item?.href || !isHtmlMediaType(item.mediaType)) continue;
-      const resourcePath = resolvePackagePath(packageDir, item.href);
-      const xml = await readTextEntry(resourcePath);
-      items.push({
-        id: item.id,
-        href: item.href,
-        label: xml ? extractChapterLabel(xml, item.id) : item.id,
-        resourcePath,
-      });
-    }
+      const manifestById = new Map(manifestItems.map((item) => [item.id, item]));
+      const items: TocRebuildItem[] = [];
+      for (const spine of spineItems) {
+        const item = manifestById.get(spine.idref);
+        if (!item?.href || !isHtmlMediaType(item.mediaType)) continue;
+        const resourcePath =
+          findPackageResourcePath(entryPaths, packageDir, item.href) ??
+          resolvePackagePath(packageDir, item.href);
+        const xml = await readTextEntry(resourcePath);
+        items.push({
+          id: item.id,
+          href: item.href,
+          label: xml ? extractChapterLabel(xml, item.id) : item.id,
+          resourcePath,
+        });
+      }
 
-    if (items.length === 0) {
-      throw new Error("EPUB spine does not contain readable XHTML chapters for toc rebuild.");
-    }
+      if (items.length === 0) {
+        throw new Error("EPUB spine does not contain readable XHTML chapters for toc rebuild.");
+      }
 
-    const navPath = resolvePackagePath(packageDir, navItem.href);
-    const navDir = getZipDir(navPath);
+      const navPath =
+        findPackageResourcePath(entryPaths, packageDir, navItem.href) ??
+        resolvePackagePath(packageDir, navItem.href);
+      const navDir = getZipDir(navPath);
 
-    return {
-      navPath,
-      items: items.map((item) => ({
-        ...item,
-        href: relativeZipPath(navDir, item.resourcePath),
-      })),
-    };
-  });
+      return {
+        navPath,
+        items: items.map((item) => ({
+          ...item,
+          href: relativeZipPath(navDir, item.resourcePath),
+        })),
+      };
+    },
+  );
 }
 
 function replaceTocNav(navXml: string, items: TocRebuildItem[]): string {
@@ -230,16 +243,16 @@ function extractChapterLabel(xml: string, fallback: string): string {
   const doc = new DOMParser().parseFromString(xml, "application/xml") as unknown as Document;
   const title = firstText(doc, "title");
   if (title) return title;
-  const heading = ["h1", "h2", "h3"]
-    .map((localName) => firstText(doc, localName))
-    .find(Boolean);
+  const heading = ["h1", "h2", "h3"].map((localName) => firstText(doc, localName)).find(Boolean);
   return heading || fallback;
 }
 
 function firstText(doc: Document, localName: string): string | undefined {
-  return Array.from(doc.getElementsByTagName("*"))
-    .find((element) => element.localName === localName)
-    ?.textContent?.trim() || undefined;
+  return (
+    Array.from(doc.getElementsByTagName("*"))
+      .find((element) => element.localName === localName)
+      ?.textContent?.trim() || undefined
+  );
 }
 
 function isHtmlMediaType(mediaType: string): boolean {

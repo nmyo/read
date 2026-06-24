@@ -184,6 +184,25 @@ describe("mcp", () => {
     });
   });
 
+  it("accepts initialized notifications without reporting an MCP error", async () => {
+    const env = await createEnv();
+    const response = await handleMcpRequest(
+      { method: "notifications/initialized" },
+      "readonly",
+      env,
+    );
+    expect(response).toEqual({});
+
+    const auditPath = getAuditLogFilePath(
+      join(env.READANY_HOME!, "logs", "cli"),
+      new Date().toISOString(),
+    );
+    const auditContent = await readFile(auditPath, "utf8");
+    expect(auditContent).toContain('"action":"notifications/initialized"');
+    expect(auditContent).toContain('"ok":true');
+    expect(auditContent).not.toContain('"code":"jsonrpc_error"');
+  });
+
   it("lists implemented readonly tools only", async () => {
     const response = await handleMcpRequest({ method: "tools/list" }, "readonly", await createEnv());
     expect(response).toMatchObject({

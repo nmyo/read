@@ -28,6 +28,8 @@
 ```bash
 readany install
 readany uninstall
+readany agent setup --user --client codex --profile readonly --json
+readany agent uninstall --user --json
 readany doctor --json
 readany skill install
 readany skill uninstall
@@ -56,6 +58,7 @@ readany skill status --json
 - 卸载。
 - 修复。
 - 诊断。
+- 复制给外部 AI 的一键安装命令。
 - 复制诊断证据快照。
 
 ### 2. External AI Skill
@@ -84,8 +87,17 @@ readany skill status --json
 操作：
 
 - 复制 MCP 配置。
+- 复制外部 AI bootstrap 命令。
 - 测试连接。
 - 切换 profile。
+
+给外部 AI 的推荐命令由 CLI 自己执行和返回，设置页不要手拼多步流程：
+
+```bash
+readany agent setup --user --client codex --profile readonly --json
+```
+
+返回值包含 `install`、`skill`、`mcp.snippet`、`nextSteps`。设置页可以把整条命令复制给用户，也可以在高级区域展示 JSON 结果；外部客户端配置仍必须由用户或外部 agent 显式写入，不做静默注册。
 
 复制配置时给外部 agent 的最小片段可由 CLI 生成：
 

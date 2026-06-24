@@ -86,18 +86,20 @@ export async function searchBooks(query: string, limit = 20, env: NodeJS.Process
   await ensureCoreInitialized(env);
   const needle = query.trim().toLowerCase();
   const books = await getBooks();
-  return books.filter((book: Book) => {
-    const haystack = [
-      book.meta.title,
-      book.meta.author,
-      book.meta.description,
-      ...(book.tags || []),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(needle);
-  }).slice(0, limit);
+  return books
+    .filter((book: Book) => {
+      const haystack = [
+        book.meta.title,
+        book.meta.author,
+        book.meta.description,
+        ...(book.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    })
+    .slice(0, limit);
 }
 
 export async function getBookById(bookId: string, env: NodeJS.ProcessEnv = process.env) {
@@ -281,16 +283,14 @@ export async function createEpubDraftForBook(
   return createEpubDraft(book);
 }
 
-export async function readEpubChapter(
-  options: {
-    bookId?: string;
-    draftId?: string;
-    chapterId: string;
-    contentLimit?: number;
-    contentFormat?: "text" | "xhtml";
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<import("@readany/core/epub/chapter").EpubChapterReadResult | null> {
+export async function readEpubChapter(options: {
+  bookId?: string;
+  draftId?: string;
+  chapterId: string;
+  contentLimit?: number;
+  contentFormat?: "text" | "xhtml";
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/epub/chapter").EpubChapterReadResult | null> {
   const { bookId, draftId, chapterId, contentLimit, contentFormat, env = process.env } = options;
   await ensureCoreInitialized(env);
 
@@ -302,7 +302,9 @@ export async function readEpubChapter(
   const book = await getBook(bookId);
   if (!book) return null;
   if (book.format !== "epub") {
-    throw new Error(`Book ${bookId} is ${book.format}; only EPUB chapter reads are currently supported.`);
+    throw new Error(
+      `Book ${bookId} is ${book.format}; only EPUB chapter reads are currently supported.`,
+    );
   }
   return readEpubChapterFromBookFile(bookId, book.filePath, chapterId, {
     contentLimit,
@@ -310,14 +312,12 @@ export async function readEpubChapter(
   });
 }
 
-export async function patchEpubChapter(
-  options: {
-    draftId: string;
-    chapterId: string;
-    xhtml: string;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<EpubChapterPatchResult> {
+export async function patchEpubChapter(options: {
+  draftId: string;
+  chapterId: string;
+  xhtml: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<EpubChapterPatchResult> {
   const { draftId, chapterId, xhtml, env = process.env } = options;
   await ensureCoreInitialized(env);
   return patchEpubChapterInDraft(draftId, chapterId, xhtml);
@@ -339,13 +339,11 @@ export type EpubChaptersPatchResult = {
   historyPath: string;
 };
 
-export async function patchEpubChapters(
-  options: {
-    draftId: string;
-    patches: unknown;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<EpubChaptersPatchResult> {
+export async function patchEpubChapters(options: {
+  draftId: string;
+  patches: unknown;
+  env?: NodeJS.ProcessEnv;
+}): Promise<EpubChaptersPatchResult> {
   const { draftId, patches, env = process.env } = options;
   const patchPlan = assertEpubChapterPatchPlan(patches);
   await ensureCoreInitialized(env);
@@ -406,13 +404,11 @@ export function assertEpubChapterPatchPlan(patches: unknown): EpubChapterPatchPl
   return plan;
 }
 
-export async function patchEpubMetadata(
-  options: {
-    draftId: string;
-    patch: import("@readany/core/epub/metadata").EpubMetadataPatch;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<import("@readany/core/epub/metadata").EpubMetadataPatchResult> {
+export async function patchEpubMetadata(options: {
+  draftId: string;
+  patch: import("@readany/core/epub/metadata").EpubMetadataPatch;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/epub/metadata").EpubMetadataPatchResult> {
   const { draftId, patch, env = process.env } = options;
   await ensureCoreInitialized(env);
   return patchEpubMetadataInDraft(draftId, patch);
@@ -426,25 +422,21 @@ export async function getEpubDraftHistory(
   return readEpubDraftHistory(draftId);
 }
 
-export async function discardEpubDraftWorkspace(
-  options: {
-    draftId: string;
-    reason?: string;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<import("@readany/core/epub/draft").EpubDraftDiscardResult> {
+export async function discardEpubDraftWorkspace(options: {
+  draftId: string;
+  reason?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/epub/draft").EpubDraftDiscardResult> {
   const { draftId, reason, env = process.env } = options;
   await ensureCoreInitialized(env);
   return discardEpubDraft(draftId, { reason });
 }
 
-export async function undoEpubDraftWorkspace(
-  options: {
-    draftId: string;
-    operationId: string;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<import("@readany/core/epub/draft").EpubDraftUndoResult> {
+export async function undoEpubDraftWorkspace(options: {
+  draftId: string;
+  operationId: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/epub/draft").EpubDraftUndoResult> {
   const { draftId, operationId, env = process.env } = options;
   await ensureCoreInitialized(env);
   return undoEpubDraftOperation(draftId, operationId);
@@ -474,14 +466,12 @@ export async function validateEpubDraftWorkspace(
   return validateEpubDraft(draftId);
 }
 
-export async function exportEpubDraftWorkspace(
-  options: {
-    draftId: string;
-    outputPath: string;
-    overwrite?: boolean;
-    env?: NodeJS.ProcessEnv;
-  },
-): Promise<import("@readany/core/epub/export").EpubExportResult> {
+export async function exportEpubDraftWorkspace(options: {
+  draftId: string;
+  outputPath: string;
+  overwrite?: boolean;
+  env?: NodeJS.ProcessEnv;
+}): Promise<import("@readany/core/epub/export").EpubExportResult> {
   const { draftId, outputPath, overwrite, env = process.env } = options;
   await ensureCoreInitialized(env);
   return exportEpubDraft(draftId, { outputPath, overwrite });
@@ -652,9 +642,7 @@ function getChapterIndexFromId(chapterId: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export async function listIndexedChapters(
-  options: ChapterListOptions,
-): Promise<ChapterSummary[]> {
+export async function listIndexedChapters(options: ChapterListOptions): Promise<ChapterSummary[]> {
   const { bookId, env = process.env } = options;
   await ensureCoreInitialized(env);
   const chunks = await getChunks(bookId);
@@ -688,15 +676,10 @@ export async function listIndexedChapters(
   return listFallbackChapters(bookId, env);
 }
 
-export async function getIndexedChapter(options: ChapterGetOptions): Promise<ChapterReadResult | null> {
-  const {
-    bookId,
-    chapterId,
-    contentLimit,
-    chunkStart,
-    chunkCount,
-    env = process.env,
-  } = options;
+export async function getIndexedChapter(
+  options: ChapterGetOptions,
+): Promise<ChapterReadResult | null> {
+  const { bookId, chapterId, contentLimit, chunkStart, chunkCount, env = process.env } = options;
 
   await ensureCoreInitialized(env);
   const chapterIndex = getChapterIndexFromId(chapterId);
@@ -704,7 +687,9 @@ export async function getIndexedChapter(options: ChapterGetOptions): Promise<Cha
     return getFallbackChapter({ bookId, chapterId, contentLimit });
   }
 
-  const allChunks = (await getChunks(bookId)).filter((chunk) => chunk.chapterIndex === chapterIndex);
+  const allChunks = (await getChunks(bookId)).filter(
+    (chunk) => chunk.chapterIndex === chapterIndex,
+  );
   if (allChunks.length === 0) {
     return getFallbackChapter({ bookId, chapterId, contentLimit });
   }
@@ -771,24 +756,32 @@ async function listEpubFallbackChapters(
   const inspect = await inspectEpubBook(bookId, env);
   if (!inspect) return [];
   const packageDir = getPackageDir(inspect.packagePath);
-  const tocByHref = new Map(
-    inspect.toc.items.map((item) => [stripHrefFragment(item.href), item.label]),
-  );
+  const tocByHref = new Map<string, string>();
+  for (const item of inspect.toc.items) {
+    const href = stripHrefFragment(item.href);
+    if (href && item.label && !tocByHref.has(href)) {
+      tocByHref.set(href, item.label);
+    }
+  }
 
   return inspect.spine.items
     .filter((item) => item.idref && item.linear !== "no" && item.mediaType?.includes("html"))
-    .map((item, index) => ({
-      source: "epub" as const,
-      id: item.idref,
-      bookId,
-      index,
-      title:
-        (item.href && tocByHref.get(stripHrefFragment(item.href))) ||
-        (item.href && tocByHref.get(stripHrefFragment(resolvePackagePath(packageDir, item.href)))) ||
-        `Chapter ${index + 1}`,
-      href: item.href ?? "",
-      mediaType: item.mediaType,
-    }));
+    .map((item, index) => {
+      const title = item.href
+        ? resolveHrefLookupCandidates(packageDir, item.href)
+            .map((href) => tocByHref.get(stripHrefFragment(href)))
+            .find((label): label is string => Boolean(label?.trim()))
+        : undefined;
+      return {
+        source: "epub" as const,
+        id: item.idref,
+        bookId,
+        index,
+        title: title || `Chapter ${index + 1}`,
+        href: item.href ?? "",
+        mediaType: item.mediaType,
+      };
+    });
 }
 
 async function getFallbackChapter(options: {
@@ -839,6 +832,25 @@ function resolvePackagePath(packageDir: string, href: string): string {
   return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
 }
 
+function resolveHrefLookupCandidates(packageDir: string, href: string): string[] {
+  const decodedHref = safeDecodeURIComponent(href);
+  const candidates = [
+    href,
+    decodedHref,
+    resolvePackagePath(packageDir, href),
+    decodedHref ? resolvePackagePath(packageDir, decodedHref) : undefined,
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  return Array.from(new Set(candidates));
+}
+
+function safeDecodeURIComponent(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export type RagSearchOptions = {
   query: string;
   bookId: string;
@@ -877,14 +889,7 @@ function truncateContent(content: string, limit: number): { content: string; tru
 }
 
 export async function searchRag(options: RagSearchOptions): Promise<RagSearchItem[]> {
-  const {
-    query,
-    bookId,
-    mode = "bm25",
-    limit,
-    contentLimit,
-    env = process.env,
-  } = options;
+  const { query, bookId, mode = "bm25", limit, contentLimit, env = process.env } = options;
 
   await ensureCoreInitialized(env);
   await configureRagSearchForCli(mode, env);

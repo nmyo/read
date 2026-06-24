@@ -6,7 +6,7 @@ import {
   type EpubDraftManifest,
 } from "./draft";
 import { generateId } from "../utils/generate-id";
-import { inspectEpubBytes } from "./inspect";
+import { findPackageResourcePath, inspectEpubBytes } from "./inspect";
 import { withEpubPackageResourceReader } from "./inspect";
 import { replaceZipTextEntry, sha256Hex } from "./zip";
 
@@ -90,7 +90,8 @@ export async function patchEpubChapterInDraft(
   options: { now?: Date; previewLimit?: number } = {},
 ): Promise<EpubChapterPatchResult> {
   const platform = getPlatformService();
-  const { dataDir, manifestPath, historyPath, manifest } = await readActiveEpubDraftManifest(draftId);
+  const { dataDir, manifestPath, historyPath, manifest } =
+    await readActiveEpubDraftManifest(draftId);
   const draftPath = await platform.joinPath(dataDir, manifest.draftFilePath);
   if (!(await platform.exists(draftPath))) {
     throw new Error(`EPUB draft file was not found: ${manifest.draftFilePath}`);
@@ -123,7 +124,9 @@ export async function patchEpubChapterInDraft(
   const nextManifest: EpubDraftManifest = {
     ...manifest,
     updatedAt,
-    inspect: changed ? await inspectEpubBytes(await platform.readFile(draftPath)) : manifest.inspect,
+    inspect: changed
+      ? await inspectEpubBytes(await platform.readFile(draftPath))
+      : manifest.inspect,
   };
   await platform.writeTextFile(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
 
@@ -196,28 +199,32 @@ async function findChapterResource(
   resourcePath: string;
   content: string;
 }> {
-  return withEpubPackageResourceReader(bytes, async ({ packagePath, packageDir, readTextEntry }) => {
-    const opfXml = await readTextEntry(packagePath);
-    if (!opfXml) throw new Error(`EPUB package document was not found: ${packagePath}`);
+  return withEpubPackageResourceReader(
+    bytes,
+    async ({ packagePath, packageDir, entryPaths, readTextEntry }) => {
+      const opfXml = await readTextEntry(packagePath);
+      if (!opfXml) throw new Error(`EPUB package document was not found: ${packagePath}`);
 
-    const manifestItems = parseManifestItems(opfXml);
-    const item = manifestItems.find((candidate) => candidate.id === chapterId);
-    if (!item) {
-      throw new Error(`EPUB chapter resource was not found: ${chapterId}`);
-    }
-    if (!item.mediaType.includes("html")) {
-      throw new Error(`EPUB resource is not a readable XHTML chapter: ${chapterId}`);
-    }
+      const manifestItems = parseManifestItems(opfXml);
+      const item = manifestItems.find((candidate) => candidate.id === chapterId);
+      if (!item) {
+        throw new Error(`EPUB chapter resource was not found: ${chapterId}`);
+      }
+      if (!item.mediaType.includes("html")) {
+        throw new Error(`EPUB resource is not a readable XHTML chapter: ${chapterId}`);
+      }
 
-    const resourcePath = resolvePackagePath(packageDir, item.href);
-    const content = await readTextEntry(resourcePath);
-    if (!content) throw new Error(`EPUB chapter file was not found: ${item.href}`);
-    return {
-      ...item,
-      resourcePath,
-      content,
-    };
-  });
+      const resourcePath = findPackageResourcePath(entryPaths, packageDir, item.href);
+      if (!resourcePath) throw new Error(`EPUB chapter file was not found: ${item.href}`);
+      const content = await readTextEntry(resourcePath);
+      if (!content) throw new Error(`EPUB chapter file was not found: ${item.href}`);
+      return {
+        ...item,
+        resourcePath,
+        content,
+      };
+    },
+  );
 }
 
 async function readEpubChapterBytes(
@@ -228,7 +235,8 @@ async function readEpubChapterBytes(
   const chapter = await findChapterResource(bytes, chapterId);
   const title = extractTitle(chapter.content);
   const contentFormat = options.contentFormat ?? "text";
-  const content = contentFormat === "xhtml" ? chapter.content : extractReadableText(chapter.content);
+  const content =
+    contentFormat === "xhtml" ? chapter.content : extractReadableText(chapter.content);
   const contentLimit = clampContentLimit(options.contentLimit);
   const truncated = content.length > contentLimit;
   return {
@@ -243,7 +251,9 @@ async function readEpubChapterBytes(
   };
 }
 
-function parseManifestItems(opfXml: string): Array<{ id: string; href: string; mediaType: string }> {
+function parseManifestItems(
+  opfXml: string,
+): Array<{ id: string; href: string; mediaType: string }> {
   const doc = new DOMParser().parseFromString(opfXml, "application/xml") as unknown as Document;
   return Array.from(doc.getElementsByTagName("*"))
     .filter((element) => element.localName === "item")
@@ -308,11 +318,6 @@ function collectText(node: Node, chunks: string[]): void {
 function clampContentLimit(limit: number | undefined): number {
   if (!Number.isFinite(limit) || !limit || limit <= 0) return 12000;
   return Math.min(Math.floor(limit), 50000);
-}
-
-function resolvePackagePath(packageDir: string, href: string): string {
-  if (!packageDir) return href;
-  return `${packageDir}${href}`.replace(/\/{2,}/g, "/");
 }
 
 async function appendHistoryLine(path: string, entry: unknown): Promise<void> {

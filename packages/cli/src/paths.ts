@@ -90,14 +90,14 @@ export function getReadAnyHome(env: NodeJS.ProcessEnv = process.env): string {
   if (env.READANY_HOME) return resolve(env.READANY_HOME);
 
   if (platform() === "win32") {
-    return join(env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "ReadAny");
+    return join(env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "com.readany.app");
   }
 
   if (platform() === "darwin") {
-    return join(homedir(), "Library", "Application Support", "ReadAny");
+    return join(homedir(), "Library", "Application Support", "com.readany.app");
   }
 
-  return join(env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), "readany");
+  return join(env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), "com.readany.app");
 }
 
 export function getCliPaths(env: NodeJS.ProcessEnv = process.env): CliPaths {

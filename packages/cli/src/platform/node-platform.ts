@@ -22,7 +22,7 @@ function normalizeDir(path: string): string {
 function getDefaultDataRoot(env: NodeJS.ProcessEnv): string {
   return env.READANY_HOME
     ? resolve(env.READANY_HOME)
-    : join(homedir(), "Library", "Application Support", "ReadAny");
+    : join(homedir(), "Library", "Application Support", "com.readany.app");
 }
 
 function getDesktopDataRootConfigPath(env: NodeJS.ProcessEnv): string {

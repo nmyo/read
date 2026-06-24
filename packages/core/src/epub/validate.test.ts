@@ -52,6 +52,29 @@ function buildInvalidEpub(): Uint8Array {
   ]);
 }
 
+function buildEpubWithEncodedResourceHrefs(): Uint8Array {
+  return buildStoreOnlyZip([
+    textEntry("mimetype", "application/epub+zip"),
+    textEntry(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`,
+    ),
+    textEntry(
+      "OPS/package.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Encoded Valid Draft</dc:title><dc:creator>Ada Reader</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="nav" href="nav%3A.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter-1" href="chapter%3A1.xhtml" media-type="application/xhtml+xml"/><item id="css" href="style%3A.css" media-type="text/css"/></manifest><spine><itemref idref="chapter-1"/></spine></package>`,
+    ),
+    textEntry(
+      "OPS/nav:.xhtml",
+      `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter%3A1.xhtml">Encoded Start</a></li></ol></nav></body></html>`,
+    ),
+    textEntry(
+      "OPS/chapter:1.xhtml",
+      `<html xmlns="http://www.w3.org/1999/xhtml"><head><link href="style%3A.css" rel="stylesheet"/></head><body><h1>Encoded Start</h1><img src="kindle:embed:0001?mime=image/jpg"/></body></html>`,
+    ),
+    textEntry("OPS/style:.css", "body { line-height: 1.6; }"),
+  ]);
+}
+
 async function createPlatform(root: string) {
   const dataDir = join(root, "library");
   await mkdir(join(dataDir, "books"), { recursive: true });
@@ -196,5 +219,30 @@ describe("validateEpubDraft", () => {
         expect.objectContaining({ code: "manifest_resource_missing", severity: "error" }),
       ]),
     );
+  });
+
+  it("accepts percent-encoded EPUB hrefs and ignores Kindle internal resource links", async () => {
+    const root = await mkdtemp(join(tmpdir(), "readany-core-validate-"));
+    const dataDir = await createPlatform(root);
+    await writeFile(join(dataDir, "books", "encoded.epub"), buildEpubWithEncodedResourceHrefs());
+    const book = {
+      id: "book-encoded",
+      filePath: "books/encoded.epub",
+      format: "epub",
+      meta: { title: "Encoded Valid Draft" },
+    } as Book;
+    await createEpubDraft(book, { draftId: "draft-encoded" });
+
+    const validation = await validateEpubDraft("draft-encoded");
+
+    expect(validation).toMatchObject({
+      valid: true,
+      manifestItemCount: 3,
+      spineItemCount: 1,
+      tocItemCount: 1,
+      errorCount: 0,
+      warningCount: 0,
+      issues: [],
+    });
   });
 });

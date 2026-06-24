@@ -66,6 +66,8 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "install" => Ok(strings(&["install", "--user", "--json"])),
         "repair" => Ok(strings(&["repair", "--user", "--json"])),
         "uninstall" => Ok(strings(&["uninstall", "--user", "--json"])),
+        "agent_setup" => agent_setup_args(options),
+        "agent_uninstall" => Ok(strings(&["agent", "uninstall", "--user", "--json"])),
         "doctor" => Ok(strings(&["doctor", "--json"])),
         "mcp_config" => mcp_config_args(options),
         "tools_list" => Ok(strings(&["tools", "list", "--json"])),
@@ -88,6 +90,29 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "epub_draft_discard" => epub_draft_discard_args(options),
         _ => Err(format!("Unsupported ReadAny CLI action: {}", action)),
     }
+}
+
+fn agent_setup_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let profile = match options.mcp_profile.as_deref().unwrap_or("readonly") {
+        "readonly" | "editor" | "publisher" => options.mcp_profile.as_deref().unwrap_or("readonly"),
+        _ => return Err("Unsupported MCP profile.".to_string()),
+    };
+    let client = match options.mcp_client.as_deref().unwrap_or("generic") {
+        "generic" | "claude" | "cursor" | "codex" => {
+            options.mcp_client.as_deref().unwrap_or("generic")
+        }
+        _ => return Err("Unsupported MCP client.".to_string()),
+    };
+    Ok(vec![
+        "agent".to_string(),
+        "setup".to_string(),
+        "--user".to_string(),
+        "--client".to_string(),
+        client.to_string(),
+        "--profile".to_string(),
+        profile.to_string(),
+        "--json".to_string(),
+    ])
 }
 
 fn mcp_config_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
@@ -495,6 +520,8 @@ fn action_can_use_bundled_cli(action: &str) -> bool {
             | "install"
             | "repair"
             | "uninstall"
+            | "agent_setup"
+            | "agent_uninstall"
             | "doctor"
             | "mcp_config"
             | "tools_list"
@@ -641,6 +668,43 @@ mod tests {
                 "--json".to_string()
             ])
         );
+        assert_eq!(
+            args_for_action("agent_uninstall", &ReadAnyCliRunOptions::default()),
+            Ok(vec![
+                "agent".to_string(),
+                "uninstall".to_string(),
+                "--user".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "agent_setup",
+                &ReadAnyCliRunOptions {
+                    mcp_profile: Some("readonly".to_string()),
+                    mcp_client: Some("codex".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "agent".to_string(),
+                "setup".to_string(),
+                "--user".to_string(),
+                "--client".to_string(),
+                "codex".to_string(),
+                "--profile".to_string(),
+                "readonly".to_string(),
+                "--json".to_string()
+            ])
+        );
+        assert!(args_for_action(
+            "agent_setup",
+            &ReadAnyCliRunOptions {
+                mcp_client: Some("vscode".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
         assert_eq!(
             args_for_action("mcp_config", &ReadAnyCliRunOptions::default()),
             Ok(vec![
@@ -1113,6 +1177,20 @@ mod tests {
         fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
 
         let command = resolve_cli_command("install", Some(root.clone()));
+        assert_eq!(command.program, "node");
+        assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
+        assert_eq!(command.source, "bundle");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolves_agent_setup_to_bundled_cli_before_path() {
+        let root = temp_test_dir("agent-bundle");
+        let cli = root.join("readany-cli/bin/readany.js");
+        fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
+        fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
+
+        let command = resolve_cli_command("agent_setup", Some(root.clone()));
         assert_eq!(command.program, "node");
         assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
         assert_eq!(command.source, "bundle");
