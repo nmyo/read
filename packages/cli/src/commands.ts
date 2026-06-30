@@ -1,3 +1,6 @@
+import { lstat, mkdir, readFile, readlink, rm, symlink } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { CLI_VERSION } from "./version.js";
 import { getCliPaths, resolveExecutablePath } from "./paths.js";
 import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles.js";
@@ -25,6 +28,7 @@ type AgentSetupResult = {
   command: string;
   install: Awaited<ReturnType<typeof installCli>>;
   skill: Awaited<ReturnType<typeof installSkill>> | Awaited<ReturnType<typeof updateSkill>>;
+  clientSkillLinks: ClientSkillLinkResult[];
   mcp: ReturnType<typeof createMcpConfig>;
   nextSteps: string[];
 };
@@ -34,7 +38,21 @@ type AgentUninstallResult = {
   command: string;
   install: Awaited<ReturnType<typeof uninstallCli>>;
   skill: Awaited<ReturnType<typeof uninstallSkill>>;
+  clientSkillLinks: ClientSkillUnlinkResult[];
   nextSteps: string[];
+};
+
+type ClientSkillLinkResult = {
+  client: "codex";
+  linked: true;
+  path: string;
+  target: string;
+};
+
+type ClientSkillUnlinkResult = {
+  client: "codex";
+  removed: boolean;
+  path: string;
 };
 
 export function parseCommand(argv: string[]): ParsedCommand {
@@ -393,7 +411,6 @@ async function assertSkillCanBeManaged(skillFile: string): Promise<void> {
   if (status.installed) return;
 
   try {
-    const { readFile } = await import("node:fs/promises");
     await readFile(skillFile, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
@@ -403,25 +420,132 @@ async function assertSkillCanBeManaged(skillFile: string): Promise<void> {
   throw new Error(`Skill file already exists and is not managed by ReadAny CLI: ${skillFile}`);
 }
 
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+function getCodexSkillLinkPath(env: NodeJS.ProcessEnv): string {
+  const codexHome = env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homedir(), ".codex");
+  return join(codexHome, "skills", "readany");
+}
+
+async function assertClientSkillLinkCanBeManaged(
+  linkPath: string,
+  targetDir: string,
+): Promise<void> {
+  if (!(await pathExists(linkPath))) return;
+
+  const stat = await lstat(linkPath);
+  if (stat.isSymbolicLink()) {
+    const target = await readlink(linkPath);
+    if (target === targetDir) return;
+    throw new Error(
+      `Client skill link already exists and is not managed by ReadAny CLI: ${linkPath}`,
+    );
+  }
+
+  const skillFile = join(linkPath, "SKILL.md");
+  const status = await getSkillStatus(skillFile);
+  if (status.installed) return;
+
+  throw new Error(`Client skill already exists and is not managed by ReadAny CLI: ${linkPath}`);
+}
+
+async function installClientSkillLinks(options: {
+  client: McpConfigClient;
+  env: NodeJS.ProcessEnv;
+  skillDir: string;
+}): Promise<ClientSkillLinkResult[]> {
+  if (options.client !== "codex") return [];
+
+  const linkPath = getCodexSkillLinkPath(options.env);
+  await mkdir(dirname(linkPath), { recursive: true });
+  await assertClientSkillLinkCanBeManaged(linkPath, options.skillDir);
+  await rm(linkPath, { force: true, recursive: true });
+  await symlink(options.skillDir, linkPath, "dir");
+
+  return [
+    {
+      client: "codex",
+      linked: true,
+      path: linkPath,
+      target: options.skillDir,
+    },
+  ];
+}
+
+async function assertClientSkillLinksCanBeManaged(options: {
+  client: McpConfigClient;
+  env: NodeJS.ProcessEnv;
+  skillDir: string;
+}): Promise<void> {
+  if (options.client !== "codex") return;
+  await assertClientSkillLinkCanBeManaged(getCodexSkillLinkPath(options.env), options.skillDir);
+}
+
+async function uninstallClientSkillLinks(
+  env: NodeJS.ProcessEnv,
+): Promise<ClientSkillUnlinkResult[]> {
+  const linkPath = getCodexSkillLinkPath(env);
+  if (!(await pathExists(linkPath))) {
+    return [{ client: "codex", removed: false, path: linkPath }];
+  }
+
+  const stat = await lstat(linkPath);
+  if (stat.isSymbolicLink()) {
+    await rm(linkPath, { force: true });
+    return [{ client: "codex", removed: true, path: linkPath }];
+  }
+
+  const skillFile = join(linkPath, "SKILL.md");
+  const status = await getSkillStatus(skillFile);
+  if (!status.installed) {
+    return [{ client: "codex", removed: false, path: linkPath }];
+  }
+
+  await rm(linkPath, { force: true, recursive: true });
+  return [{ client: "codex", removed: true, path: linkPath }];
+}
+
 async function setupAgent(
   command: ParsedCommand,
   paths: ReturnType<typeof getCliPaths>,
+  env: NodeJS.ProcessEnv,
 ): Promise<AgentSetupResult> {
   const setupCommand = createAgentSetupCommand(command);
-  const mcp = createMcpConfig(command.profile, getRequiredStringOption(command, "client"));
+  const client = parseMcpConfigClient(getRequiredStringOption(command, "client"));
+  const mcp = createMcpConfig(command.profile, client);
   await assertSkillCanBeManaged(paths.skillFile);
+  await assertClientSkillLinksCanBeManaged({
+    client,
+    env,
+    skillDir: paths.skillDir,
+  });
   const install = await installCli(getInstallOptions(command, paths.binPath));
   const skill = await installOrUpdateReadAnySkill(paths.skillFile);
+  const clientSkillLinks = await installClientSkillLinks({
+    client,
+    env,
+    skillDir: paths.skillDir,
+  });
 
   return {
     setup: true,
     command: setupCommand,
     install,
     skill,
+    clientSkillLinks,
     mcp,
     nextSteps: [
       `Run ${setupCommand} from the external agent if setup needs to be repeated.`,
       "Paste mcp.snippet into the selected agent client config if the client does not import it automatically.",
+      "Restart or reload the selected agent client so newly installed skills and MCP config are discovered.",
       "Use readonly profile by default; switch to editor or publisher only after the user approves write/export access.",
     ],
   };
@@ -430,6 +554,7 @@ async function setupAgent(
 async function uninstallAgent(
   command: ParsedCommand,
   paths: ReturnType<typeof getCliPaths>,
+  env: NodeJS.ProcessEnv,
 ): Promise<AgentUninstallResult> {
   const uninstallCommand = createAgentUninstallCommand(command);
 
@@ -438,6 +563,7 @@ async function uninstallAgent(
     command: uninstallCommand,
     install: await uninstallCli(getInstallOptions(command, paths.binPath)),
     skill: await uninstallSkill(paths.skillFile),
+    clientSkillLinks: await uninstallClientSkillLinks(env),
     nextSteps: [
       "Remove any readany MCP server snippet from external agent client configs that were edited manually.",
     ],
@@ -470,11 +596,11 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
       const subcommand = command.args[0] ?? "setup";
 
       if (subcommand === "setup" || subcommand === "install") {
-        return success(await setupAgent(command, paths));
+        return success(await setupAgent(command, paths, env));
       }
 
       if (subcommand === "uninstall") {
-        return success(await uninstallAgent(command, paths));
+        return success(await uninstallAgent(command, paths, env));
       }
 
       return failure("unknown_agent_command", `Unknown agent command: ${subcommand}`);

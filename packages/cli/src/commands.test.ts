@@ -1,4 +1,4 @@
-import { access, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, lstat, mkdtemp, mkdir, readFile, readlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -110,6 +110,7 @@ async function createWorkspace() {
     env: {
       ...process.env,
       AGENT_HOME: join(root, "agent"),
+      CODEX_HOME: join(root, "codex"),
       READANY_HOME: dataRoot,
     } as NodeJS.ProcessEnv,
   };
@@ -395,6 +396,7 @@ describe("commands", () => {
     const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
     const userBinDir = join(workspace.root, "bin with spaces");
     const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
+    const codexSkillLink = join(workspace.root, "codex", "skills", "readany");
     await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
     await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
     const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
@@ -432,6 +434,14 @@ describe("commands", () => {
           path: skillFile,
           version: "0.1.0",
         },
+        clientSkillLinks: [
+          {
+            client: "codex",
+            linked: true,
+            path: codexSkillLink,
+            target: join(workspace.root, "agent", "skills", "readany"),
+          },
+        ],
         mcp: {
           client: "codex",
           format: "toml",
@@ -447,6 +457,8 @@ describe("commands", () => {
     expect(await readFile(skillFile, "utf8")).toContain(
       "readany mcp config --profile readonly --client codex --json",
     );
+    expect((await lstat(codexSkillLink)).isSymbolicLink()).toBe(true);
+    expect(await readlink(codexSkillLink)).toBe(join(workspace.root, "agent", "skills", "readany"));
 
     const repeatedSetup = await runCommand(
       ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "generic"],
@@ -486,12 +498,20 @@ describe("commands", () => {
           removed: true,
           path: skillFile,
         },
+        clientSkillLinks: [
+          {
+            client: "codex",
+            removed: true,
+            path: codexSkillLink,
+          },
+        ],
       },
     });
     expect(
       await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
     ).toBe(false);
     expect(await pathExists(skillFile)).toBe(false);
+    expect(await pathExists(codexSkillLink)).toBe(false);
   });
 
   it("does not install agent files when setup options are invalid", async () => {
@@ -513,6 +533,31 @@ describe("commands", () => {
       await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
     ).toBe(false);
     expect(await pathExists(skillFile)).toBe(false);
+  });
+
+  it("does not overwrite unmanaged client skill links during agent setup", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const userBinDir = join(workspace.root, "bin");
+    const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
+    const codexSkillDir = join(workspace.root, "codex", "skills", "readany");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await mkdir(codexSkillDir, { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    await writeFile(join(codexSkillDir, "SKILL.md"), "# User ReadAny Skill\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+
+    const setup = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "codex"],
+      env,
+    );
+
+    expect(setup).toMatchObject({ ok: false, error: { code: "command_failed" } });
+    expect(
+      await pathExists(join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany")),
+    ).toBe(false);
+    expect(await pathExists(skillFile)).toBe(false);
+    expect(await readFile(join(codexSkillDir, "SKILL.md"), "utf8")).toBe("# User ReadAny Skill\n");
   });
 
   it("does not install the agent shim when the skill file is unmanaged", async () => {
