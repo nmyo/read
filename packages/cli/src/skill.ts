@@ -69,8 +69,9 @@ Use this skill when the user asks an external AI agent to search, read, organize
 
 ## Client Setup Notes
 
-- \`codex\`, \`claude\`, and \`cursor\` setup link this managed skill into the known client skill directory.
-- \`opencode\` setup returns an OpenCode \`mcp.readany\` config snippet; use MCP because OpenCode skill discovery is not standardized.
+- \`all\` setup links this managed skill into all known user skill discovery directories.
+- \`codex\`, \`claude\`, \`cursor\`, and \`opencode\` setup link this managed skill into the known client skill directory.
+- \`agents\` is a compatibility link under \`~/.agents/skills/readany\` for clients that follow OpenCode's agent-compatible lookup.
 - \`generic\` setup only installs the CLI and canonical skill under \`$AGENT_HOME/skills/readany\`.
 
 ## MCP Tools
@@ -85,6 +86,7 @@ readany agent setup --user --client codex --profile readonly --json
 readany agent setup --user --client claude --profile readonly --json
 readany agent setup --user --client cursor --profile readonly --json
 readany agent setup --user --client opencode --profile readonly --json
+readany agent setup --user --client all --profile readonly --json
 readany doctor --json
 readany mcp serve --profile readonly
 readany mcp config --profile readonly --client generic --json

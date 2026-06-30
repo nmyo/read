@@ -22,7 +22,8 @@ export type ParsedCommand = {
 };
 
 type McpConfigClient = "generic" | "claude" | "cursor" | "codex" | "opencode";
-type ClientSkillClient = "claude" | "cursor" | "codex";
+type AgentSetupClient = McpConfigClient | "all";
+type ClientSkillClient = "agents" | "claude" | "cursor" | "codex" | "opencode";
 
 type AgentSetupResult = {
   setup: true;
@@ -31,6 +32,7 @@ type AgentSetupResult = {
   skill: Awaited<ReturnType<typeof installSkill>> | Awaited<ReturnType<typeof updateSkill>>;
   clientSkillLinks: ClientSkillLinkResult[];
   mcp: ReturnType<typeof createMcpConfig>;
+  mcpConfigs: ReturnType<typeof createMcpConfig>[];
   nextSteps: string[];
 };
 
@@ -239,6 +241,11 @@ function parseMcpConfigClient(value: string | undefined): McpConfigClient {
   throw new Error(`Unknown MCP config client: ${value}`);
 }
 
+function parseAgentSetupClient(value: string | undefined): AgentSetupClient {
+  if (value === "all") return "all";
+  return parseMcpConfigClient(value);
+}
+
 function createMcpServer(profile: string | undefined) {
   const parsedProfile = parseAccessProfile(profile);
   const executablePath = resolveExecutablePath();
@@ -311,7 +318,7 @@ export function createHelpText(): string {
 
 Usage:
   readany --version
-  readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex|opencode] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex|opencode|all] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany agent uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany install [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany repair [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
@@ -456,9 +463,21 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-const CLIENT_SKILL_CLIENTS: ClientSkillClient[] = ["codex", "claude", "cursor"];
+const MCP_CONFIG_CLIENTS: McpConfigClient[] = ["generic", "claude", "cursor", "codex", "opencode"];
+const CLIENT_SKILL_CLIENTS: ClientSkillClient[] = [
+  "agents",
+  "codex",
+  "claude",
+  "cursor",
+  "opencode",
+];
 
 function getClientSkillLinkPath(client: ClientSkillClient, env: NodeJS.ProcessEnv): string {
+  if (client === "agents") {
+    const agentsHome = env.AGENTS_HOME ? resolve(env.AGENTS_HOME) : join(homedir(), ".agents");
+    return join(agentsHome, "skills", "readany");
+  }
+
   if (client === "codex") {
     const codexHome = env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homedir(), ".codex");
     return join(codexHome, "skills", "readany");
@@ -469,19 +488,42 @@ function getClientSkillLinkPath(client: ClientSkillClient, env: NodeJS.ProcessEn
     return join(claudeHome, "skills", "readany");
   }
 
+  if (client === "opencode") {
+    const opencodeHome = env.OPENCODE_HOME
+      ? resolve(env.OPENCODE_HOME)
+      : join(
+          env.XDG_CONFIG_HOME ? resolve(env.XDG_CONFIG_HOME) : join(homedir(), ".config"),
+          "opencode",
+        );
+    return join(opencodeHome, "skills", "readany");
+  }
+
   const cursorHome = env.CURSOR_HOME ? resolve(env.CURSOR_HOME) : join(homedir(), ".cursor");
   return join(cursorHome, "skills", "readany");
 }
 
-function getRequestedClientSkillLinkPath(
-  client: McpConfigClient,
+function getRequestedClientSkillLinks(
+  client: AgentSetupClient,
   env: NodeJS.ProcessEnv,
-): { client: ClientSkillClient; path: string } | undefined {
-  if (client !== "codex" && client !== "claude" && client !== "cursor") return undefined;
-  return {
+): Array<{ client: ClientSkillClient; path: string }> {
+  const clients =
+    client === "all"
+      ? CLIENT_SKILL_CLIENTS
+      : client === "codex" || client === "claude" || client === "cursor" || client === "opencode"
+        ? [client]
+        : [];
+  return clients.map((client) => ({
     client,
     path: getClientSkillLinkPath(client, env),
-  };
+  }));
+}
+
+function getMcpConfigsForAgentClient(
+  profile: string | undefined,
+  client: AgentSetupClient,
+): ReturnType<typeof createMcpConfig>[] {
+  const clients = client === "all" ? MCP_CONFIG_CLIENTS : [client];
+  return clients.map((client) => createMcpConfig(profile, client));
 }
 
 async function assertClientSkillLinkCanBeManaged(
@@ -507,37 +549,38 @@ async function assertClientSkillLinkCanBeManaged(
 }
 
 async function installClientSkillLinks(options: {
-  client: McpConfigClient;
+  client: AgentSetupClient;
   env: NodeJS.ProcessEnv;
   skillDir: string;
 }): Promise<ClientSkillLinkResult[]> {
-  const requestedLink = getRequestedClientSkillLinkPath(options.client, options.env);
-  if (!requestedLink) return [];
+  const requestedLinks = getRequestedClientSkillLinks(options.client, options.env);
+  const results: ClientSkillLinkResult[] = [];
 
-  const linkPath = requestedLink.path;
-  await mkdir(dirname(linkPath), { recursive: true });
-  await assertClientSkillLinkCanBeManaged(linkPath, options.skillDir);
-  await rm(linkPath, { force: true, recursive: true });
-  await symlink(options.skillDir, linkPath, "dir");
-
-  return [
-    {
+  for (const requestedLink of requestedLinks) {
+    const linkPath = requestedLink.path;
+    await mkdir(dirname(linkPath), { recursive: true });
+    await assertClientSkillLinkCanBeManaged(linkPath, options.skillDir);
+    await rm(linkPath, { force: true, recursive: true });
+    await symlink(options.skillDir, linkPath, "dir");
+    results.push({
       client: requestedLink.client,
       linked: true,
       path: linkPath,
       target: options.skillDir,
-    },
-  ];
+    });
+  }
+
+  return results;
 }
 
 async function assertClientSkillLinksCanBeManaged(options: {
-  client: McpConfigClient;
+  client: AgentSetupClient;
   env: NodeJS.ProcessEnv;
   skillDir: string;
 }): Promise<void> {
-  const requestedLink = getRequestedClientSkillLinkPath(options.client, options.env);
-  if (!requestedLink) return;
-  await assertClientSkillLinkCanBeManaged(requestedLink.path, options.skillDir);
+  for (const requestedLink of getRequestedClientSkillLinks(options.client, options.env)) {
+    await assertClientSkillLinkCanBeManaged(requestedLink.path, options.skillDir);
+  }
 }
 
 async function uninstallClientSkillLinks(
@@ -585,8 +628,9 @@ async function setupAgent(
   env: NodeJS.ProcessEnv,
 ): Promise<AgentSetupResult> {
   const setupCommand = createAgentSetupCommand(command);
-  const client = parseMcpConfigClient(getRequiredStringOption(command, "client"));
-  const mcp = createMcpConfig(command.profile, client);
+  const client = parseAgentSetupClient(getRequiredStringOption(command, "client"));
+  const mcpConfigs = getMcpConfigsForAgentClient(command.profile, client);
+  const mcp = mcpConfigs[0];
   await assertSkillCanBeManaged(paths.skillFile);
   await assertClientSkillLinksCanBeManaged({
     client,
@@ -608,9 +652,10 @@ async function setupAgent(
     skill,
     clientSkillLinks,
     mcp,
+    mcpConfigs,
     nextSteps: [
       `Run ${setupCommand} from the external agent if setup needs to be repeated.`,
-      "Paste mcp.snippet into the selected agent client config if the client does not import it automatically.",
+      "Paste the matching mcp.snippet from mcpConfigs into each selected agent client config if the client does not import it automatically.",
       "Restart or reload the selected agent client so newly installed skills and MCP config are discovered.",
       "Use readonly profile by default; switch to editor or publisher only after the user approves write/export access.",
     ],

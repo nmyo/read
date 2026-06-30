@@ -85,7 +85,7 @@ $AGENT_HOME/skills/readany
 ~/.agent/skills/readany
 ```
 
-客户端自动发现由 `agent setup --client codex|claude|cursor` 通过 managed symlink 完成；OpenCode 没有稳定 skill 发现目录，只使用 MCP 配置。
+客户端自动发现由 `agent setup --client codex|claude|cursor|opencode` 通过 managed symlink 完成；`agent setup --client all` 会一次性写入所有已知客户端目录和 `~/.agents` 兼容目录。
 
 Skill 内容必须说明：
 

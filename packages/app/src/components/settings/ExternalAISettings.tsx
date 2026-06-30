@@ -54,7 +54,7 @@ type CliRunResult = {
 
 type CliRunOptions = {
   mcpProfile?: McpProfile;
-  mcpClient?: McpClient;
+  mcpClient?: AgentSetupClient;
   auditSource?: "cli" | "mcp";
   auditFailedOnly?: boolean;
   auditActionPrefix?: string;
@@ -64,6 +64,7 @@ type CliRunOptions = {
 
 type McpProfile = "readonly" | "editor" | "publisher";
 type McpClient = "generic" | "codex" | "claude" | "cursor" | "opencode";
+type AgentSetupClient = McpClient | "all";
 
 type CommandResult<T = unknown> =
   | { ok: true; data: T }
@@ -131,6 +132,12 @@ type AgentSetupData = {
     previousVersion?: string;
   };
   mcp: { client: McpClient; format: "json" | "toml"; profile: McpProfile; snippet: string };
+  mcpConfigs?: Array<{
+    client: McpClient;
+    format: "json" | "toml";
+    profile: McpProfile;
+    snippet: string;
+  }>;
   nextSteps: string[];
 };
 
@@ -195,7 +202,7 @@ function createMcpConfig(profile: McpProfile, client: McpClient) {
   );
 }
 
-function createAgentSetupCommand(profile: McpProfile, client: McpClient) {
+function createAgentSetupCommand(profile: McpProfile, client: AgentSetupClient) {
   return `readany agent setup --user --client ${client} --profile ${profile} --json`;
 }
 
@@ -301,7 +308,9 @@ export function ExternalAISettings() {
   const [toolsResult, setToolsResult] = useState<CliRunResult>();
   const [auditResult, setAuditResult] = useState<CliRunResult>();
   const [lastActionResult, setLastActionResult] = useState<CliRunResult>();
-  const [copiedTarget, setCopiedTarget] = useState<"agent" | "mcp" | "evidence" | null>(null);
+  const [copiedTarget, setCopiedTarget] = useState<
+    "agent" | "agentAll" | "mcp" | "evidence" | null
+  >(null);
   const [auditSource, setAuditSource] = useState<"all" | "cli" | "mcp">("all");
   const [auditStatus, setAuditStatus] = useState<"all" | "failed">("all");
   const [auditActionPrefix, setAuditActionPrefix] = useState("");
@@ -355,6 +364,10 @@ export function ExternalAISettings() {
     () => createAgentSetupCommand(mcpProfile, mcpClient),
     [mcpClient, mcpProfile],
   );
+  const allAgentSetupCommand = useMemo(
+    () => createAgentSetupCommand(mcpProfile, "all"),
+    [mcpProfile],
+  );
   const canBootstrapAgent = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const evidenceSnapshot = useMemo(
     () =>
@@ -370,6 +383,7 @@ export function ExternalAISettings() {
           skill: skill?.ok ? skill.data : null,
           agentBootstrap: {
             command: agentSetupCommand,
+            allCommand: allAgentSetupCommand,
             lastResult: agentSetup?.ok ? agentSetup.data : null,
           },
           mcp: {
@@ -402,6 +416,7 @@ export function ExternalAISettings() {
       lastActionResult,
       agentSetup,
       agentSetupCommand,
+      allAgentSetupCommand,
       mcpClient,
       mcpConfig,
       mcpProfile,
@@ -492,6 +507,13 @@ export function ExternalAISettings() {
     await runCli("doctor");
   }
 
+  async function handleAgentSetupAll() {
+    if (!canBootstrapAgent) return;
+    await runCli("agent_setup", { mcpProfile, mcpClient: "all" });
+    await runCli("skill_status");
+    await runCli("doctor");
+  }
+
   async function handleAgentUninstall() {
     await runCli("agent_uninstall");
     await runCli("skill_status");
@@ -526,6 +548,13 @@ export function ExternalAISettings() {
     if (!canBootstrapAgent) return;
     await getPlatformService().copyToClipboard(agentSetupCommand);
     setCopiedTarget("agent");
+    window.setTimeout(() => setCopiedTarget(null), 1600);
+  }
+
+  async function copyAllAgentSetupCommand() {
+    if (!canBootstrapAgent) return;
+    await getPlatformService().copyToClipboard(allAgentSetupCommand);
+    setCopiedTarget("agentAll");
     window.setTimeout(() => setCopiedTarget(null), 1600);
   }
 
@@ -695,10 +724,27 @@ export function ExternalAISettings() {
             <Button
               size="sm"
               variant="outline"
+              onClick={copyAllAgentSetupCommand}
+              disabled={!canBootstrapAgent}
+            >
+              <Clipboard className="mr-1.5 h-3.5 w-3.5" />
+              {copiedTarget === "agentAll" ? "已复制" : "复制全量命令"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={handleAgentSetup}
               disabled={!canBootstrapAgent || busy}
             >
               一键安装
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAgentSetupAll}
+              disabled={!canBootstrapAgent || busy}
+            >
+              一键全量安装
             </Button>
             <Button size="sm" variant="outline" onClick={handleAgentUninstall} disabled={busy}>
               卸载接入
@@ -708,6 +754,8 @@ export function ExternalAISettings() {
 
         <pre className="mt-3 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
           {agentSetupCommand}
+          {"\n"}
+          {allAgentSetupCommand}
         </pre>
 
         <div className="mt-3 grid gap-2 lg:grid-cols-3">

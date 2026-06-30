@@ -237,7 +237,7 @@ printf '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
 实现：
 
 - 安装到 `$AGENT_HOME/skills/readany` 或 `~/.agent/skills/readany`。
-- `agent setup --client codex|claude|cursor` 额外验证客户端目录的 managed symlink；`opencode` 只验证 MCP 配置片段。
+- `agent setup --client codex|claude|cursor|opencode` 额外验证客户端目录的 managed symlink；`agent setup --client all` 验证所有已知 symlink 和 `~/.agents` 兼容链接。
 - Skill 内容包含 MCP 配置、权限边界、draft-first 规则。
 - 卸载只删除 ReadAny 管理的文件。
 

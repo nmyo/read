@@ -13,7 +13,7 @@
 ```bash
 readany --version
 readany doctor [--json]
-readany agent setup [--user|--global] [--client generic|claude|cursor|codex|opencode] [--profile readonly|editor|publisher] [--json]
+readany agent setup [--user|--global] [--client generic|claude|cursor|codex|opencode|all] [--profile readonly|editor|publisher] [--json]
 readany agent uninstall [--user|--global] [--json]
 readany install [--global | --user]
 readany uninstall [--global | --user]
@@ -25,9 +25,10 @@ readany uninstall [--global | --user]
 
 ```bash
 readany agent setup --user --client codex --profile readonly --json
+readany agent setup --user --client all --profile readonly --json
 ```
 
-它会按安全顺序先校验 `profile/client`，再安装或修复本机 `readany` 命令 shim，安装或更新 `$AGENT_HOME/skills/readany/SKILL.md`，对 `codex` / `claude` / `cursor` 额外创建 ReadAny 管理的客户端 skill 链接，最后返回目标客户端的 MCP `snippet` 和下一步提示。`generic` 和 `opencode` 不创建客户端 skill 链接；`opencode` 依赖 MCP 配置。它不会静默写入 Claude/Cursor/Codex/OpenCode 等外部客户端配置；需要由用户或外部 agent 把返回的 `mcp.snippet` 显式放到对应客户端配置里。默认建议只读 `readonly`，`editor` / `publisher` 必须由用户明确授权。
+它会按安全顺序先校验 `profile/client`，再安装或修复本机 `readany` 命令 shim，安装或更新 `$AGENT_HOME/skills/readany/SKILL.md`，对 `codex` / `claude` / `cursor` / `opencode` 额外创建 ReadAny 管理的客户端 skill 链接，最后返回目标客户端的 MCP `snippet` 和下一步提示。`--client all` 会一次性创建所有已知 skill discovery 链接，包括 `~/.agents/skills/readany` 兼容目录。`generic` 不创建客户端 skill 链接。它不会静默写入 Claude/Cursor/Codex/OpenCode 等外部客户端配置；需要由用户或外部 agent 把返回的 `mcpConfigs[].snippet` 显式放到对应客户端配置里。默认建议只读 `readonly`，`editor` / `publisher` 必须由用户明确授权。
 
 `agent uninstall` 会卸载 ReadAny 管理的 CLI shim 和 ReadAny skill；它不会修改外部客户端配置，返回结果会提醒用户删除曾经手动写入的 MCP 配置片段。
 
@@ -61,7 +62,7 @@ $AGENT_HOME/skills/readany
 ~/.agent/skills/readany
 ```
 
-`agent setup --client codex|claude|cursor` 会把这个通用 skill 以 symlink 形式挂到对应客户端的已知用户 skill 目录；`opencode` 当前没有稳定的 Agent Skills 目录约定，只通过 MCP 暴露能力。
+`agent setup --client codex|claude|cursor|opencode` 会把这个通用 skill 以 symlink 形式挂到对应客户端的已知用户 skill 目录；`agent setup --client all` 还会额外写入 OpenCode 兼容的 `~/.agents/skills/readany`。
 
 ### 验收与归档命令
 

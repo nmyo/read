@@ -98,7 +98,7 @@ fn agent_setup_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, Strin
         _ => return Err("Unsupported MCP profile.".to_string()),
     };
     let client = match options.mcp_client.as_deref().unwrap_or("generic") {
-        "generic" | "claude" | "cursor" | "codex" | "opencode" => {
+        "generic" | "claude" | "cursor" | "codex" | "opencode" | "all" => {
             options.mcp_client.as_deref().unwrap_or("generic")
         }
         _ => return Err("Unsupported MCP client.".to_string()),

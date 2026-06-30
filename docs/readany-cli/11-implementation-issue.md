@@ -30,7 +30,7 @@ ReadAny 需要把本地阅读能力开放给外部 AI agent，但开放的是受
 - 写入必须 draft-first。
 - 导出默认生成新文件，不覆盖原书。
 - MCP `tools/list` 只暴露真实实现、测试通过、文档同步的工具。
-- Skill 安装到通用 agent 目录：`$AGENT_HOME/skills/readany` 或 `~/.agent/skills/readany`；Codex / Claude / Cursor 通过 managed symlink 自动发现，OpenCode 通过 MCP 配置接入。
+- Skill 安装到通用 agent 目录：`$AGENT_HOME/skills/readany` 或 `~/.agent/skills/readany`；Codex / Claude / Cursor / OpenCode 通过 managed symlink 自动发现，`--client all` 额外写入 `~/.agents/skills/readany` 兼容链接。
 - 桌面设置页只管 CLI、Skill、MCP、profile 和诊断；用户精排入口在书籍详情、Reader AI 和 draft 工作区。
 
 ## 当前已实现

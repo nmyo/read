@@ -305,7 +305,7 @@ readany skill update
 可验收：
 
 - skill 安装到 `~/.agent/skills/readany` 或 `$AGENT_HOME/skills/readany`。
-- `agent setup --client codex|claude|cursor` 创建客户端 managed symlink；`opencode` 只返回 MCP 配置。
+- `agent setup --client codex|claude|cursor|opencode` 创建客户端 managed symlink；`agent setup --client all` 额外创建 `~/.agents/skills/readany` 兼容链接。
 - 卸载只删除 ReadAny 管理的文件。
 - `doctor` 可以识别 skill 状态。
 - skill 内容列出安全规则、默认 readonly、draft-first、MCP 启动命令。

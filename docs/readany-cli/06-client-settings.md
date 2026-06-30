@@ -124,7 +124,8 @@ readany mcp config --profile readonly --client generic --json
 - `claude`：Claude Desktop / Claude Code 可用的 JSON `mcpServers` 片段；`agent setup` 还会把 ReadAny skill 链接到 `~/.claude/skills/readany`。
 - `cursor`：Cursor 可用的 JSON `mcpServers` 片段；`agent setup` 还会把 ReadAny skill 链接到 `~/.cursor/skills/readany`。
 - `codex`：Codex `config.toml` 可粘贴的 `[mcp_servers.readany]` 片段；`agent setup` 还会把 ReadAny skill 链接到 `~/.codex/skills/readany`。
-- `opencode`：OpenCode `opencode.json` 可粘贴的 JSON `mcp.readany` 片段；OpenCode skill 自动发现不标准化，因此不创建客户端 skill 链接。
+- `opencode`：OpenCode `opencode.json` 可粘贴的 JSON `mcp.readany` 片段；`agent setup` 还会把 ReadAny skill 链接到 `~/.config/opencode/skills/readany`。
+- `all`：只用于 Agent bootstrap，一次性安装所有已知客户端 skill 链接，并额外写入 `~/.agents/skills/readany` 兼容目录；MCP 配置仍然按具体客户端复制。
 
 默认提供 readonly 配置。更高 profile 需要用户在设置页明确开启，并在复制配置前确认风险。
 

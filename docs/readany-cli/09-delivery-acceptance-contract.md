@@ -252,7 +252,7 @@ $AGENT_HOME/skills/readany/SKILL.md
 ~/.agent/skills/readany/SKILL.md
 ```
 
-`agent setup --client codex|claude|cursor` 可以从这个 canonical skill 创建客户端目录链接；`opencode` 只安装 canonical skill 并返回 OpenCode MCP 配置。
+`agent setup --client codex|claude|cursor|opencode` 可以从这个 canonical skill 创建客户端目录链接；`agent setup --client all` 会一次性创建全部已知链接和 `~/.agents/skills/readany` 兼容链接。
 
 ### 桌面端
 

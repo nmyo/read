@@ -35,6 +35,7 @@ describe("skill management", () => {
     expect(content).toContain(
       "readany agent setup --user --client opencode --profile readonly --json",
     );
+    expect(content).toContain("readany agent setup --user --client all --profile readonly --json");
     expect(content).toContain("readany mcp serve --profile readonly");
     expect(content).toContain("readany mcp config --profile readonly --client generic --json");
     expect(content).toContain("readany mcp config --profile readonly --client codex --json");

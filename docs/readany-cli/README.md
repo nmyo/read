@@ -60,6 +60,7 @@
 - 已支持审计日志读取：`readany audit list --json` 和 MCP `audit.list` 可查看最近 CLI/MCP 调用记录，不返回工具参数正文。
 - 已支持 stdio MCP：`initialize`、`tools/list`、`tools/call`。
 - 已支持 MCP 配置生成：`readany mcp config --profile readonly --client generic --json` 可输出外部 agent 可复制的 `mcpServers.readany` 片段；`--client codex` 可输出 Codex `config.toml` TOML snippet，`claude` / `cursor` 复用 JSON `mcpServers` 片段，`opencode` 输出 OpenCode `opencode.json` 可用的 `mcp.readany` 片段。该命令不启动服务、不改变授权、不出现在 MCP `tools/list`。
+- 已支持一次性 agent bootstrap：`readany agent setup --user --client all --profile readonly --json` 安装 CLI / canonical skill，并把 skill 链接到 Codex、Claude、Cursor、OpenCode 和 `~/.agents` 兼容目录；MCP 配置仍按具体客户端使用返回的 `mcpConfigs[].snippet`。
 - 已支持 MCP doctor 诊断：`readany doctor --json` 会输出默认 MCP serve args、支持的 profile/client 和工具数量，方便设置页、外部 agent 和打包矩阵采证。
 - 已支持可复现外部 agent smoke：`pnpm --filter @readany/cli build && pnpm --filter @readany/cli smoke:agent` 会通过 built CLI 验证可复制 MCP 配置片段，并通过 stdio MCP 跑 readonly 发现/搜索、MCP tools/list 安全元数据、PDF fallback 章节读取、editor draft 批量章节修改、toc rebuild、publisher validate/export、audit、原 EPUB hash 不变，以及导出 EPUB 重新入库后的 inspect / chapter read 检查。
 - 已支持真实样本验收辅助脚本：`pnpm --filter @readany/cli acceptance:real -- --book <book-id> --rag-query <query> --evidence <file>` 会使用 built CLI 对指定真实书库样本执行 doctor、books/chapter/RAG/knowledge/context/audit 检查，在 stdout 输出脱敏摘要，并在 evidence JSON 中记录运行环境、`doctor --json` 诊断、样本书文件路径、字节数、SHA-256、可回跳 citation targets 和仍需人工验收的 M5 清单；清单项带建议补证内容和命令。默认只读，只有显式 `--draft-export --export-dir <dir>` 才会创建 EPUB draft、validate、export、inspect 导出 EPUB，并默认 discard draft 清理工作区。
