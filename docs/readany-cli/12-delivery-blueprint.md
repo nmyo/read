@@ -128,6 +128,7 @@ $AGENT_HOME/skills/readany
 怎么做：
 
 - Skill 安装器只写入通用 agent home，不写项目 `.agents` 或当前 repo。
+- `agent setup --client codex|claude|cursor` 从通用 agent home 创建客户端 skill 链接；`opencode` 只返回 OpenCode MCP 配置。
 - Skill 内容只作为外部 AI 的说明书和调用模板，不保存用户数据。
 - MCP 配置片段默认生成 readonly；editor / publisher 只在用户显式选择并确认风险后提供。
 - Skill update / uninstall 必须检查 ReadAny 管理标记，不能覆盖或删除非 ReadAny 创建的文件。

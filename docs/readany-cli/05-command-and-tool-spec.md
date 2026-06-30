@@ -13,7 +13,7 @@
 ```bash
 readany --version
 readany doctor [--json]
-readany agent setup [--user|--global] [--client generic|claude|cursor|codex] [--profile readonly|editor|publisher] [--json]
+readany agent setup [--user|--global] [--client generic|claude|cursor|codex|opencode] [--profile readonly|editor|publisher] [--json]
 readany agent uninstall [--user|--global] [--json]
 readany install [--global | --user]
 readany uninstall [--global | --user]
@@ -27,7 +27,7 @@ readany uninstall [--global | --user]
 readany agent setup --user --client codex --profile readonly --json
 ```
 
-它会按安全顺序先校验 `profile/client`，再安装或修复本机 `readany` 命令 shim，安装或更新 `$AGENT_HOME/skills/readany/SKILL.md`，最后返回目标客户端的 MCP `snippet` 和下一步提示。它不会静默写入 Claude/Cursor/Codex 等外部客户端配置；需要由用户或外部 agent 把返回的 `mcp.snippet` 显式放到对应客户端配置里。默认建议只读 `readonly`，`editor` / `publisher` 必须由用户明确授权。
+它会按安全顺序先校验 `profile/client`，再安装或修复本机 `readany` 命令 shim，安装或更新 `$AGENT_HOME/skills/readany/SKILL.md`，对 `codex` / `claude` / `cursor` 额外创建 ReadAny 管理的客户端 skill 链接，最后返回目标客户端的 MCP `snippet` 和下一步提示。`generic` 和 `opencode` 不创建客户端 skill 链接；`opencode` 依赖 MCP 配置。它不会静默写入 Claude/Cursor/Codex/OpenCode 等外部客户端配置；需要由用户或外部 agent 把返回的 `mcp.snippet` 显式放到对应客户端配置里。默认建议只读 `readonly`，`editor` / `publisher` 必须由用户明确授权。
 
 `agent uninstall` 会卸载 ReadAny 管理的 CLI shim 和 ReadAny skill；它不会修改外部客户端配置，返回结果会提醒用户删除曾经手动写入的 MCP 配置片段。
 
@@ -40,10 +40,10 @@ readany mcp serve --profile readonly
 readany mcp serve --profile assistant
 readany mcp serve --profile editor
 readany mcp serve --profile publisher
-readany mcp config --profile readonly [--client generic|claude|cursor|codex] [--json]
+readany mcp config --profile readonly [--client generic|claude|cursor|codex|opencode] [--json]
 ```
 
-默认使用 stdio。`mcp config` 只生成外部 agent 可复制的配置片段，不启动服务、不增加 MCP tool、不改变授权。`generic`、`claude`、`cursor` 的 `snippet` 是纯 JSON `mcpServers.readany`；`codex` 的 `snippet` 是可粘贴到 Codex `config.toml` 的 TOML 片段。`--json` 结果可以额外包含 `client`、`format`、`profile` 等元数据，但设置页复制时必须只复制 `snippet`。第一阶段不要求 daemon。
+默认使用 stdio。`mcp config` 只生成外部 agent 可复制的配置片段，不启动服务、不增加 MCP tool、不改变授权。`generic`、`claude`、`cursor` 的 `snippet` 是纯 JSON `mcpServers.readany`；`codex` 的 `snippet` 是可粘贴到 Codex `config.toml` 的 TOML 片段；`opencode` 的 `snippet` 是可粘贴到 OpenCode `opencode.json` 的 JSON `mcp.readany` 片段。`--json` 结果可以额外包含 `client`、`format`、`profile` 等元数据，但设置页复制时必须只复制 `snippet`。第一阶段不要求 daemon。
 
 ### Skill 命令
 
@@ -60,6 +60,8 @@ readany skill update
 $AGENT_HOME/skills/readany
 ~/.agent/skills/readany
 ```
+
+`agent setup --client codex|claude|cursor` 会把这个通用 skill 以 symlink 形式挂到对应客户端的已知用户 skill 目录；`opencode` 当前没有稳定的 Agent Skills 目录约定，只通过 MCP 暴露能力。
 
 ### 验收与归档命令
 

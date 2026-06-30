@@ -63,7 +63,7 @@ type CliRunOptions = {
 };
 
 type McpProfile = "readonly" | "editor" | "publisher";
-type McpClient = "generic" | "codex" | "claude" | "cursor";
+type McpClient = "generic" | "codex" | "claude" | "cursor" | "opencode";
 
 type CommandResult<T = unknown> =
   | { ok: true; data: T }
@@ -123,7 +123,13 @@ type AgentSetupData = {
   setup: true;
   command: string;
   install: { installed: true; path: string; target: string; mode: "user" | "global" };
-  skill: { installed?: true; updated?: true; path: string; version: string; previousVersion?: string };
+  skill: {
+    installed?: true;
+    updated?: true;
+    path: string;
+    version: string;
+    previousVersion?: string;
+  };
   mcp: { client: McpClient; format: "json" | "toml"; profile: McpProfile; snippet: string };
   nextSteps: string[];
 };
@@ -145,8 +151,9 @@ const PROFILE_DESCRIPTIONS: Record<McpProfile, string> = {
 const MCP_CLIENT_LABELS: Record<McpClient, string> = {
   generic: "通用 JSON",
   codex: "Codex TOML",
-  claude: "Claude Desktop",
+  claude: "Claude",
   cursor: "Cursor",
+  opencode: "OpenCode",
 };
 
 function createMcpConfig(profile: McpProfile, client: McpClient) {
@@ -156,6 +163,22 @@ function createMcpConfig(profile: McpProfile, client: McpClient) {
       'command = "readany"',
       `args = ["mcp","serve","--profile","${profile}"]`,
     ].join("\n");
+  }
+
+  if (client === "opencode") {
+    return JSON.stringify(
+      {
+        mcp: {
+          readany: {
+            type: "local",
+            command: ["readany", "mcp", "serve", "--profile", profile],
+            enabled: true,
+          },
+        },
+      },
+      null,
+      2,
+    );
   }
 
   return JSON.stringify(
@@ -224,7 +247,9 @@ function sectionHeader(
         </div>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -247,14 +272,18 @@ function outputPanel(text: string, tone: "default" | "error" = "default") {
 
 function evidenceValue(label: string, value: string | number | boolean | undefined, mono = true) {
   const rendered =
-    typeof value === "boolean" ? (value ? "true" : "false") : value === undefined ? "-" : String(value);
+    typeof value === "boolean"
+      ? value
+        ? "true"
+        : "false"
+      : value === undefined
+        ? "-"
+        : String(value);
   return (
     <div className="min-w-0 rounded-md bg-background px-3 py-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p
-        className={`mt-1 truncate text-xs text-foreground ${
-          mono ? "font-mono" : "font-medium"
-        }`}
+        className={`mt-1 truncate text-xs text-foreground ${mono ? "font-mono" : "font-medium"}`}
         title={rendered}
       >
         {rendered}
@@ -285,7 +314,8 @@ export function ExternalAISettings() {
   const doctor = useMemo(() => parseCliJson<DoctorReport>(doctorResult), [doctorResult]);
   const skill = useMemo(() => parseCliJson<SkillStatus>(skillResult), [skillResult]);
   const agentSetup = useMemo(
-    () => (agentResult?.action === "agent_setup" ? parseCliJson<AgentSetupData>(agentResult) : undefined),
+    () =>
+      agentResult?.action === "agent_setup" ? parseCliJson<AgentSetupData>(agentResult) : undefined,
     [agentResult],
   );
   const agentUninstall = useMemo(
@@ -317,9 +347,7 @@ export function ExternalAISettings() {
     }),
     [auditActionPrefix, auditDate, auditLimit, auditSource, auditStatus],
   );
-  const failedAuditEntries = audit?.ok
-    ? audit.data.audit.entries.filter((entry) => !entry.ok)
-    : [];
+  const failedAuditEntries = audit?.ok ? audit.data.audit.entries.filter((entry) => !entry.ok) : [];
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
@@ -349,7 +377,9 @@ export function ExternalAISettings() {
             client: mcpClient,
             config: mcpConfig,
           },
-          tools: tools?.ok ? tools.data.tools.map((tool) => ({ name: tool.name, risk: tool.risk })) : [],
+          tools: tools?.ok
+            ? tools.data.tools.map((tool) => ({ name: tool.name, risk: tool.risk }))
+            : [],
           audit: audit?.ok ? audit.data.audit : null,
           lastAction: lastActionResult
             ? {
@@ -482,9 +512,10 @@ export function ExternalAISettings() {
       format: "json" | "toml";
       snippet?: string;
       mcpServers?: { readany: { command: string; args: string[] } };
+      mcp?: { readany: { type: "local"; command: string[]; enabled: boolean } };
     }>(result);
     const config = parsed?.ok
-      ? parsed.data.snippet ?? JSON.stringify(parsed.data, null, 2)
+      ? (parsed.data.snippet ?? JSON.stringify(parsed.data, null, 2))
       : mcpConfig;
     await getPlatformService().copyToClipboard(config);
     setCopiedTarget("mcp");
@@ -632,15 +663,16 @@ export function ExternalAISettings() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-mono text-xs text-foreground">{check.name}</p>
-                    <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">{check.message}</p>
+                    <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">
+                      {check.message}
+                    </p>
                   </div>
                   <div className="self-start">{statusLabel(check.ok, "通过", "失败")}</div>
                 </div>
               ))
             : null}
-          {!doctor?.ok && (
-            outputPanel(outputSummary(doctorResult, doctor), doctorResult ? "error" : "default")
-          )}
+          {!doctor?.ok &&
+            outputPanel(outputSummary(doctorResult, doctor), doctorResult ? "error" : "default")}
         </div>
       </section>
 
@@ -651,11 +683,21 @@ export function ExternalAISettings() {
           statusLabel(canBootstrapAgent, "可复制", "等待确认"),
           "把这条命令复制给外部 AI，它会安装 ReadAny CLI、安装 skill，并返回 MCP 配置片段。",
           <>
-            <Button size="sm" variant="outline" onClick={copyAgentSetupCommand} disabled={!canBootstrapAgent}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={copyAgentSetupCommand}
+              disabled={!canBootstrapAgent}
+            >
               <Clipboard className="mr-1.5 h-3.5 w-3.5" />
               {copiedTarget === "agent" ? "已复制" : "复制命令"}
             </Button>
-            <Button size="sm" variant="outline" onClick={handleAgentSetup} disabled={!canBootstrapAgent || busy}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAgentSetup}
+              disabled={!canBootstrapAgent || busy}
+            >
               一键安装
             </Button>
             <Button size="sm" variant="outline" onClick={handleAgentUninstall} disabled={busy}>
@@ -784,6 +826,7 @@ export function ExternalAISettings() {
                   <SelectItem value="codex">{MCP_CLIENT_LABELS.codex}</SelectItem>
                   <SelectItem value="claude">{MCP_CLIENT_LABELS.claude}</SelectItem>
                   <SelectItem value="cursor">{MCP_CLIENT_LABELS.cursor}</SelectItem>
+                  <SelectItem value="opencode">{MCP_CLIENT_LABELS.opencode}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -794,12 +837,10 @@ export function ExternalAISettings() {
             </p>
             {needsProfileConfirmation ? (
               <label className="mt-3 flex items-start gap-3 rounded-md bg-background px-3 py-3">
-                <Switch
-                  checked={profileRiskConfirmed}
-                  onCheckedChange={setProfileRiskConfirmed}
-                />
+                <Switch checked={profileRiskConfirmed} onCheckedChange={setProfileRiskConfirmed} />
                 <span className="min-w-0 text-xs leading-5 text-muted-foreground">
-                  我确认该 profile 会允许外部 AI 调用 draft 写入或导出类工具；原书仍不会被覆盖，导出默认生成新文件。
+                  我确认该 profile 会允许外部 AI 调用 draft
+                  写入或导出类工具；原书仍不会被覆盖，导出默认生成新文件。
                 </span>
               </label>
             ) : null}
@@ -827,12 +868,7 @@ export function ExternalAISettings() {
           "最近审计",
           statusLabel(audit?.ok === true, "可读取", "等待日志"),
           "只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证。",
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void refreshAudit()}
-            disabled={busy}
-          >
+          <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
             <RefreshCw
               className={`mr-1.5 h-3.5 w-3.5 ${loadingAction === "audit_list" ? "animate-spin" : ""}`}
             />
@@ -848,7 +884,10 @@ export function ExternalAISettings() {
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">来源</p>
-              <Select value={auditSource} onValueChange={(value) => setAuditSource(value as typeof auditSource)}>
+              <Select
+                value={auditSource}
+                onValueChange={(value) => setAuditSource(value as typeof auditSource)}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -861,7 +900,10 @@ export function ExternalAISettings() {
             </div>
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">结果</p>
-              <Select value={auditStatus} onValueChange={(value) => setAuditStatus(value as typeof auditStatus)}>
+              <Select
+                value={auditStatus}
+                onValueChange={(value) => setAuditStatus(value as typeof auditStatus)}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -907,10 +949,20 @@ export function ExternalAISettings() {
               当前最多读取 {auditOptions.auditLimit} 条元数据记录。
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void refreshAudit()}
+                disabled={busy}
+              >
                 应用
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => void resetAuditFilters()} disabled={busy}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void resetAuditFilters()}
+                disabled={busy}
+              >
                 重置
               </Button>
             </div>
@@ -946,9 +998,9 @@ export function ExternalAISettings() {
               暂无审计记录。
             </p>
           ) : null}
-          {!audit?.ok ? (
-            outputPanel(outputSummary(auditResult, audit), auditResult ? "error" : "default")
-          ) : null}
+          {!audit?.ok
+            ? outputPanel(outputSummary(auditResult, audit), auditResult ? "error" : "default")
+            : null}
         </div>
         {audit?.ok && failedAuditEntries.length > 0 ? (
           <div className="mt-3 rounded-md bg-background px-3 py-2">

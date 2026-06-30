@@ -111,6 +111,8 @@ async function createWorkspace() {
       ...process.env,
       AGENT_HOME: join(root, "agent"),
       CODEX_HOME: join(root, "codex"),
+      CLAUDE_HOME: join(root, "claude"),
+      CURSOR_HOME: join(root, "cursor"),
       READANY_HOME: dataRoot,
     } as NodeJS.ProcessEnv,
   };
@@ -397,6 +399,8 @@ describe("commands", () => {
     const userBinDir = join(workspace.root, "bin with spaces");
     const skillFile = join(workspace.root, "agent", "skills", "readany", "SKILL.md");
     const codexSkillLink = join(workspace.root, "codex", "skills", "readany");
+    const claudeSkillLink = join(workspace.root, "claude", "skills", "readany");
+    const cursorSkillLink = join(workspace.root, "cursor", "skills", "readany");
     await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
     await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
     const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
@@ -434,14 +438,14 @@ describe("commands", () => {
           path: skillFile,
           version: "0.1.0",
         },
-        clientSkillLinks: [
-          {
+        clientSkillLinks: expect.arrayContaining([
+          expect.objectContaining({
             client: "codex",
             linked: true,
             path: codexSkillLink,
             target: join(workspace.root, "agent", "skills", "readany"),
-          },
-        ],
+          }),
+        ]),
         mcp: {
           client: "codex",
           format: "toml",
@@ -498,13 +502,23 @@ describe("commands", () => {
           removed: true,
           path: skillFile,
         },
-        clientSkillLinks: [
-          {
+        clientSkillLinks: expect.arrayContaining([
+          expect.objectContaining({
             client: "codex",
             removed: true,
             path: codexSkillLink,
-          },
-        ],
+          }),
+          expect.objectContaining({
+            client: "claude",
+            removed: false,
+            path: claudeSkillLink,
+          }),
+          expect.objectContaining({
+            client: "cursor",
+            removed: false,
+            path: cursorSkillLink,
+          }),
+        ]),
       },
     });
     expect(
@@ -512,6 +526,89 @@ describe("commands", () => {
     ).toBe(false);
     expect(await pathExists(skillFile)).toBe(false);
     expect(await pathExists(codexSkillLink)).toBe(false);
+  });
+
+  it("links known client skill directories during agent setup", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const userBinDir = join(workspace.root, "bin");
+    const skillDir = join(workspace.root, "agent", "skills", "readany");
+    const claudeSkillLink = join(workspace.root, "claude", "skills", "readany");
+    const cursorSkillLink = join(workspace.root, "cursor", "skills", "readany");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    const env = { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath };
+
+    const claude = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "claude"],
+      env,
+    );
+    expect(claude).toMatchObject({
+      ok: true,
+      data: {
+        clientSkillLinks: [
+          {
+            client: "claude",
+            linked: true,
+            path: claudeSkillLink,
+            target: skillDir,
+          },
+        ],
+      },
+    });
+    expect((await lstat(claudeSkillLink)).isSymbolicLink()).toBe(true);
+    expect(await readlink(claudeSkillLink)).toBe(skillDir);
+
+    const cursor = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "cursor"],
+      env,
+    );
+    expect(cursor).toMatchObject({
+      ok: true,
+      data: {
+        clientSkillLinks: [
+          {
+            client: "cursor",
+            linked: true,
+            path: cursorSkillLink,
+            target: skillDir,
+          },
+        ],
+      },
+    });
+    expect((await lstat(cursorSkillLink)).isSymbolicLink()).toBe(true);
+    expect(await readlink(cursorSkillLink)).toBe(skillDir);
+
+    const opencode = await runCommand(
+      ["agent", "setup", "--user", "--user-bin-dir", userBinDir, "--client", "opencode"],
+      env,
+    );
+    expect(opencode).toMatchObject({
+      ok: true,
+      data: {
+        clientSkillLinks: [],
+        mcp: {
+          client: "opencode",
+          format: "json",
+          mcp: {
+            readany: {
+              type: "local",
+              command: [
+                process.execPath,
+                expect.stringMatching(
+                  /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+                ),
+                "mcp",
+                "serve",
+                "--profile",
+                "readonly",
+              ],
+              enabled: true,
+            },
+          },
+        },
+      },
+    });
   });
 
   it("does not install agent files when setup options are invalid", async () => {
@@ -609,7 +706,7 @@ describe("commands", () => {
           defaultProfile: "readonly",
           serveArgs: ["mcp", "serve", "--profile", "readonly"],
           supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
-          supportedClients: ["generic", "claude", "cursor", "codex"],
+          supportedClients: ["generic", "claude", "cursor", "codex", "opencode"],
           toolCount: 28,
         },
       });
@@ -733,6 +830,54 @@ describe("commands", () => {
     });
     if (claude.ok) {
       expect((claude.data as { snippet: string }).snippet).not.toContain('"client"');
+    }
+
+    const opencode = await runCommand(["mcp", "config", "--client", "opencode"], workspace.env);
+    expect(opencode).toMatchObject({
+      ok: true,
+      data: {
+        client: "opencode",
+        format: "json",
+        snippet: expect.stringContaining('"mcp"'),
+        mcp: {
+          readany: {
+            type: "local",
+            command: [
+              process.execPath,
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
+            enabled: true,
+          },
+        },
+      },
+    });
+    if (opencode.ok) {
+      expect(JSON.parse((opencode.data as { snippet: string }).snippet)).toEqual({
+        mcp: {
+          readany: {
+            type: "local",
+            command: [
+              process.execPath,
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
+            enabled: true,
+          },
+        },
+      });
+      expect((opencode.data as { snippet: string }).snippet).not.toContain('"mcpServers"');
+      expect((opencode.data as { snippet: string }).snippet).not.toContain('"client"');
     }
 
     const invalidClient = await runCommand(["mcp", "config", "--client", "vscode"], workspace.env);

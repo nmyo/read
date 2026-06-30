@@ -119,7 +119,7 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
       defaultProfile: "readonly",
       serveArgs: ["mcp", "serve", "--profile", "readonly"],
       supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
-      supportedClients: ["generic", "claude", "cursor", "codex"],
+      supportedClients: ["generic", "claude", "cursor", "codex", "opencode"],
       toolCount,
     },
     checks: [

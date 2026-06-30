@@ -32,9 +32,7 @@ function runBuiltMcp(requests: unknown[], env: NodeJS.ProcessEnv): Promise<unkno
     child.on("close", (code) => {
       if (code !== 0) {
         reject(
-          new Error(
-            `MCP smoke exited with ${code}: ${Buffer.concat(stderr).toString("utf8")}`,
-          ),
+          new Error(`MCP smoke exited with ${code}: ${Buffer.concat(stderr).toString("utf8")}`),
         );
         return;
       }
@@ -126,7 +124,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
           defaultProfile: "readonly",
           serveArgs: ["mcp", "serve", "--profile", "readonly"],
           supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
-          supportedClients: ["generic", "claude", "cursor", "codex"],
+          supportedClients: ["generic", "claude", "cursor", "codex", "opencode"],
           toolCount: 28,
         },
       },
@@ -144,15 +142,20 @@ Module._load = function patchedLoad(request, parent, isMain) {
         mcpServers: {
           readany: {
             command: process.execPath,
-            args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
+            args: [
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
           },
         },
       },
     });
-    const codexConfig = runBuiltCli(
-      ["mcp", "config", "--client", "codex", "--json"],
-      env,
-    );
+    const codexConfig = runBuiltCli(["mcp", "config", "--client", "codex", "--json"], env);
     expect(codexConfig.status, codexConfig.stderr).toBe(0);
     expect(JSON.parse(codexConfig.stdout)).toMatchObject({
       ok: true,
@@ -161,6 +164,32 @@ Module._load = function patchedLoad(request, parent, isMain) {
         format: "toml",
         profile: "readonly",
         snippet: expect.stringContaining("[mcp_servers.readany]"),
+      },
+    });
+    const opencodeConfig = runBuiltCli(["mcp", "config", "--client", "opencode", "--json"], env);
+    expect(opencodeConfig.status, opencodeConfig.stderr).toBe(0);
+    expect(JSON.parse(opencodeConfig.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        client: "opencode",
+        format: "json",
+        profile: "readonly",
+        mcp: {
+          readany: {
+            type: "local",
+            command: [
+              process.execPath,
+              expect.stringMatching(
+                /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+              ),
+              "mcp",
+              "serve",
+              "--profile",
+              "readonly",
+            ],
+            enabled: true,
+          },
+        },
       },
     });
 
@@ -548,7 +577,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
         defaultProfile: "readonly",
         serveArgs: ["mcp", "serve", "--profile", "readonly"],
         supportedProfiles: ["readonly", "assistant", "editor", "publisher"],
-        supportedClients: ["generic", "claude", "cursor", "codex"],
+        supportedClients: ["generic", "claude", "cursor", "codex", "opencode"],
         toolCount: 28,
       },
       checks: expect.arrayContaining([
@@ -636,12 +665,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
 
     const validateEvidence = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/validate-acceptance.mjs"),
-        "--evidence",
-        evidencePath,
-        "--json",
-      ],
+      [resolve(cliRoot, "scripts/validate-acceptance.mjs"), "--evidence", evidencePath, "--json"],
       {
         cwd: cliRoot,
         env,
@@ -651,7 +675,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateEvidence.status, validateEvidence.stderr).toBe(0);
     expect(JSON.parse(validateEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })] },
+      validated: {
+        evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })],
+      },
       errors: [],
     });
 
@@ -805,7 +831,11 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validatePackagedEvidence.status, validatePackagedEvidence.stderr).toBe(0);
     expect(JSON.parse(validatePackagedEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidences: [expect.objectContaining({ path: packagedEvidencePath, type: "packaged-platform" })] },
+      validated: {
+        evidences: [
+          expect.objectContaining({ path: packagedEvidencePath, type: "packaged-platform" }),
+        ],
+      },
       errors: [],
       warnings: expect.arrayContaining([
         "Packaged evidence validates one platform only; strict M5 still requires macOS/Windows/Linux matrix rows.",
@@ -902,7 +932,12 @@ Module._load = function patchedLoad(request, parent, isMain) {
       environment: { evidenceType: string };
       client: { name: string; version: string; profile: string; usesMcp: boolean };
       mcp: { toolCount?: number; configRedacted?: string; toolsListSummary?: string };
-      flows: { read: { summary: string }; readonlyDenial: { summary: string }; draftExport: { summary: string }; audit: { summary: string } };
+      flows: {
+        read: { summary: string };
+        readonlyDenial: { summary: string };
+        draftExport: { summary: string };
+        audit: { summary: string };
+      };
       summary: { completed: boolean; usesMcp: boolean };
     };
     expect(codexAgentEvidence).toMatchObject({
@@ -947,7 +982,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
       expect(validateAgentEvidence.status, validateAgentEvidence.stderr).toBe(0);
       expect(JSON.parse(validateAgentEvidence.stdout)).toMatchObject({
         ok: true,
-        validated: { evidences: [expect.objectContaining({ path: agentEvidencePath, type: "external-agent" })] },
+        validated: {
+          evidences: [expect.objectContaining({ path: agentEvidencePath, type: "external-agent" })],
+        },
         errors: [],
         warnings: expect.arrayContaining([
           "External agent evidence validates one client only; strict M5 still requires multiple completed client rows in the record.",
@@ -976,12 +1013,20 @@ Module._load = function patchedLoad(request, parent, isMain) {
             profile: "readonly",
             client: "codex",
             config: {
-                mcpServers: {
-                  readany: {
-                    command: process.execPath,
-                    args: [expect.stringMatching(/readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/), "mcp", "serve", "--profile", "readonly"],
-                  },
+              mcpServers: {
+                readany: {
+                  command: process.execPath,
+                  args: [
+                    expect.stringMatching(
+                      /readany\.(js|ts|cmd)$|dist\/bin\/readany\.js|src\/bin\/readany\.ts/,
+                    ),
+                    "mcp",
+                    "serve",
+                    "--profile",
+                    "readonly",
+                  ],
                 },
+              },
             },
           },
           tools: Array.from({ length: 28 }, (_, index) => ({
@@ -1098,7 +1143,11 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateDesktopEvidence.status, validateDesktopEvidence.stderr).toBe(0);
     expect(JSON.parse(validateDesktopEvidence.stdout)).toMatchObject({
       ok: true,
-      validated: { evidences: [expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings" })] },
+      validated: {
+        evidences: [
+          expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings" }),
+        ],
+      },
       errors: [],
       warnings: expect.arrayContaining([
         "Desktop settings evidence validates the settings page snapshot only; strict M5 still requires final record closure.",
@@ -1256,7 +1305,10 @@ Module._load = function patchedLoad(request, parent, isMain) {
     expect(validateScaffold.status, validateScaffold.stderr).toBe(0);
     expect(JSON.parse(validateScaffold.stdout)).toMatchObject({
       ok: true,
-      validated: { record: scaffoldPath, evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })] },
+      validated: {
+        record: scaffoldPath,
+        evidences: [expect.objectContaining({ path: evidencePath, type: "real-sample" })],
+      },
     });
 
     const strictScaffold = spawnSync(
@@ -1331,7 +1383,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
       },
     );
     expect(validateViaPackageScript.status, validateViaPackageScript.stderr).toBe(0);
-    expect(JSON.parse(validateViaPackageScript.stdout.match(/\{[\s\S]*\}\s*$/)?.[0] ?? "{}")).toMatchObject({
+    expect(
+      JSON.parse(validateViaPackageScript.stdout.match(/\{[\s\S]*\}\s*$/)?.[0] ?? "{}"),
+    ).toMatchObject({
       ok: true,
     });
 
@@ -1680,7 +1734,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(strictFullEvidenceSet.status, strictFullEvidenceSet.stderr || strictFullEvidenceSet.stdout).toBe(0);
+    expect(
+      strictFullEvidenceSet.status,
+      strictFullEvidenceSet.stderr || strictFullEvidenceSet.stdout,
+    ).toBe(0);
     expect(JSON.parse(strictFullEvidenceSet.stdout)).toMatchObject({
       ok: true,
       strictM5: true,
@@ -1725,7 +1782,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(readyStatusSummary.status, readyStatusSummary.stderr || readyStatusSummary.stdout).toBe(0);
+    expect(readyStatusSummary.status, readyStatusSummary.stderr || readyStatusSummary.stdout).toBe(
+      0,
+    );
     expect(JSON.parse(readyStatusSummary.stdout)).toMatchObject({
       ok: true,
       recordPath: anchoredStrictRecordPath,
@@ -1764,11 +1823,20 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(initTbdDefaultsWorkspace.status, initTbdDefaultsWorkspace.stderr || initTbdDefaultsWorkspace.stdout).toBe(0);
-    const tbdDefaultsWorkspaceJson = JSON.parse(await readFile(join(tbdDefaultsWorkspace, "workspace.json"), "utf8")) as {
+    expect(
+      initTbdDefaultsWorkspace.status,
+      initTbdDefaultsWorkspace.stderr || initTbdDefaultsWorkspace.stdout,
+    ).toBe(0);
+    const tbdDefaultsWorkspaceJson = JSON.parse(
+      await readFile(join(tbdDefaultsWorkspace, "workspace.json"), "utf8"),
+    ) as {
       evidenceFiles: { realSample: string };
     };
-    await writeFile(tbdDefaultsWorkspaceJson.evidenceFiles.realSample, await readFile(evidencePath, "utf8"), "utf8");
+    await writeFile(
+      tbdDefaultsWorkspaceJson.evidenceFiles.realSample,
+      await readFile(evidencePath, "utf8"),
+      "utf8",
+    );
     const tbdDefaultsScaffold = spawnSync(
       process.execPath,
       [
@@ -1782,7 +1850,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(tbdDefaultsScaffold.status, tbdDefaultsScaffold.stderr || tbdDefaultsScaffold.stdout).toBe(0);
+    expect(
+      tbdDefaultsScaffold.status,
+      tbdDefaultsScaffold.stderr || tbdDefaultsScaffold.stdout,
+    ).toBe(0);
     const tbdDefaultsRecord = await readFile(join(tbdDefaultsWorkspace, "record.md"), "utf8");
     expect(tbdDefaultsRecord).toContain(
       `acceptance:finalize -- --workspace ${join(tbdDefaultsWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`,
@@ -1790,7 +1861,11 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(tbdDefaultsRecord).toContain(
       `acceptance:assemble -- --workspace ${join(tbdDefaultsWorkspace, "workspace.json")} --release <release-label> --reviewer <name>`,
     );
-    await writeFile(join(tbdDefaultsWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
+    await writeFile(
+      join(tbdDefaultsWorkspace, "record.md"),
+      await readFile(anchoredStrictRecordPath, "utf8"),
+      "utf8",
+    );
     const tbdDefaultsReadyStatus = spawnSync(
       process.execPath,
       [
@@ -1805,9 +1880,14 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(tbdDefaultsReadyStatus.status, tbdDefaultsReadyStatus.stderr || tbdDefaultsReadyStatus.stdout).toBe(0);
+    expect(
+      tbdDefaultsReadyStatus.status,
+      tbdDefaultsReadyStatus.stderr || tbdDefaultsReadyStatus.stdout,
+    ).toBe(0);
     const tbdDefaultsReadyStatusJson = JSON.parse(tbdDefaultsReadyStatus.stdout);
-    const tbdDefaultsAssembleStep = tbdDefaultsReadyStatusJson.nextSteps.find((step: string) => step.includes("acceptance:assemble"));
+    const tbdDefaultsAssembleStep = tbdDefaultsReadyStatusJson.nextSteps.find((step: string) =>
+      step.includes("acceptance:assemble"),
+    );
     expect(tbdDefaultsAssembleStep).toContain("--release");
     expect(tbdDefaultsAssembleStep).toContain("<release-label>");
     expect(tbdDefaultsAssembleStep).toContain("--reviewer");
@@ -1860,16 +1940,22 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         join(acceptanceInitWorkspace, "workspace.json"),
       ]),
     });
-    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain("ReadAny CLI Acceptance Record");
+    expect(await readFile(join(acceptanceInitWorkspace, "record.md"), "utf8")).toContain(
+      "ReadAny CLI Acceptance Record",
+    );
     const workspaceReadme = await readFile(join(acceptanceInitWorkspace, "README.md"), "utf8");
     expect(workspaceReadme).toContain("ReadAny Acceptance Workspace");
     expect(workspaceReadme).toContain(`acceptance:real -- --workspace ${acceptanceInitWorkspace}`);
-    expect(workspaceReadme).toContain(`acceptance:status -- --workspace ${acceptanceInitWorkspace}`);
+    expect(workspaceReadme).toContain(
+      `acceptance:status -- --workspace ${acceptanceInitWorkspace}`,
+    );
     expect(workspaceReadme).toContain("milestone: `Workspace M5`");
     expect(workspaceReadme).toContain("reviewer: `Workspace Reviewer`");
     expect(workspaceReadme).toContain("release: `workspace-default-release`");
     expect(workspaceReadme).toContain("desktopPackage: `workspace desktop package`");
-    const workspaceJson = JSON.parse(await readFile(join(acceptanceInitWorkspace, "workspace.json"), "utf8")) as {
+    const workspaceJson = JSON.parse(
+      await readFile(join(acceptanceInitWorkspace, "workspace.json"), "utf8"),
+    ) as {
       paths: { recordPath: string };
       defaults: { milestone: string; reviewer: string; release: string; desktopPackage: string };
       evidenceFiles: { realSample: string; packagedWindows: string };
@@ -1999,7 +2085,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspaceAgentCodex.status, workspaceAgentCodex.stderr || workspaceAgentCodex.stdout).toBe(0);
+    expect(
+      workspaceAgentCodex.status,
+      workspaceAgentCodex.stderr || workspaceAgentCodex.stdout,
+    ).toBe(0);
     expect(JSON.parse(workspaceAgentCodex.stdout)).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
@@ -2034,7 +2123,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspaceAgentClaude.status, workspaceAgentClaude.stderr || workspaceAgentClaude.stdout).toBe(0);
+    expect(
+      workspaceAgentClaude.status,
+      workspaceAgentClaude.stderr || workspaceAgentClaude.stdout,
+    ).toBe(0);
     expect(JSON.parse(workspaceAgentClaude.stdout)).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
@@ -2105,7 +2197,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspacePackagedMacos.status, workspacePackagedMacos.stderr || workspacePackagedMacos.stdout).toBe(0);
+    expect(
+      workspacePackagedMacos.status,
+      workspacePackagedMacos.stderr || workspacePackagedMacos.stdout,
+    ).toBe(0);
     expect(JSON.parse(workspacePackagedMacos.stdout)).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
@@ -2115,8 +2210,16 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         draftExportChecked: true,
       },
     });
-    await writeFile(workspaceJson.evidenceFiles.packagedWindows, await readFile(windowsPackagedEvidencePath, "utf8"), "utf8");
-    await writeFile(workspaceJson.evidenceFiles.packagedLinux, await readFile(linuxPackagedEvidencePath, "utf8"), "utf8");
+    await writeFile(
+      workspaceJson.evidenceFiles.packagedWindows,
+      await readFile(windowsPackagedEvidencePath, "utf8"),
+      "utf8",
+    );
+    await writeFile(
+      workspaceJson.evidenceFiles.packagedLinux,
+      await readFile(linuxPackagedEvidencePath, "utf8"),
+      "utf8",
+    );
     const workspaceValidate = spawnSync(
       process.execPath,
       [
@@ -2138,10 +2241,22 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       validated: {
         record: join(acceptanceInitWorkspace, "record.md"),
         evidences: expect.arrayContaining([
-          expect.objectContaining({ path: workspaceJson.evidenceFiles.realSample, type: "real-sample" }),
-          expect.objectContaining({ path: workspaceJson.evidenceFiles.agentCodex, type: "external-agent" }),
-          expect.objectContaining({ path: workspaceJson.evidenceFiles.desktopSettings, type: "desktop-settings" }),
-          expect.objectContaining({ path: workspaceJson.evidenceFiles.packagedMacos, type: "packaged-platform" }),
+          expect.objectContaining({
+            path: workspaceJson.evidenceFiles.realSample,
+            type: "real-sample",
+          }),
+          expect.objectContaining({
+            path: workspaceJson.evidenceFiles.agentCodex,
+            type: "external-agent",
+          }),
+          expect.objectContaining({
+            path: workspaceJson.evidenceFiles.desktopSettings,
+            type: "desktop-settings",
+          }),
+          expect.objectContaining({
+            path: workspaceJson.evidenceFiles.packagedMacos,
+            type: "packaged-platform",
+          }),
         ]),
       },
     });
@@ -2170,12 +2285,24 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(workspaceRecord).toContain("- Milestone：Workspace M5");
     expect(workspaceRecord).toContain("- 验收人：Workspace Reviewer");
     expect(workspaceRecord).toContain("- 桌面包来源：workspace desktop package");
-    expect(workspaceRecord).toContain(`acceptance:status -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
-    expect(workspaceRecord).toContain(`acceptance:validate -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --strict-m5`);
-    expect(workspaceRecord).toContain(`acceptance:finalize -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
-    expect(workspaceRecord).toContain(`acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`);
+    expect(workspaceRecord).toContain(
+      `acceptance:status -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`,
+    );
+    expect(workspaceRecord).toContain(
+      `acceptance:validate -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")} --strict-m5`,
+    );
+    expect(workspaceRecord).toContain(
+      `acceptance:finalize -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`,
+    );
+    expect(workspaceRecord).toContain(
+      `acceptance:assemble -- --workspace ${join(acceptanceInitWorkspace, "workspace.json")}`,
+    );
     expect(workspaceRecord).not.toContain("--release <release-label> --reviewer <name>");
-    await writeFile(join(acceptanceInitWorkspace, "record.md"), await readFile(anchoredStrictRecordPath, "utf8"), "utf8");
+    await writeFile(
+      join(acceptanceInitWorkspace, "record.md"),
+      await readFile(anchoredStrictRecordPath, "utf8"),
+      "utf8",
+    );
     const workspaceStrictValidate = spawnSync(
       process.execPath,
       [
@@ -2191,7 +2318,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspaceStrictValidate.status, workspaceStrictValidate.stderr || workspaceStrictValidate.stdout).toBe(0);
+    expect(
+      workspaceStrictValidate.status,
+      workspaceStrictValidate.stderr || workspaceStrictValidate.stdout,
+    ).toBe(0);
     expect(JSON.parse(workspaceStrictValidate.stdout)).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
@@ -2211,7 +2341,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspaceReadyStatus.status, workspaceReadyStatus.stderr || workspaceReadyStatus.stdout).toBe(0);
+    expect(
+      workspaceReadyStatus.status,
+      workspaceReadyStatus.stderr || workspaceReadyStatus.stdout,
+    ).toBe(0);
     const workspaceReadyStatusJson = JSON.parse(workspaceReadyStatus.stdout);
     expect(workspaceReadyStatusJson).toMatchObject({
       ok: true,
@@ -2228,15 +2361,13 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         expect.stringContaining("acceptance:assemble"),
       ]),
     });
-    expect(workspaceReadyStatusJson.nextSteps.join("\n")).not.toContain("--release <release-label>");
+    expect(workspaceReadyStatusJson.nextSteps.join("\n")).not.toContain(
+      "--release <release-label>",
+    );
     expect(workspaceReadyStatusJson.nextSteps.join("\n")).not.toContain("--reviewer <name>");
     const workspaceFinalize = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/finalize-acceptance.mjs"),
-        "--workspace",
-        acceptanceInitWorkspace,
-      ],
+      [resolve(cliRoot, "scripts/finalize-acceptance.mjs"), "--workspace", acceptanceInitWorkspace],
       {
         cwd: cliRoot,
         env,
@@ -2249,17 +2380,15 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
       outputPath: join(acceptanceInitWorkspace, "final-manifest.json"),
     });
-    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8"))).toMatchObject({
+    expect(
+      JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8")),
+    ).toMatchObject({
       release: "workspace-default-release",
       reviewer: "Workspace Reviewer",
     });
     const workspaceBundle = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/acceptance-bundle.mjs"),
-        "--workspace",
-        acceptanceInitWorkspace,
-      ],
+      [resolve(cliRoot, "scripts/acceptance-bundle.mjs"), "--workspace", acceptanceInitWorkspace],
       {
         cwd: cliRoot,
         env,
@@ -2273,7 +2402,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       outputDir: join(acceptanceInitWorkspace, "bundle"),
       files: expect.arrayContaining(["record.md", "manifest.json", "index.json"]),
     });
-    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "bundle", "index.json"), "utf8"))).toMatchObject({
+    expect(
+      JSON.parse(await readFile(join(acceptanceInitWorkspace, "bundle", "index.json"), "utf8")),
+    ).toMatchObject({
       release: "workspace-default-release",
     });
     const workspaceVerifyBundle = spawnSync(
@@ -2289,7 +2420,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(workspaceVerifyBundle.status, workspaceVerifyBundle.stderr || workspaceVerifyBundle.stdout).toBe(0);
+    expect(
+      workspaceVerifyBundle.status,
+      workspaceVerifyBundle.stderr || workspaceVerifyBundle.stdout,
+    ).toBe(0);
     expect(JSON.parse(workspaceVerifyBundle.stdout)).toMatchObject({
       ok: true,
       workspaceFile: join(acceptanceInitWorkspace, "workspace.json"),
@@ -2297,11 +2431,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     });
     const workspaceAssemble = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/assemble-acceptance.mjs"),
-        "--workspace",
-        acceptanceInitWorkspace,
-      ],
+      [resolve(cliRoot, "scripts/assemble-acceptance.mjs"), "--workspace", acceptanceInitWorkspace],
       {
         cwd: cliRoot,
         env,
@@ -2315,7 +2445,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       outputDir: join(acceptanceInitWorkspace, "bundle"),
       verified: true,
     });
-    expect(JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8"))).toMatchObject({
+    expect(
+      JSON.parse(await readFile(join(acceptanceInitWorkspace, "final-manifest.json"), "utf8")),
+    ).toMatchObject({
       release: "workspace-default-release",
       reviewer: "Workspace Reviewer",
     });
@@ -2339,7 +2471,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       },
     );
     expect(rejectedFinalize.status).toBe(1);
-    expect(rejectedFinalize.stderr).toContain("Strict M5 validation failed; manifest was not written.");
+    expect(rejectedFinalize.stderr).toContain(
+      "Strict M5 validation failed; manifest was not written.",
+    );
 
     const finalManifestPath = join(root, "evidence", "final-manifest.json");
     const finalize = spawnSync(
@@ -2389,7 +2523,13 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       release?: string;
       reviewer?: string;
       record: { path: string; sha256: string; bytes: number };
-      evidences: Array<{ path: string; sha256: string; bytes: number; type: string; label: string }>;
+      evidences: Array<{
+        path: string;
+        sha256: string;
+        bytes: number;
+        type: string;
+        label: string;
+      }>;
       validation: { ok: boolean; strictM5: boolean; errors: string[] };
       summary: { evidenceCount: number; evidenceTypes: string[] };
     };
@@ -2415,10 +2555,26 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(finalManifest.evidences).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: evidencePath, type: "real-sample", label: "real-sample" }),
-        expect.objectContaining({ path: codexAgentEvidencePath, type: "external-agent", label: "Codex" }),
-        expect.objectContaining({ path: claudeAgentEvidencePath, type: "external-agent", label: "Claude Desktop" }),
-        expect.objectContaining({ path: desktopEvidencePath, type: "desktop-settings", label: "desktop-settings" }),
-        expect.objectContaining({ path: darwinPackagedEvidencePath, type: "packaged-platform", label: "darwin" }),
+        expect.objectContaining({
+          path: codexAgentEvidencePath,
+          type: "external-agent",
+          label: "Codex",
+        }),
+        expect.objectContaining({
+          path: claudeAgentEvidencePath,
+          type: "external-agent",
+          label: "Claude Desktop",
+        }),
+        expect.objectContaining({
+          path: desktopEvidencePath,
+          type: "desktop-settings",
+          label: "desktop-settings",
+        }),
+        expect.objectContaining({
+          path: darwinPackagedEvidencePath,
+          type: "packaged-platform",
+          label: "darwin",
+        }),
       ]),
     );
 
@@ -2507,11 +2663,7 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     );
     const verifyBundle = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
-        "--bundle-dir",
-        bundleDir,
-      ],
+      [resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"), "--bundle-dir", bundleDir],
       {
         cwd: cliRoot,
         env,
@@ -2542,7 +2694,10 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
         encoding: "utf8",
       },
     );
-    expect(verifyBundleRelative.status, verifyBundleRelative.stderr || verifyBundleRelative.stdout).toBe(0);
+    expect(
+      verifyBundleRelative.status,
+      verifyBundleRelative.stderr || verifyBundleRelative.stdout,
+    ).toBe(0);
     expect(JSON.parse(verifyBundleRelative.stdout)).toMatchObject({
       ok: true,
       bundleDir,
@@ -2605,18 +2760,17 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     expect(rejectedBundle.stderr).toContain("Acceptance bundle consistency check failed");
     const rejectedVerifyBundle = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
-        "--bundle-dir",
-        bundleDir,
-      ],
+      [resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"), "--bundle-dir", bundleDir],
       {
         cwd: cliRoot,
         env,
         encoding: "utf8",
       },
     );
-    expect(rejectedVerifyBundle.status, rejectedVerifyBundle.stderr || rejectedVerifyBundle.stdout).toBe(0);
+    expect(
+      rejectedVerifyBundle.status,
+      rejectedVerifyBundle.stderr || rejectedVerifyBundle.stdout,
+    ).toBe(0);
 
     const rejectedAssembleDir = join(root, "evidence", "rejected-assemble");
     const rejectedAssemble = spawnSync(
@@ -2680,7 +2834,9 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
       verified: true,
       evidenceCount: 7,
     });
-    const assembledManifest = JSON.parse(await readFile(join(assembledDir, "manifest.json"), "utf8")) as {
+    const assembledManifest = JSON.parse(
+      await readFile(join(assembledDir, "manifest.json"), "utf8"),
+    ) as {
       ok: boolean;
       release?: string;
       reviewer?: string;
@@ -2711,18 +2867,17 @@ pnpm --filter @readany/cli acceptance:validate -- --strict-m5
     });
     const verifyAssembledBundle = spawnSync(
       process.execPath,
-      [
-        resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"),
-        "--bundle-dir",
-        assembledDir,
-      ],
+      [resolve(cliRoot, "scripts/verify-acceptance-bundle.mjs"), "--bundle-dir", assembledDir],
       {
         cwd: cliRoot,
         env,
         encoding: "utf8",
       },
     );
-    expect(verifyAssembledBundle.status, verifyAssembledBundle.stderr || verifyAssembledBundle.stdout).toBe(0);
+    expect(
+      verifyAssembledBundle.status,
+      verifyAssembledBundle.stderr || verifyAssembledBundle.stdout,
+    ).toBe(0);
     expect(JSON.parse(verifyAssembledBundle.stdout)).toMatchObject({
       ok: true,
       bundleDir: assembledDir,

@@ -67,6 +67,12 @@ Use this skill when the user asks an external AI agent to search, read, organize
 - Treat publisher/export actions and draft discard as high-risk; ask the user to confirm in ReadAny.
 - Prefer MCP tools in clients that support MCP. Use CLI commands as a transparent fallback.
 
+## Client Setup Notes
+
+- \`codex\`, \`claude\`, and \`cursor\` setup link this managed skill into the known client skill directory.
+- \`opencode\` setup returns an OpenCode \`mcp.readany\` config snippet; use MCP because OpenCode skill discovery is not standardized.
+- \`generic\` setup only installs the CLI and canonical skill under \`$AGENT_HOME/skills/readany\`.
+
 ## MCP Tools
 
 ${renderMcpToolList()}
@@ -76,10 +82,16 @@ ${renderMcpToolList()}
 \`\`\`bash
 readany agent setup --user --client generic --profile readonly --json
 readany agent setup --user --client codex --profile readonly --json
+readany agent setup --user --client claude --profile readonly --json
+readany agent setup --user --client cursor --profile readonly --json
+readany agent setup --user --client opencode --profile readonly --json
 readany doctor --json
 readany mcp serve --profile readonly
 readany mcp config --profile readonly --client generic --json
 readany mcp config --profile readonly --client codex --json
+readany mcp config --profile readonly --client claude --json
+readany mcp config --profile readonly --client cursor --json
+readany mcp config --profile readonly --client opencode --json
 readany tools list --json
 readany books list --json
 readany books search <query> --json
@@ -161,7 +173,9 @@ export async function installSkill(skillFile: string): Promise<SkillInstallResul
 export async function updateSkill(skillFile: string): Promise<SkillUpdateResult> {
   const status = await getSkillStatus(skillFile);
   if (!status.installed) {
-    throw new Error(`ReadAny skill is not installed or is not managed by ReadAny CLI: ${skillFile}`);
+    throw new Error(
+      `ReadAny skill is not installed or is not managed by ReadAny CLI: ${skillFile}`,
+    );
   }
 
   await mkdir(dirname(skillFile), { recursive: true });

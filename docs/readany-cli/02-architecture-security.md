@@ -104,6 +104,8 @@ $AGENT_HOME/skills/readany/SKILL.md
 
 ReadAny 只管理自己安装的 skill，不扫描或修改其他 skill。
 
+为了让具体客户端能自动发现，`agent setup --client codex|claude|cursor` 会把 canonical skill 链接到已知用户 skill 目录；没有稳定 Agent Skills 发现约定的客户端（如 OpenCode）只通过 MCP 配置接入。
+
 ## MCP 角色
 
 MCP 是面向外部 AI 的主接口。
@@ -115,7 +117,7 @@ MCP 是面向外部 AI 的主接口。
 - 支持分页和限流。
 - 支持审计日志。
 
-MCP server 默认使用 stdio，便于 Codex、Claude Desktop、Cursor 等本地 agent 启动：
+MCP server 默认使用 stdio，便于 Codex、Claude Desktop / Claude Code、Cursor、OpenCode 等本地 agent 启动：
 
 ```bash
 readany mcp serve --profile readonly

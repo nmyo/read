@@ -21,7 +21,8 @@ export type ParsedCommand = {
   options: Record<string, string | boolean>;
 };
 
-type McpConfigClient = "generic" | "claude" | "cursor" | "codex";
+type McpConfigClient = "generic" | "claude" | "cursor" | "codex" | "opencode";
+type ClientSkillClient = "claude" | "cursor" | "codex";
 
 type AgentSetupResult = {
   setup: true;
@@ -43,14 +44,14 @@ type AgentUninstallResult = {
 };
 
 type ClientSkillLinkResult = {
-  client: "codex";
+  client: ClientSkillClient;
   linked: true;
   path: string;
   target: string;
 };
 
 type ClientSkillUnlinkResult = {
-  client: "codex";
+  client: ClientSkillClient;
   removed: boolean;
   path: string;
 };
@@ -226,7 +227,13 @@ function parseEpubMetadataPatch(value: unknown): {
 
 function parseMcpConfigClient(value: string | undefined): McpConfigClient {
   if (!value) return "generic";
-  if (value === "generic" || value === "claude" || value === "cursor" || value === "codex") {
+  if (
+    value === "generic" ||
+    value === "claude" ||
+    value === "cursor" ||
+    value === "codex" ||
+    value === "opencode"
+  ) {
     return value;
   }
   throw new Error(`Unknown MCP config client: ${value}`);
@@ -267,6 +274,25 @@ export function createMcpConfig(
     };
   }
 
+  if (parsedClient === "opencode") {
+    const opencodeConfig = {
+      mcp: {
+        readany: {
+          type: "local",
+          command: [server.command, ...server.args],
+          enabled: true,
+        },
+      },
+    };
+    return {
+      client: "opencode",
+      format: "json",
+      profile: profileName,
+      snippet: JSON.stringify(opencodeConfig, null, 2),
+      ...opencodeConfig,
+    };
+  }
+
   return {
     client: parsedClient,
     format: "json",
@@ -285,7 +311,7 @@ export function createHelpText(): string {
 
 Usage:
   readany --version
-  readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex|opencode] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany agent uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany install [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany repair [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
@@ -325,7 +351,7 @@ Usage:
   readany knowledge export --output <path> [--json] [--profile publisher] [--format markdown|json|obsidian] [--limit 1000] [--overwrite]
   readany rag search <query> --book <book-id> [--json] [--mode bm25|hybrid|vector] [--limit 5]
   readany mcp serve --profile readonly
-  readany mcp config [--json] [--profile readonly|editor|publisher] [--client generic|claude|cursor|codex]
+  readany mcp config [--json] [--profile readonly|editor|publisher] [--client generic|claude|cursor|codex|opencode]
 `;
 }
 
@@ -430,9 +456,32 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function getCodexSkillLinkPath(env: NodeJS.ProcessEnv): string {
-  const codexHome = env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homedir(), ".codex");
-  return join(codexHome, "skills", "readany");
+const CLIENT_SKILL_CLIENTS: ClientSkillClient[] = ["codex", "claude", "cursor"];
+
+function getClientSkillLinkPath(client: ClientSkillClient, env: NodeJS.ProcessEnv): string {
+  if (client === "codex") {
+    const codexHome = env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homedir(), ".codex");
+    return join(codexHome, "skills", "readany");
+  }
+
+  if (client === "claude") {
+    const claudeHome = env.CLAUDE_HOME ? resolve(env.CLAUDE_HOME) : join(homedir(), ".claude");
+    return join(claudeHome, "skills", "readany");
+  }
+
+  const cursorHome = env.CURSOR_HOME ? resolve(env.CURSOR_HOME) : join(homedir(), ".cursor");
+  return join(cursorHome, "skills", "readany");
+}
+
+function getRequestedClientSkillLinkPath(
+  client: McpConfigClient,
+  env: NodeJS.ProcessEnv,
+): { client: ClientSkillClient; path: string } | undefined {
+  if (client !== "codex" && client !== "claude" && client !== "cursor") return undefined;
+  return {
+    client,
+    path: getClientSkillLinkPath(client, env),
+  };
 }
 
 async function assertClientSkillLinkCanBeManaged(
@@ -462,9 +511,10 @@ async function installClientSkillLinks(options: {
   env: NodeJS.ProcessEnv;
   skillDir: string;
 }): Promise<ClientSkillLinkResult[]> {
-  if (options.client !== "codex") return [];
+  const requestedLink = getRequestedClientSkillLinkPath(options.client, options.env);
+  if (!requestedLink) return [];
 
-  const linkPath = getCodexSkillLinkPath(options.env);
+  const linkPath = requestedLink.path;
   await mkdir(dirname(linkPath), { recursive: true });
   await assertClientSkillLinkCanBeManaged(linkPath, options.skillDir);
   await rm(linkPath, { force: true, recursive: true });
@@ -472,7 +522,7 @@ async function installClientSkillLinks(options: {
 
   return [
     {
-      client: "codex",
+      client: requestedLink.client,
       linked: true,
       path: linkPath,
       target: options.skillDir,
@@ -485,32 +535,48 @@ async function assertClientSkillLinksCanBeManaged(options: {
   env: NodeJS.ProcessEnv;
   skillDir: string;
 }): Promise<void> {
-  if (options.client !== "codex") return;
-  await assertClientSkillLinkCanBeManaged(getCodexSkillLinkPath(options.env), options.skillDir);
+  const requestedLink = getRequestedClientSkillLinkPath(options.client, options.env);
+  if (!requestedLink) return;
+  await assertClientSkillLinkCanBeManaged(requestedLink.path, options.skillDir);
 }
 
 async function uninstallClientSkillLinks(
   env: NodeJS.ProcessEnv,
+  skillDir: string,
 ): Promise<ClientSkillUnlinkResult[]> {
-  const linkPath = getCodexSkillLinkPath(env);
-  if (!(await pathExists(linkPath))) {
-    return [{ client: "codex", removed: false, path: linkPath }];
+  const results: ClientSkillUnlinkResult[] = [];
+
+  for (const client of CLIENT_SKILL_CLIENTS) {
+    const linkPath = getClientSkillLinkPath(client, env);
+    if (!(await pathExists(linkPath))) {
+      results.push({ client, removed: false, path: linkPath });
+      continue;
+    }
+
+    const stat = await lstat(linkPath);
+    if (stat.isSymbolicLink()) {
+      const target = await readlink(linkPath);
+      if (target === skillDir) {
+        await rm(linkPath, { force: true });
+        results.push({ client, removed: true, path: linkPath });
+      } else {
+        results.push({ client, removed: false, path: linkPath });
+      }
+      continue;
+    }
+
+    const skillFile = join(linkPath, "SKILL.md");
+    const status = await getSkillStatus(skillFile);
+    if (!status.installed) {
+      results.push({ client, removed: false, path: linkPath });
+      continue;
+    }
+
+    await rm(linkPath, { force: true, recursive: true });
+    results.push({ client, removed: true, path: linkPath });
   }
 
-  const stat = await lstat(linkPath);
-  if (stat.isSymbolicLink()) {
-    await rm(linkPath, { force: true });
-    return [{ client: "codex", removed: true, path: linkPath }];
-  }
-
-  const skillFile = join(linkPath, "SKILL.md");
-  const status = await getSkillStatus(skillFile);
-  if (!status.installed) {
-    return [{ client: "codex", removed: false, path: linkPath }];
-  }
-
-  await rm(linkPath, { force: true, recursive: true });
-  return [{ client: "codex", removed: true, path: linkPath }];
+  return results;
 }
 
 async function setupAgent(
@@ -563,7 +629,7 @@ async function uninstallAgent(
     command: uninstallCommand,
     install: await uninstallCli(getInstallOptions(command, paths.binPath)),
     skill: await uninstallSkill(paths.skillFile),
-    clientSkillLinks: await uninstallClientSkillLinks(env),
+    clientSkillLinks: await uninstallClientSkillLinks(env, paths.skillDir),
     nextSteps: [
       "Remove any readany MCP server snippet from external agent client configs that were edited manually.",
     ],

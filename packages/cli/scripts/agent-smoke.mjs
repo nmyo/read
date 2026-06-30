@@ -58,19 +58,32 @@ function buildStoreOnlyZip(entries) {
     const name = nameBytes[index];
     const crc = crc32(entry.data);
     localOffsets.push(offset);
-    view.setUint32(offset, 0x04034b50, true); offset += 4;
-    view.setUint16(offset, 20, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint32(offset, crc, true); offset += 4;
-    view.setUint32(offset, entry.data.length, true); offset += 4;
-    view.setUint32(offset, entry.data.length, true); offset += 4;
-    view.setUint16(offset, name.length, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    buffer.set(name, offset); offset += name.length;
-    buffer.set(entry.data, offset); offset += entry.data.length;
+    view.setUint32(offset, 0x04034b50, true);
+    offset += 4;
+    view.setUint16(offset, 20, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint32(offset, crc, true);
+    offset += 4;
+    view.setUint32(offset, entry.data.length, true);
+    offset += 4;
+    view.setUint32(offset, entry.data.length, true);
+    offset += 4;
+    view.setUint16(offset, name.length, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    buffer.set(name, offset);
+    offset += name.length;
+    buffer.set(entry.data, offset);
+    offset += entry.data.length;
   }
 
   const centralDirectoryStart = offset;
@@ -78,34 +91,59 @@ function buildStoreOnlyZip(entries) {
     const entry = entries[index];
     const name = nameBytes[index];
     const crc = crc32(entry.data);
-    view.setUint32(offset, 0x02014b50, true); offset += 4;
-    view.setUint16(offset, 20, true); offset += 2;
-    view.setUint16(offset, 20, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint32(offset, crc, true); offset += 4;
-    view.setUint32(offset, entry.data.length, true); offset += 4;
-    view.setUint32(offset, entry.data.length, true); offset += 4;
-    view.setUint16(offset, name.length, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint16(offset, 0, true); offset += 2;
-    view.setUint32(offset, 0, true); offset += 4;
-    view.setUint32(offset, localOffsets[index], true); offset += 4;
-    buffer.set(name, offset); offset += name.length;
+    view.setUint32(offset, 0x02014b50, true);
+    offset += 4;
+    view.setUint16(offset, 20, true);
+    offset += 2;
+    view.setUint16(offset, 20, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint32(offset, crc, true);
+    offset += 4;
+    view.setUint32(offset, entry.data.length, true);
+    offset += 4;
+    view.setUint32(offset, entry.data.length, true);
+    offset += 4;
+    view.setUint16(offset, name.length, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint16(offset, 0, true);
+    offset += 2;
+    view.setUint32(offset, 0, true);
+    offset += 4;
+    view.setUint32(offset, localOffsets[index], true);
+    offset += 4;
+    buffer.set(name, offset);
+    offset += name.length;
   }
 
   const centralDirectorySize = offset - centralDirectoryStart;
-  view.setUint32(offset, 0x06054b50, true); offset += 4;
-  view.setUint16(offset, 0, true); offset += 2;
-  view.setUint16(offset, 0, true); offset += 2;
-  view.setUint16(offset, entries.length, true); offset += 2;
-  view.setUint16(offset, entries.length, true); offset += 2;
-  view.setUint32(offset, centralDirectorySize, true); offset += 4;
-  view.setUint32(offset, centralDirectoryStart, true); offset += 4;
+  view.setUint32(offset, 0x06054b50, true);
+  offset += 4;
+  view.setUint16(offset, 0, true);
+  offset += 2;
+  view.setUint16(offset, 0, true);
+  offset += 2;
+  view.setUint16(offset, entries.length, true);
+  offset += 2;
+  view.setUint16(offset, entries.length, true);
+  offset += 2;
+  view.setUint32(offset, centralDirectorySize, true);
+  offset += 4;
+  view.setUint32(offset, centralDirectoryStart, true);
+  offset += 4;
   view.setUint16(offset, 0, true);
 
   return buffer;
@@ -126,8 +164,14 @@ function buildInspectableEpub() {
       "OPS/nav.xhtml",
       `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">External Access</a></li><li><a href="chapter-2.xhtml">Draft Safety</a></li></ol></nav></body></html>`,
     ),
-    textEntry("OPS/chapter-1.xhtml", "<html><body><h1>External Access</h1><p>Agents can read bounded context.</p></body></html>"),
-    textEntry("OPS/chapter-2.xhtml", "<html><body><h1>Draft Safety</h1><p>Drafts protect original books.</p></body></html>"),
+    textEntry(
+      "OPS/chapter-1.xhtml",
+      "<html><body><h1>External Access</h1><p>Agents can read bounded context.</p></body></html>",
+    ),
+    textEntry(
+      "OPS/chapter-2.xhtml",
+      "<html><body><h1>Draft Safety</h1><p>Drafts protect original books.</p></body></html>",
+    ),
   ]);
 }
 
@@ -145,14 +189,17 @@ function buildSimplePdf(pages) {
   for (const text of pages) {
     const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
     const stream = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
-    const contentId = addObject(`<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const contentId = addObject(
+      `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`,
+    );
     const pageId = addObject(
       `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
     );
     pageIds.push(pageId);
   }
 
-  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+  objects[pagesId - 1] =
+    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
 
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
@@ -183,12 +230,18 @@ function runBuiltCli(args, env) {
 
 function assertMcpConfigSnippets(env) {
   for (const client of ["generic", "claude", "cursor"]) {
-    const result = runBuiltCli(["mcp", "config", "--profile", "readonly", "--client", client, "--json"], env);
+    const result = runBuiltCli(
+      ["mcp", "config", "--profile", "readonly", "--client", client, "--json"],
+      env,
+    );
     assert(result.ok, `${client} MCP config command did not succeed`);
     assert(result.data.client === client, `${client} MCP config reported the wrong client`);
     assert(result.data.format === "json", `${client} MCP config reported the wrong format`);
     assert(result.data.profile === "readonly", `${client} MCP config reported the wrong profile`);
-    assert(typeof result.data.snippet === "string", `${client} MCP config did not include a snippet`);
+    assert(
+      typeof result.data.snippet === "string",
+      `${client} MCP config did not include a snippet`,
+    );
 
     const snippet = JSON.parse(result.data.snippet);
     assert(
@@ -203,18 +256,33 @@ function assertMcpConfigSnippets(env) {
         }),
       `${client} MCP config snippet was not a pure mcpServers config`,
     );
-    assert(!result.data.snippet.includes('"client"'), `${client} MCP config snippet leaked client metadata`);
-    assert(!result.data.snippet.includes('"format"'), `${client} MCP config snippet leaked format metadata`);
-    assert(!result.data.snippet.includes('"profile"'), `${client} MCP config snippet leaked profile metadata`);
+    assert(
+      !result.data.snippet.includes('"client"'),
+      `${client} MCP config snippet leaked client metadata`,
+    );
+    assert(
+      !result.data.snippet.includes('"format"'),
+      `${client} MCP config snippet leaked format metadata`,
+    );
+    assert(
+      !result.data.snippet.includes('"profile"'),
+      `${client} MCP config snippet leaked profile metadata`,
+    );
   }
 
-  const codex = runBuiltCli(["mcp", "config", "--profile", "editor", "--client", "codex", "--json"], env);
+  const codex = runBuiltCli(
+    ["mcp", "config", "--profile", "editor", "--client", "codex", "--json"],
+    env,
+  );
   assert(codex.ok, "codex MCP config command did not succeed");
   assert(codex.data.client === "codex", "codex MCP config reported the wrong client");
   assert(codex.data.format === "toml", "codex MCP config reported the wrong format");
   assert(codex.data.profile === "editor", "codex MCP config reported the wrong profile");
   assert(typeof codex.data.snippet === "string", "codex MCP config did not include a snippet");
-  assert(codex.data.snippet.includes("[mcp_servers.readany]"), "codex MCP config snippet did not include server table");
+  assert(
+    codex.data.snippet.includes("[mcp_servers.readany]"),
+    "codex MCP config snippet did not include server table",
+  );
   assert(
     codex.data.snippet.includes(`command = ${JSON.stringify(process.execPath)}`),
     "codex MCP config snippet did not include command",
@@ -223,14 +291,70 @@ function assertMcpConfigSnippets(env) {
     codex.data.snippet.includes('"mcp","serve","--profile","editor"'),
     "codex MCP config snippet did not include editor profile args",
   );
-  assert(!codex.data.snippet.includes("client ="), "codex MCP config snippet leaked client metadata");
-  assert(!codex.data.snippet.includes("format ="), "codex MCP config snippet leaked format metadata");
-  assert(!codex.data.snippet.includes("profile ="), "codex MCP config snippet leaked profile metadata");
+  assert(
+    !codex.data.snippet.includes("client ="),
+    "codex MCP config snippet leaked client metadata",
+  );
+  assert(
+    !codex.data.snippet.includes("format ="),
+    "codex MCP config snippet leaked format metadata",
+  );
+  assert(
+    !codex.data.snippet.includes("profile ="),
+    "codex MCP config snippet leaked profile metadata",
+  );
+
+  const opencode = runBuiltCli(
+    ["mcp", "config", "--profile", "readonly", "--client", "opencode", "--json"],
+    env,
+  );
+  assert(opencode.ok, "opencode MCP config command did not succeed");
+  assert(opencode.data.client === "opencode", "opencode MCP config reported the wrong client");
+  assert(opencode.data.format === "json", "opencode MCP config reported the wrong format");
+  assert(opencode.data.profile === "readonly", "opencode MCP config reported the wrong profile");
+  assert(
+    typeof opencode.data.snippet === "string",
+    "opencode MCP config did not include a snippet",
+  );
+
+  const opencodeSnippet = JSON.parse(opencode.data.snippet);
+  assert(
+    JSON.stringify(opencodeSnippet) ===
+      JSON.stringify({
+        mcp: {
+          readany: {
+            type: "local",
+            command: [process.execPath, binPath, "mcp", "serve", "--profile", "readonly"],
+            enabled: true,
+          },
+        },
+      }),
+    "opencode MCP config snippet was not a pure mcp.readany config",
+  );
+  assert(
+    !opencode.data.snippet.includes('"mcpServers"'),
+    "opencode MCP config used the generic mcpServers shape",
+  );
+  assert(
+    !opencode.data.snippet.includes('"client"'),
+    "opencode MCP config snippet leaked client metadata",
+  );
+  assert(
+    !opencode.data.snippet.includes('"format"'),
+    "opencode MCP config snippet leaked format metadata",
+  );
+  assert(
+    !opencode.data.snippet.includes('"profile"'),
+    "opencode MCP config snippet leaked profile metadata",
+  );
 }
 
 function parseToolContent(response) {
   const text = response?.result?.content?.[0]?.text;
-  assert(typeof text === "string", `MCP response did not contain tool text: ${JSON.stringify(response)}`);
+  assert(
+    typeof text === "string",
+    `MCP response did not contain tool text: ${JSON.stringify(response)}`,
+  );
   return JSON.parse(text);
 }
 
@@ -246,8 +370,7 @@ function assertToolSafetyMetadata(tool, expected) {
   );
   for (const scope of expected.scopes) {
     assert(
-      Array.isArray(tool._meta?.["readany/scopes"]) &&
-        tool._meta["readany/scopes"].includes(scope),
+      Array.isArray(tool._meta?.["readany/scopes"]) && tool._meta["readany/scopes"].includes(scope),
       `${expected.name} did not expose expected scope metadata: ${scope}`,
     );
   }
@@ -273,7 +396,11 @@ function callMcp(profile, requests, env) {
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`MCP ${profile} exited with ${code}: ${Buffer.concat(stderr).toString("utf8")}`));
+        reject(
+          new Error(
+            `MCP ${profile} exited with ${code}: ${Buffer.concat(stderr).toString("utf8")}`,
+          ),
+        );
         return;
       }
       try {
@@ -297,7 +424,10 @@ export async function seedLibrary(dataRoot) {
   await writeFile(epubPath, buildInspectableEpub());
   await writeFile(
     join(dataRoot, "books", "agent-smoke.pdf"),
-    buildSimplePdf(["PDF smoke agents need page fallback", "Second PDF smoke page keeps references stable"]),
+    buildSimplePdf([
+      "PDF smoke agents need page fallback",
+      "Second PDF smoke page keeps references stable",
+    ]),
   );
 
   const db = new Database(join(dataRoot, "readany.db"));
@@ -421,7 +551,10 @@ async function main() {
         jsonrpc: "2.0",
         id: 4,
         method: "tools/call",
-        params: { name: "rag.search", arguments: { query: "bounded MCP", bookId: "agent-smoke-book", limit: 3 } },
+        params: {
+          name: "rag.search",
+          arguments: { query: "bounded MCP", bookId: "agent-smoke-book", limit: 3 },
+        },
       },
       {
         jsonrpc: "2.0",
@@ -435,7 +568,10 @@ async function main() {
 
   assert(readonlyResponses[0]?.result?.serverInfo?.name === "readany", "initialize failed");
   const tools = readonlyResponses[1]?.result?.tools ?? [];
-  assert(tools.some((tool) => tool.name === "epub.chapters.patch"), "tools/list did not expose epub.chapters.patch");
+  assert(
+    tools.some((tool) => tool.name === "epub.chapters.patch"),
+    "tools/list did not expose epub.chapters.patch",
+  );
   assertToolSafetyMetadata(
     tools.find((tool) => tool.name === "books.search"),
     { name: "books.search", risk: "low", minimumProfile: "readonly", scopes: ["book.read"] },
@@ -449,11 +585,17 @@ async function main() {
     { name: "epub.export", risk: "high", minimumProfile: "publisher", scopes: ["epub.export"] },
   );
   const books = parseToolContent(readonlyResponses[2]);
-  assert(books.ok && books.data.books.some((book) => book.id === "agent-smoke-book"), "books.search failed");
+  assert(
+    books.ok && books.data.books.some((book) => book.id === "agent-smoke-book"),
+    "books.search failed",
+  );
   const rag = parseToolContent(readonlyResponses[3]);
   assert(rag.ok && rag.data.results.length > 0, "rag.search failed");
   const deniedDraft = parseToolContent(readonlyResponses[4]);
-  assert(!deniedDraft.ok && deniedDraft.error.code === "permission_denied", "readonly write was not denied");
+  assert(
+    !deniedDraft.ok && deniedDraft.error.code === "permission_denied",
+    "readonly write was not denied",
+  );
 
   const pdfResponses = await callMcp(
     "readonly",
@@ -468,7 +610,10 @@ async function main() {
         jsonrpc: "2.0",
         id: 7,
         method: "tools/call",
-        params: { name: "chapters.get", arguments: { bookId: "agent-smoke-pdf", chapterId: "page-1" } },
+        params: {
+          name: "chapters.get",
+          arguments: { bookId: "agent-smoke-pdf", chapterId: "page-1" },
+        },
       },
     ],
     env,
@@ -476,7 +621,9 @@ async function main() {
   const pdfChapters = parseToolContent(pdfResponses[0]);
   assert(
     pdfChapters.ok &&
-      pdfChapters.data.chapters.some((chapter) => chapter.source === "pdf" && chapter.id === "page-1" && chapter.page === 1),
+      pdfChapters.data.chapters.some(
+        (chapter) => chapter.source === "pdf" && chapter.id === "page-1" && chapter.page === 1,
+      ),
     `PDF fallback chapters.list failed: ${JSON.stringify(pdfChapters)}`,
   );
   const pdfPage = parseToolContent(pdfResponses[1]);
@@ -550,7 +697,10 @@ async function main() {
   const toc = parseToolContent(editorPatchResponses[1]);
   assert(toc.ok, "toc rebuild failed");
   const deniedValidate = parseToolContent(editorPatchResponses[2]);
-  assert(!deniedValidate.ok && deniedValidate.error.code === "permission_denied", "editor validate was not denied");
+  assert(
+    !deniedValidate.ok && deniedValidate.error.code === "permission_denied",
+    "editor validate was not denied",
+  );
 
   const exportPath = join(root, "exports", "agent-smoke-export.epub");
   const publisherResponses = await callMcp(
@@ -580,10 +730,16 @@ async function main() {
   const validation = parseToolContent(publisherResponses[0]);
   assert(validation.ok && validation.data.validation.valid, "publisher validate failed");
   const exported = parseToolContent(publisherResponses[1]);
-  assert(exported.ok && exported.data.export.outputPath.endsWith("agent-smoke-export.epub"), "publisher export failed");
+  assert(
+    exported.ok && exported.data.export.outputPath.endsWith("agent-smoke-export.epub"),
+    "publisher export failed",
+  );
   const audit = parseToolContent(publisherResponses[2]);
   assert(
-    audit.ok && audit.data.audit.entries.some((entry) => entry.action === "tools/call:epub.export" && entry.ok),
+    audit.ok &&
+      audit.data.audit.entries.some(
+        (entry) => entry.action === "tools/call:epub.export" && entry.ok,
+      ),
     "audit did not record successful MCP export",
   );
 
@@ -691,7 +847,9 @@ async function main() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+    process.stderr.write(
+      `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+    );
     process.exitCode = 1;
   });
 }

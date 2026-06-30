@@ -20,11 +20,27 @@ describe("skill management", () => {
 
     const content = await readFile(skillFile, "utf8");
     expect(content).toContain("readany-cli-managed");
-    expect(content).toContain("readany agent setup --user --client generic --profile readonly --json");
-    expect(content).toContain("readany agent setup --user --client codex --profile readonly --json");
+    expect(content).toContain(
+      "readany agent setup --user --client generic --profile readonly --json",
+    );
+    expect(content).toContain(
+      "readany agent setup --user --client codex --profile readonly --json",
+    );
+    expect(content).toContain(
+      "readany agent setup --user --client claude --profile readonly --json",
+    );
+    expect(content).toContain(
+      "readany agent setup --user --client cursor --profile readonly --json",
+    );
+    expect(content).toContain(
+      "readany agent setup --user --client opencode --profile readonly --json",
+    );
     expect(content).toContain("readany mcp serve --profile readonly");
     expect(content).toContain("readany mcp config --profile readonly --client generic --json");
     expect(content).toContain("readany mcp config --profile readonly --client codex --json");
+    expect(content).toContain("readany mcp config --profile readonly --client claude --json");
+    expect(content).toContain("readany mcp config --profile readonly --client cursor --json");
+    expect(content).toContain("readany mcp config --profile readonly --client opencode --json");
     expect(content).toContain("readany tools list --json");
     expect(content).toContain("readany chapters list <book-id> --json");
     expect(content).toContain("readany context get --json");
@@ -38,7 +54,9 @@ describe("skill management", () => {
     expect(content).toContain("readany epub diff <draft-id> --profile editor --json");
     expect(content).toContain("readany epub draft discard <draft-id>");
     expect(content).toContain("readany epub export <draft-id> --output <path>");
-    expect(content).toContain("readany knowledge export --output <path> --profile publisher --json");
+    expect(content).toContain(
+      "readany knowledge export --output <path> --profile publisher --json",
+    );
     for (const tool of listTools()) {
       expect(content).toContain(`\`${tool.name}\``);
     }
