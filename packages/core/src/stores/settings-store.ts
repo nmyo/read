@@ -80,9 +80,20 @@ const defaultAIConfig: AIConfig = {
   activeEndpointId: "default",
   activeModel: "",
   temperature: 0.7,
-  maxTokens: 4096,
+  maxTokens: 8192,
   slidingWindowSize: 8,
 };
+
+function migrateSettingsState(state: SettingsState): SettingsState {
+  if (state.aiConfig.maxTokens !== 4096) return state;
+  return {
+    ...state,
+    aiConfig: {
+      ...state.aiConfig,
+      maxTokens: defaultAIConfig.maxTokens,
+    },
+  };
+}
 
 /**
  * Fetch available models from an AI provider endpoint.
@@ -473,5 +484,5 @@ export const useSettingsStore = create<SettingsState>()(
         translationConfig: defaultTranslationConfig,
         aiConfig: defaultAIConfig,
       }),
-  })),
+  }), undefined, migrateSettingsState),
 );

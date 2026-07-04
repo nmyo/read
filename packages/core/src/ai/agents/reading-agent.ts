@@ -8,7 +8,7 @@ import { z } from "zod";
  *
  * Architecture:
  * 1. Uses LangGraph's createReactAgent for automatic tool-calling loop (no hard iteration limit)
- * 2. Uses getAvailableTools() to register ALL tools (RAG, analysis, context)
+ * 2. Uses getAvailableTools() to register all available tools
  * 3. Builds proper Zod schemas from ToolDefinition.parameters
  * 4. Real streaming via streamEvents API
  * 5. System prompt from system-prompt.ts
@@ -94,6 +94,10 @@ function buildZodSchema(
   }
 
   return z.object(shape);
+}
+
+function countToolParameters(tools: ToolDefinition[]): number {
+  return tools.reduce((sum, tool) => sum + Object.keys(tool.parameters ?? {}).length, 0);
 }
 
 // --- Tool Executor (error-safe wrapper) ---
@@ -204,13 +208,21 @@ export async function* streamReadingAgent(
     // Check abort after async operation
     if (isAborted()) return;
 
-    // Register ALL tools via injected getAvailableTools
+    // Register all available tools via injected getAvailableTools.
     const effectiveBookId = book?.id || bookId || null;
     const tools = getAvailableTools({
       bookId: effectiveBookId,
       isVectorized,
       enabledSkills,
     });
+    console.log(
+      "[ReadingAgent] tools",
+      JSON.stringify({
+        registered: tools.length,
+        parameters: countToolParameters(tools),
+        names: tools.map((tool) => tool.name),
+      }),
+    );
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt({

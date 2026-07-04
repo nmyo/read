@@ -66,6 +66,192 @@ function sanitizeCustomHeaders(headers?: Headers): Headers | undefined {
   return sanitized;
 }
 
+function countToolSchemaParameters(tools: unknown): number {
+  if (!Array.isArray(tools)) return 0;
+  return tools.reduce((sum, tool) => {
+    if (!tool || typeof tool !== "object") return sum;
+    const fn = (tool as Record<string, unknown>).function;
+    if (!fn || typeof fn !== "object") return sum;
+    const parameters = (fn as Record<string, unknown>).parameters;
+    if (!parameters || typeof parameters !== "object") return sum;
+    const properties = (parameters as Record<string, unknown>).properties;
+    if (!properties || typeof properties !== "object") return sum;
+    return sum + Object.keys(properties).length;
+  }, 0);
+}
+
+function summarizeChatRequestBody(bodyText: string): Record<string, unknown> | undefined {
+  if (!bodyText) return undefined;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch {
+    return { bodyLength: bodyText.length, parseable: false };
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return { bodyLength: bodyText.length, parseable: true, type: typeof payload };
+  }
+
+  const record = payload as Record<string, unknown>;
+  const messages = Array.isArray(record.messages) ? record.messages : [];
+  const roles = messages.map((message) =>
+    message && typeof message === "object"
+      ? String((message as Record<string, unknown>).role ?? "")
+      : "",
+  );
+  const assistantToolCallCount = messages.reduce((count, message) => {
+    if (!message || typeof message !== "object") return count;
+    const toolCalls = (message as Record<string, unknown>).tool_calls;
+    return count + (Array.isArray(toolCalls) ? toolCalls.length : 0);
+  }, 0);
+  const tools = Array.isArray(record.tools) ? record.tools : [];
+
+  return {
+    bodyLength: bodyText.length,
+    topLevelKeys: Object.keys(record).sort(),
+    topLevelKeyCount: Object.keys(record).length,
+    model: record.model,
+    stream: record.stream,
+    maxTokens: record.max_tokens ?? record.max_completion_tokens,
+    temperature: record.temperature,
+    toolChoice: record.tool_choice,
+    parallelToolCalls: record.parallel_tool_calls,
+    messages: {
+      count: messages.length,
+      roles,
+      lastRole: roles[roles.length - 1] || "",
+      toolMessages: roles.filter((role) => role === "tool").length,
+      assistantToolCallCount,
+    },
+    tools: {
+      count: tools.length,
+      parameterCount: countToolSchemaParameters(tools),
+      names: tools
+        .map((tool) => {
+          if (!tool || typeof tool !== "object") return "";
+          const fn = (tool as Record<string, unknown>).function;
+          return fn && typeof fn === "object"
+            ? String((fn as Record<string, unknown>).name ?? "")
+            : "";
+        })
+        .filter(Boolean),
+    },
+  };
+}
+
+function removeTokenLimitFields(bodyText: string): string | undefined {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch {
+    return undefined;
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return undefined;
+
+  const record = payload as Record<string, unknown>;
+  let changed = false;
+  for (const key of ["max_completion_tokens", "max_tokens"]) {
+    if (Object.prototype.hasOwnProperty.call(record, key)) {
+      delete record[key];
+      changed = true;
+    }
+  }
+
+  return changed ? JSON.stringify(record) : undefined;
+}
+
+function requestBodyHasLargeTokenLimit(summary: Record<string, unknown> | undefined): boolean {
+  const maxTokens = summary?.maxTokens;
+  return typeof maxTokens === "number" && Number.isFinite(maxTokens) && maxTokens > 100;
+}
+
+function shouldRetryWithoutTokenLimit(args: {
+  endpoint: AIEndpoint;
+  response: Response;
+  responseText: string;
+  requestBodySummary: Record<string, unknown> | undefined;
+}): boolean {
+  if (args.endpoint.provider !== "custom") return false;
+  if (args.response.status !== 400) return false;
+  if (!requestBodyHasLargeTokenLimit(args.requestBodySummary)) return false;
+  return /超过\s*100|over\s*100|exceed(?:s|ed)?\s*100|greater than\s*100/i.test(args.responseText);
+}
+
+async function readRequestBodyText(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<string | undefined> {
+  if (typeof init?.body === "string") return init.body;
+  if (!isRequestLike(input)) return undefined;
+
+  try {
+    return await input.clone().text();
+  } catch {
+    return undefined;
+  }
+}
+
+function withRequestBodyText(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  bodyText: string,
+): { input: RequestInfo | URL; init?: RequestInit } {
+  const headers = mergeRequestHeaders(input, init) ?? new Headers();
+  headers.delete("content-length");
+  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+
+  if (init) {
+    return {
+      input,
+      init: {
+        ...init,
+        headers,
+        body: bodyText,
+      },
+    };
+  }
+
+  if (isRequestLike(input)) {
+    return {
+      input: new Request(input, {
+        headers,
+        body: bodyText,
+      }),
+      init,
+    };
+  }
+
+  return {
+    input,
+    init: {
+      method: "POST",
+      headers,
+      body: bodyText,
+    },
+  };
+}
+
+async function getRequestBodySummary(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Record<string, unknown> | undefined> {
+  if (typeof init?.body === "string") {
+    return summarizeChatRequestBody(init.body);
+  }
+
+  if (!isRequestLike(input)) return undefined;
+  try {
+    return summarizeChatRequestBody(await input.clone().text());
+  } catch (error) {
+    return {
+      bodyReadError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 const GEMINI_THOUGHT_SIGNATURE_BYPASS = "skip_thought_signature_validator";
 
 function shouldPatchGeminiThoughtSignatures(
@@ -228,11 +414,21 @@ export function getEndpointFetch(endpoint: AIEndpoint, model?: string): typeof g
       }
     }
 
+    const requestBodySummary =
+      requestMethod.toUpperCase() === "POST"
+        ? await getRequestBodySummary(requestInput, requestInit)
+        : undefined;
+    const requestBodyText =
+      requestMethod.toUpperCase() === "POST"
+        ? await readRequestBodyText(requestInput, requestInit)
+        : undefined;
+
     logAIEndpointDebug("request", endpoint, {
       action: "langchain-chat",
       method: requestMethod,
       requestUrl,
       model,
+      requestBodySummary,
     });
 
     try {
@@ -241,10 +437,11 @@ export function getEndpointFetch(endpoint: AIEndpoint, model?: string): typeof g
 
       if (!response.ok) {
         let responseBodyPreview = "";
+        let responseText = "";
         let responseLength: number | undefined;
 
         try {
-          const responseText = await response.clone().text();
+          responseText = await response.clone().text();
           responseLength = responseText.length;
           responseBodyPreview = summarizeDebugText(responseText, 600);
         } catch (readError) {
@@ -252,6 +449,45 @@ export function getEndpointFetch(endpoint: AIEndpoint, model?: string): typeof g
             readError instanceof Error ? readError.message : String(readError),
             200,
           );
+        }
+
+        if (
+          requestBodyText &&
+          shouldRetryWithoutTokenLimit({
+            endpoint,
+            response,
+            responseText,
+            requestBodySummary,
+          })
+        ) {
+          const retryBody = removeTokenLimitFields(requestBodyText);
+          if (retryBody) {
+            const retryRequest = withRequestBodyText(requestInput, requestInit, retryBody);
+            const retryBodySummary = summarizeChatRequestBody(retryBody);
+            logAIEndpointDebug("request", endpoint, {
+              action: "langchain-chat-retry-without-token-limit",
+              method: requestMethod,
+              requestUrl,
+              model,
+              requestBodySummary: retryBodySummary,
+              responseBodyPreview,
+            });
+            const retryResponse = await baseFetch(retryRequest.input, retryRequest.init);
+            const retryContentType = retryResponse.headers.get("content-type");
+            if (retryResponse.ok) {
+              logAIEndpointDebug("response", endpoint, {
+                action: "langchain-chat-retry-without-token-limit",
+                method: requestMethod,
+                requestUrl,
+                model,
+                status: retryResponse.status,
+                statusText: retryResponse.statusText,
+                contentType: retryContentType,
+                requestBodySummary: retryBodySummary,
+              });
+            }
+            return retryResponse;
+          }
         }
 
         logAIEndpointDebug("error", endpoint, {
@@ -264,6 +500,7 @@ export function getEndpointFetch(endpoint: AIEndpoint, model?: string): typeof g
           contentType,
           responseLength,
           responseBodyPreview,
+          requestBodySummary,
         });
         return response;
       }
@@ -362,7 +599,7 @@ export async function createChatModelFromEndpoint(
   const apiKey = endpoint.apiKey || "local-model";
 
   const temperature = options.temperature ?? 0.7;
-  const maxTokens = options.maxTokens ?? 4096;
+  const maxTokens = options.maxTokens ?? 8192;
   const streaming = options.streaming ?? true;
   const endpointFetch = getEndpointFetch(endpoint, model);
 
