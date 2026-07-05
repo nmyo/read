@@ -325,7 +325,7 @@ pnpm --filter @readany/cli acceptance:assemble -- \
 
 ## 已知问题
 
-- 
+-
 
 ## 是否允许进入下一阶段
 
