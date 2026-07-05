@@ -69,7 +69,9 @@ export function AppLayout() {
     // 1. Inject <link> tags for CSS-based remote fonts
     const cssLinkClass = "__readany_remote_css_font__";
     // Remove old ones that are no longer needed
-    document.querySelectorAll(`link.${cssLinkClass}`).forEach((el) => el.remove());
+    for (const el of document.querySelectorAll(`link.${cssLinkClass}`)) {
+      el.remove();
+    }
     for (const f of customFonts) {
       if (f.source === "remote" && f.remoteCssUrl) {
         const link = document.createElement("link");
@@ -335,7 +337,7 @@ export function AppLayout() {
         data-tab-bar
         onMouseEnter={handleTabBarMouseEnter}
         onMouseLeave={handleTabBarMouseLeave}
-        className={`absolute left-0 right-0 top-0 z-50 transition-transform duration-300 ease-in-out ${
+        className={`absolute left-0 right-0 top-0 z-[80] transition-transform duration-300 ease-in-out ${
           isReaderActive && !showTabBar ? "-translate-y-full" : "translate-y-0"
         }`}
       >
@@ -367,6 +369,8 @@ export function AppLayout() {
 
         {/* === Reader layers — one per open reader tab === */}
         {readerTabs.map((tab) => {
+          if (!tab.bookId) return null;
+
           const isHibernated = hibernatedTabs.has(tab.id);
           const isActive = activeTabId === tab.id;
 
@@ -384,7 +388,7 @@ export function AppLayout() {
                   t={t}
                 />
               ) : (
-                <ReaderView bookId={tab.bookId!} tabId={tab.id} />
+                <ReaderView bookId={tab.bookId} tabId={tab.id} />
               )}
             </div>
           );
