@@ -373,10 +373,19 @@ export const useTTSStore = create<TTSState>()(
       updateConfig: (updates) => {
         const previousConfig = normalizeTTSConfig(get().config);
         const nextConfig = normalizeTTSConfig({ ...previousConfig, ...updates });
+        const engineChanged =
+          updates.engine !== undefined && nextConfig.engine !== previousConfig.engine;
+        const wasPlaying = isActivePlay(get().playState);
         set({ config: nextConfig });
 
-        // [占位 · #427/#349] engine 变化 + 播放中 → 停播。合并 #427 时在此插入，
-        // 并在该分支内调用 clearRespeakTimer()。
+        if (engineChanged && wasPlaying) {
+          clearRespeakTimer();
+          _sessionGeneration += 1;
+          detachAndStopAllPlayers();
+          _dashscopeActiveVoice = undefined;
+          set({ playState: "stopped" });
+          return;
+        }
 
         if (
           shouldRespeakForSynthChange(previousConfig, nextConfig) &&

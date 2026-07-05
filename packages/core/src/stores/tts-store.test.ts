@@ -28,6 +28,7 @@ function createMockPlayer(): MockTTSPlayer {
   });
   player.stop = vi.fn(() => {
     player.onStateChange?.("stopped");
+    player.onEnd?.();
   });
   return player;
 }
@@ -234,5 +235,31 @@ describe("useTTSStore — re-speak on synth change (#370)", () => {
     vi.advanceTimersByTime(250); // 让任何残留定时器有机会 fire
     expect(edgePlayer.speak).not.toHaveBeenCalled();
     expect(systemPlayer.speak).not.toHaveBeenCalled();
+  });
+
+  it("[engine-switch] stops active playback without firing reader onEnd", () => {
+    const onEnd = vi.fn();
+    startEdge();
+    useTTSStore.getState().setOnEnd(onEnd);
+    edgePlayer.stop.mockClear();
+
+    useTTSStore.getState().updateConfig({ engine: "system" });
+
+    expect(edgePlayer.stop).toHaveBeenCalledOnce();
+    expect(edgePlayer.onEnd).toBeUndefined();
+    expect(onEnd).not.toHaveBeenCalled();
+    expect(useTTSStore.getState().playState).toBe("stopped");
+    expect(useTTSStore.getState().config.engine).toBe("system");
+  });
+
+  it("[engine-switch] does not stop playback for non-engine synth updates", () => {
+    startEdge();
+    edgePlayer.stop.mockClear();
+
+    useTTSStore.getState().updateConfig({ rate: 1.3 });
+
+    expect(edgePlayer.stop).not.toHaveBeenCalled();
+    expect(useTTSStore.getState().playState).toBe("playing");
+    expect(useTTSStore.getState().config.rate).toBe(1.3);
   });
 });
