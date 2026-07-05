@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { getPlatformService } from "@readany/core/services";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  AlertTriangle,
   Bot,
   CheckCircle2,
   Clipboard,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Terminal,
+  Wrench,
   XCircle,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -97,6 +99,32 @@ type DoctorReport = {
     supportedClients: string[];
     toolCount: number;
   };
+  agentAccess?: {
+    cliShim: {
+      path: string;
+      installed: boolean;
+      target?: string;
+      managed: boolean;
+    };
+    skill: {
+      installed: boolean;
+      path: string;
+      version?: string;
+    };
+    clientSkills: Array<{
+      client: "agents" | McpClient;
+      path: string;
+      installed: boolean;
+      managed: boolean;
+      target?: string;
+    }>;
+    mcpConfigs: Array<{
+      client: McpClient;
+      path: string;
+      configured: boolean;
+      checked: boolean;
+    }>;
+  };
   checks: Array<{ name: string; ok: boolean; message: string }>;
 };
 
@@ -158,6 +186,15 @@ const PROFILE_DESCRIPTIONS: Record<McpProfile, string> = {
 const MCP_CLIENT_LABELS: Record<McpClient, string> = {
   generic: "通用 JSON",
   codex: "Codex TOML",
+  claude: "Claude",
+  cursor: "Cursor",
+  opencode: "OpenCode",
+};
+
+const CLIENT_SKILL_LABELS: Record<"agents" | McpClient, string> = {
+  agents: "Agents 通用",
+  generic: "通用",
+  codex: "Codex",
   claude: "Claude",
   cursor: "Cursor",
   opencode: "OpenCode",
@@ -226,6 +263,15 @@ function statusLabel(ok: boolean, yes: string, no: string) {
     >
       {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
       {ok ? yes : no}
+    </span>
+  );
+}
+
+function neutralStatusLabel(label: string) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium leading-none text-muted-foreground">
+      <AlertTriangle className="h-3 w-3" />
+      {label}
     </span>
   );
 }
@@ -345,6 +391,24 @@ export function ExternalAISettings() {
   const doctorRuntime = doctor?.ok ? doctor.data.runtime : undefined;
   const doctorDistribution = doctor?.ok ? doctor.data.distribution : undefined;
   const skillInstalled = skill?.ok ? skill.data.installed : false;
+  const agentAccess = doctor?.ok ? doctor.data.agentAccess : undefined;
+  const clientSkillRows = agentAccess?.clientSkills ?? [];
+  const mcpConfigRows = agentAccess?.mcpConfigs ?? [];
+  const clientSkillReady =
+    clientSkillRows.length > 0 && clientSkillRows.every((row) => row.installed && row.managed);
+  const mcpConfigsReady =
+    mcpConfigRows.length > 0 && mcpConfigRows.every((row) => row.configured);
+  const readyChecks = [
+    cliAvailable,
+    doctor?.ok === true,
+    doctor?.ok ? doctor.data.checks.every((check) => check.ok) : false,
+    skillInstalled,
+    clientSkillReady,
+    mcpConfigsReady,
+  ];
+  const readyCount = readyChecks.filter(Boolean).length;
+  const betaReady = readyCount >= 5;
+  const readinessLabel = betaReady ? "Beta 可用" : readyCount >= 3 ? "需要修复" : "未就绪";
   const readonlyToolNames = tools?.ok ? tools.data.tools.map((tool) => tool.name) : [];
   const auditOptions = useMemo<CliRunOptions>(
     () => ({
@@ -495,6 +559,12 @@ export function ExternalAISettings() {
     await refreshAll();
   }
 
+  async function handleRepairExternalAccess() {
+    await runCli("repair");
+    await runCli("agent_setup", { mcpProfile: "readonly", mcpClient: "all" });
+    await refreshAll();
+  }
+
   async function handleCliUninstall() {
     await runCli("uninstall");
     await refreshAll();
@@ -599,6 +669,66 @@ export function ExternalAISettings() {
 
   return (
     <div className="space-y-4 p-4 pt-3">
+      <section className="rounded-lg bg-muted/60 p-4">
+        {sectionHeader(
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />,
+          "External AI Access Beta",
+          betaReady
+            ? statusLabel(true, readinessLabel, "")
+            : readyCount >= 3
+              ? neutralStatusLabel(readinessLabel)
+              : statusLabel(false, "", readinessLabel),
+          "集中检查 CLI、Skill、多客户端发现目录、MCP 配置和审计通道。默认修复只使用 readonly。",
+          <>
+            <Button size="sm" variant="outline" onClick={refreshAll} disabled={busy}>
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+              验证
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleRepairExternalAccess} disabled={busy}>
+              <Wrench className="mr-1.5 h-3.5 w-3.5" />
+              修复外部 AI
+            </Button>
+          </>,
+        )}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">CLI</p>
+            <div className="mt-1">{statusLabel(cliAvailable, "可用", "缺失")}</div>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Doctor</p>
+            <div className="mt-1">{statusLabel(doctor?.ok === true, "通过", "失败")}</div>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Runtime</p>
+            <div className="mt-1">
+              {statusLabel(
+                doctor?.ok ? doctor.data.checks.every((check) => check.ok) : false,
+                "健康",
+                "异常",
+              )}
+            </div>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Skill</p>
+            <div className="mt-1">{statusLabel(skillInstalled, "已安装", "未安装")}</div>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Client links</p>
+            <div className="mt-1">{statusLabel(clientSkillReady, "完整", "待修复")}</div>
+          </div>
+          <div className="rounded-md bg-background px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">MCP config</p>
+            <div className="mt-1">
+              {mcpConfigsReady ? statusLabel(true, "已配置", "") : neutralStatusLabel("需粘贴/重启")}
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+          MCP config 表示常见配置文件里已经出现 ReadAny；真实客户端是否已热加载，需要重启或新建会话后验证工具是否出现。
+        </p>
+      </section>
+
       <section className="rounded-lg bg-muted/60 p-4">
         {sectionHeader(
           <Terminal className="h-4 w-4 text-muted-foreground" />,
@@ -762,6 +892,73 @@ export function ExternalAISettings() {
           {evidenceValue("client", MCP_CLIENT_LABELS[mcpClient], false)}
           {evidenceValue("profile", mcpProfile)}
           {evidenceValue("skill target", "$AGENT_HOME/skills/readany/SKILL.md")}
+        </div>
+
+        <div className="mt-3 rounded-md bg-background/40 p-3">
+          <div className="flex items-center gap-2">
+            <FileCheck2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">客户端发现状态</p>
+          </div>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {clientSkillRows.length > 0
+              ? clientSkillRows.map((row) => (
+                  <div
+                    key={row.client}
+                    className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground">
+                        {CLIENT_SKILL_LABELS[row.client]}
+                      </p>
+                      <p className="mt-1 break-all font-mono text-[11px] leading-5 text-muted-foreground">
+                        {row.path}
+                      </p>
+                      {row.target ? (
+                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5 text-muted-foreground">
+                          → {row.target}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-1.5">
+                      {statusLabel(row.installed, "存在", "缺失")}
+                      {statusLabel(row.managed, "托管", "非托管")}
+                    </div>
+                  </div>
+                ))
+              : outputPanel("运行诊断后显示客户端 skill 发现状态。")}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-md bg-background/40 p-3">
+          <div className="flex items-center gap-2">
+            <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">MCP 配置状态</p>
+          </div>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {mcpConfigRows.length > 0
+              ? mcpConfigRows.map((row) => (
+                  <div
+                    key={row.client}
+                    className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground">
+                        {MCP_CLIENT_LABELS[row.client]}
+                      </p>
+                      <p className="mt-1 break-all font-mono text-[11px] leading-5 text-muted-foreground">
+                        {row.path}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-1.5">
+                      {row.checked ? statusLabel(true, "已检查", "") : neutralStatusLabel("未找到")}
+                      {row.configured
+                        ? statusLabel(true, "含 readany", "")
+                        : neutralStatusLabel("需配置")}
+                    </div>
+                  </div>
+                ))
+              : outputPanel("运行诊断后显示 MCP 配置检测结果。")}
+          </div>
         </div>
 
         {needsProfileConfirmation ? (

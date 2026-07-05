@@ -781,6 +781,39 @@ describe("commands", () => {
           supportedClients: ["generic", "claude", "cursor", "codex", "opencode"],
           toolCount: 28,
         },
+        agentAccess: {
+          cliShim: {
+            installed: expect.any(Boolean),
+            managed: expect.any(Boolean),
+            path: expect.any(String),
+          },
+          skill: {
+            installed: expect.any(Boolean),
+            path: expect.any(String),
+          },
+          clientSkills: expect.arrayContaining([
+            expect.objectContaining({
+              client: "codex",
+              installed: expect.any(Boolean),
+              managed: expect.any(Boolean),
+              path: expect.any(String),
+            }),
+            expect.objectContaining({
+              client: "opencode",
+              installed: expect.any(Boolean),
+              managed: expect.any(Boolean),
+              path: expect.any(String),
+            }),
+          ]),
+          mcpConfigs: expect.arrayContaining([
+            expect.objectContaining({
+              client: "codex",
+              configured: expect.any(Boolean),
+              checked: expect.any(Boolean),
+              path: expect.any(String),
+            }),
+          ]),
+        },
       });
     }
   });
