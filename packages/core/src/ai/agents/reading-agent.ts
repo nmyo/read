@@ -26,6 +26,7 @@ const CHAPTER_REFERENCE_EXECUTION_LIMIT = 3;
 const CHAPTER_TOOL_EXECUTION_LIMIT = 8;
 const DEFAULT_RECURSION_LIMIT = 24;
 const CHAPTER_TASK_RECURSION_LIMIT = 24;
+const DEFAULT_TOOL_TIMEOUT_MS = 45_000;
 
 const CHAPTER_LOOKUP_STOP_TOOL_NAMES = new Set([
   "resolveChapterReference",
@@ -86,10 +87,7 @@ function normalizeSearchFingerprint(value: string): string {
   return value
     .normalize("NFKC")
     .toLowerCase()
-    .replace(
-      /请问|幫我|帮我|看看|查一下|搜一下|告诉我|告訴我|想知道|麻烦|麻煩|請|请|一下/gu,
-      " ",
-    )
+    .replace(/请问|幫我|帮我|看看|查一下|搜一下|告诉我|告訴我|想知道|麻烦|麻煩|請|请|一下/gu, " ")
     .replace(/[，。、“”"'`!！?？,:：;；()\[\]{}]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -156,12 +154,7 @@ function getFocusedToolNames(
     case "library_request":
       return GENERAL_TOOL_NAMES;
     case "current_selection":
-      return new Set([
-        "getSelection",
-        "getSurroundingContext",
-        "getCurrentChapter",
-        "addCitation",
-      ]);
+      return new Set(["getSelection", "getSurroundingContext", "getCurrentChapter", "addCitation"]);
     case "current_page_context":
       return new Set([
         "getCurrentChapter",
@@ -172,19 +165,8 @@ function getFocusedToolNames(
     case "current_chapter_context":
       return new Set(
         isVectorized
-          ? [
-              "getCurrentChapter",
-              "getSurroundingContext",
-              "ragContext",
-              "summarize",
-              "addCitation",
-            ]
-          : [
-              "getCurrentChapter",
-              "getSurroundingContext",
-              "fallbackChapterContext",
-              "addCitation",
-            ],
+          ? ["getCurrentChapter", "getSurroundingContext", "ragContext", "summarize", "addCitation"]
+          : ["getCurrentChapter", "getSurroundingContext", "fallbackChapterContext", "addCitation"],
       );
     case "specific_chapter_request":
       return new Set(
@@ -198,12 +180,7 @@ function getFocusedToolNames(
               "analyzeArguments",
               "addCitation",
             ]
-          : [
-              "resolveChapterReference",
-              "fallbackChapterContext",
-              "fallbackToc",
-              "addCitation",
-            ],
+          : ["resolveChapterReference", "fallbackChapterContext", "fallbackToc", "addCitation"],
       );
     case "book_wide_search":
       return null;
@@ -268,10 +245,7 @@ function getRecursionLimitForCategory(category: ReadingQuestionCategory): number
 
 function simplifyChapterLookupQuery(query: string, fallback: string): string {
   const source = (query || fallback).normalize("NFKC");
-  const sanitizedSource = source.replace(
-    /(?:这|那|哪)\s*一\s*(?:章|卷|节|回|讲|篇|话)/gu,
-    " ",
-  );
+  const sanitizedSource = source.replace(/(?:这|那|哪)\s*一\s*(?:章|卷|节|回|讲|篇|话)/gu, " ");
   const chapterNumber = sanitizedSource.match(
     /(?:第\s*)?([零〇一二两三四五六七八九十百千万\d]{1,8})\s*(?:章|卷|节|回|讲|篇|话)/u,
   );
@@ -325,8 +299,7 @@ function buildChapterReferenceLimitResult(
     detectedChapterNumber: undefined,
     attemptLimitReached: true,
     attemptedQueries,
-    notice:
-      "未能可靠定位章节，请补充更准确的章节名",
+    notice: "未能可靠定位章节，请补充更准确的章节名",
     reason:
       "Chapter lookup attempt limit reached. Stop chapter search in this turn and ask the user for a more accurate chapter title.",
   };
@@ -375,6 +348,8 @@ export interface ReadingAgentOptions {
   }) => ToolDefinition[];
   /** Abort signal for immediate cancellation */
   signal?: AbortSignal;
+  /** Maximum time a single tool may run before returning an error result. */
+  toolTimeoutMs?: number;
 }
 
 // --- Build Zod schema from ToolDefinition.parameters ---
@@ -409,16 +384,94 @@ function buildZodSchema(
   return z.object(shape);
 }
 
+function countToolParameters(tools: ToolDefinition[]): number {
+  return tools.reduce((sum, tool) => sum + Object.keys(tool.parameters ?? {}).length, 0);
+}
+
 // --- Tool Executor (error-safe wrapper) ---
 
-async function executeTool(tool: ToolDefinition, args: Record<string, unknown>): Promise<unknown> {
+function withToolTimeout<T>(promise: Promise<T>, timeoutMs: number, toolName: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Tool "${toolName}" timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
+async function executeTool(
+  tool: ToolDefinition,
+  args: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<unknown> {
   try {
-    return await tool.execute(args);
+    return await withToolTimeout(Promise.resolve(tool.execute(args)), timeoutMs, tool.name);
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function collectTextValues(value: unknown): string[] {
+  if (typeof value === "string") return value ? [value] : [];
+  if (!value || typeof value !== "object") return [];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectTextValues(item));
+  }
+
+  const record = value as Record<string, unknown>;
+  const values: string[] = [];
+  for (const key of ["text", "content", "summary", "value"]) {
+    values.push(...collectTextValues(record[key]));
+  }
+  return values;
+}
+
+function extractGeminiThoughtSummariesFromRaw(rawResponse: unknown): string[] {
+  if (!rawResponse || typeof rawResponse !== "object") return [];
+
+  const summaries: string[] = [];
+  const visit = (value: unknown, keyHint = "") => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, keyHint);
+      return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const type = typeof record.type === "string" ? record.type.toLowerCase() : "";
+    const key = keyHint.toLowerCase();
+    const isThoughtSummary =
+      type === "thought_summary" ||
+      type === "thinking_summary" ||
+      key === "thought_summary" ||
+      key === "thinking_summary";
+
+    if (isThoughtSummary) {
+      summaries.push(
+        ...collectTextValues(record.text ?? record.content ?? record.summary ?? value),
+      );
+    }
+
+    for (const [childKey, childValue] of Object.entries(record)) {
+      const normalizedKey = childKey.toLowerCase();
+      if (normalizedKey === "thought_signature" || normalizedKey === "signature") continue;
+      if (normalizedKey === "thought_summary" || normalizedKey === "thinking_summary") {
+        summaries.push(...collectTextValues(childValue));
+        continue;
+      }
+      visit(childValue, childKey);
+    }
+  };
+
+  visit(rawResponse);
+  return summaries.filter((summary) => summary.trim().length > 0);
 }
 
 // --- Main Agent Function ---
@@ -440,6 +493,7 @@ export async function* streamReadingAgent(
     memorySummary,
     getAvailableTools,
     signal,
+    toolTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS,
   } = options;
 
   // Helper to check if aborted
@@ -490,6 +544,14 @@ export async function* streamReadingAgent(
       category: questionCategory,
       isVectorized,
     });
+    console.log(
+      "[ReadingAgent] tools",
+      JSON.stringify({
+        registered: tools.length,
+        parameters: countToolParameters(tools),
+        names: tools.map((tool) => tool.name),
+      }),
+    );
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt({
@@ -540,7 +602,16 @@ export async function* streamReadingAgent(
       const allMessages = [new SystemMessage(systemPrompt), ...inputMessages];
       const stream = await model.stream(allMessages);
       const thinkTagParser = new ThinkTagStreamParser();
+      const emittedGeminiThoughtSummaries = new Set<string>();
       for await (const chunk of stream) {
+        for (const summary of extractGeminiThoughtSummariesFromRaw(
+          chunk.additional_kwargs?.__raw_response,
+        )) {
+          if (emittedGeminiThoughtSummaries.has(summary)) continue;
+          emittedGeminiThoughtSummaries.add(summary);
+          yield { type: "reasoning", content: summary, stepType: "thinking" };
+        }
+
         const content = chunk.content;
         if (typeof content === "string" && content) {
           for (const event of thinkTagParser.push(content)) {
@@ -644,8 +715,11 @@ export async function* streamReadingAgent(
             chapterReferenceState.attemptedQueries.push(effectiveQuery);
           }
 
-          const skipExactCache = tool.name === "addCitation" || tool.name === "resolveChapterReference";
-          const exactCacheKey = skipExactCache ? undefined : buildToolCacheKey(tool.name, toolInput);
+          const skipExactCache =
+            tool.name === "addCitation" || tool.name === "resolveChapterReference";
+          const exactCacheKey = skipExactCache
+            ? undefined
+            : buildToolCacheKey(tool.name, toolInput);
           if (exactCacheKey && toolResultCache.has(exactCacheKey)) {
             return JSON.stringify(toolResultCache.get(exactCacheKey));
           }
@@ -658,7 +732,7 @@ export async function* streamReadingAgent(
             return JSON.stringify(searchResultCache.get(searchCacheKey));
           }
 
-          const result = await executeTool(tool, toolInput);
+          const result = await executeTool(tool, toolInput, toolTimeoutMs);
           if (exactCacheKey) {
             toolResultCache.set(exactCacheKey, result);
           }
@@ -726,6 +800,7 @@ export async function* streamReadingAgent(
     const iterator = eventStream[Symbol.asyncIterator]();
     let eventResult = await raceNext(iterator);
     let turnTextBuffer = "";
+    const emittedGeminiThoughtSummaries = new Set<string>();
 
     function* flushBufferedTurnText(hasToolCalls: boolean): Generator<AgentStreamEvent> {
       if (!turnTextBuffer) return;
@@ -752,6 +827,14 @@ export async function* streamReadingAgent(
       if (event.event === "on_chat_model_stream") {
         const chunk = event.data?.chunk;
         if (chunk) {
+          for (const summary of extractGeminiThoughtSummariesFromRaw(
+            chunk.additional_kwargs?.__raw_response,
+          )) {
+            if (emittedGeminiThoughtSummaries.has(summary)) continue;
+            emittedGeminiThoughtSummaries.add(summary);
+            yield { type: "reasoning", content: summary, stepType: "thinking" };
+          }
+
           const content = chunk.content;
 
           // Buffer normal text until the model turn ends. If the same turn also

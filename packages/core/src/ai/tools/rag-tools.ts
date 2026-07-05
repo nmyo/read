@@ -6,6 +6,8 @@ import { estimateTokens } from "../../rag/chunker";
 import { search } from "../../rag/search";
 import type { SearchQuery } from "../../types";
 import { resolveChapterReference } from "../chapter-reference-resolver";
+import { fallbackContentService } from "../fallback-content-service";
+import { getFallbackChaptersForBook } from "../fallback-source-resolver";
 import type { ToolDefinition } from "./tool-types";
 
 const DEFAULT_TOC_LIMIT = 20;
@@ -17,6 +19,92 @@ function clampLimit(value: unknown, fallback = DEFAULT_TOC_LIMIT): number {
 
 function normalizeQuery(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+}
+
+function isGenericSectionTitle(title: string): boolean {
+  return /^Section\s+\d+$/i.test(title.trim());
+}
+
+function shouldPreferOriginalToc(chapters: Map<number, string>): boolean {
+  if (chapters.size === 0) return false;
+  const titles = Array.from(chapters.values());
+  const genericCount = titles.filter(isGenericSectionTitle).length;
+  return genericCount >= Math.max(2, Math.ceil(titles.length * 0.6));
+}
+
+function getTocDebugInfo(
+  chapters: Map<number, string>,
+  fallback?: { attempted: boolean; error?: string; chapterCount?: number; sampleTitles?: string[] },
+) {
+  const titles = Array.from(chapters.values());
+  const genericCount = titles.filter(isGenericSectionTitle).length;
+  return {
+    vectorChapterCount: chapters.size,
+    genericSectionCount: genericCount,
+    genericSectionRatio:
+      titles.length > 0 ? Math.round((genericCount / titles.length) * 100) / 100 : 0,
+    preferOriginalToc: shouldPreferOriginalToc(chapters),
+    vectorSampleTitles: titles.slice(0, 8),
+    fallback,
+  };
+}
+
+type TocChapter = { index: number; title: string };
+
+function formatCompactTocResult(options: {
+  chapters: TocChapter[];
+  totalChapters: number;
+  args: Record<string, unknown>;
+  source: "vector-index" | "original-file";
+  bookTitle?: string;
+  debug?: unknown;
+  warning?: string;
+  instruction?: string;
+}) {
+  let chapterList = options.chapters;
+  const query = String(options.args.query || "").trim();
+  const aroundChapter =
+    typeof options.args.aroundChapter === "number" ? Number(options.args.aroundChapter) : undefined;
+  const limit = clampLimit(options.args.limit);
+  let offset = Math.max(0, Number(options.args.offset) || 0);
+
+  if (query) {
+    const normalized = normalizeQuery(query);
+    chapterList = chapterList.filter((chapter) =>
+      normalizeQuery(`${chapter.index + 1}${chapter.title}`).includes(normalized),
+    );
+    offset = 0;
+  } else if (aroundChapter !== undefined && Number.isFinite(aroundChapter)) {
+    const half = Math.floor(limit / 2);
+    const aroundIndex = chapterList.findIndex((chapter) => chapter.index >= aroundChapter);
+    offset =
+      aroundIndex >= 0 ? Math.max(0, aroundIndex - half) : Math.max(0, chapterList.length - limit);
+  }
+
+  const pagedChapters = chapterList.slice(offset, offset + limit);
+  const nextOffset = offset + pagedChapters.length;
+
+  return {
+    ...(options.bookTitle ? { bookTitle: options.bookTitle } : {}),
+    chapters: pagedChapters.map((chapter, ordinal) => ({
+      index: chapter.index,
+      number: offset + ordinal + 1,
+      title: chapter.title,
+    })),
+    totalChapters: options.totalChapters,
+    matchedChapters: chapterList.length,
+    returned: pagedChapters.length,
+    offset,
+    limit,
+    hasMore: nextOffset < chapterList.length,
+    nextOffset: nextOffset < chapterList.length ? nextOffset : undefined,
+    source: options.source,
+    ...(options.debug ? { debug: options.debug } : {}),
+    ...(options.warning ? { warning: options.warning } : {}),
+    instruction:
+      options.instruction ??
+      "This is a compact chapter list. Use resolveChapterReference for user-provided chapter numbers or fuzzy chapter titles.",
+  };
 }
 
 /** Create RAG search tool for a specific book */
@@ -137,48 +225,64 @@ export function createRagTocTool(bookId: string): ToolDefinition {
           chapters.set(chunk.chapterIndex, chunk.chapterTitle);
         }
       }
-      let chapterList = Array.from(chapters.entries())
+      const chapterList = Array.from(chapters.entries())
         .sort((a, b) => a[0] - b[0])
         .map(([index, title]) => ({ index, title }));
 
-      const query = String(args.query || "").trim();
-      const aroundChapter =
-        typeof args.aroundChapter === "number" ? Number(args.aroundChapter) : undefined;
-      const limit = clampLimit(args.limit);
-      let offset = Math.max(0, Number(args.offset) || 0);
+      if (shouldPreferOriginalToc(chapters)) {
+        fallbackContentService.clear(bookId);
+        const fallback = await getFallbackChaptersForBook(bookId);
+        if (!("error" in fallback) && fallback.chapters.length > 0) {
+          console.log("[ragToc] Rebuilt generic section TOC from original book", {
+            bookId,
+            chapters: fallback.chapters.length,
+            sampleTitles: fallback.chapters.slice(0, 5).map((chapter) => chapter.title),
+          });
+          return formatCompactTocResult({
+            bookTitle: fallback.bookTitle,
+            chapters: fallback.chapters.map((chapter) => ({
+              index: chapter.index,
+              title: chapter.title,
+            })),
+            totalChapters: fallback.chapters.length,
+            source: "original-file",
+            args,
+            debug: getTocDebugInfo(chapters, {
+              attempted: true,
+              chapterCount: fallback.chapters.length,
+              sampleTitles: fallback.chapters.slice(0, 8).map((chapter) => chapter.title),
+            }),
+            instruction:
+              "The vector index has generic Section titles, so this TOC was rebuilt from the original book file. Re-vectorize the book to refresh RAG chapter titles.",
+          });
+        }
 
-      if (query) {
-        const normalized = normalizeQuery(query);
-        chapterList = chapterList.filter((chapter) =>
-          normalizeQuery(`${chapter.index + 1}${chapter.title}`).includes(normalized),
-        );
-        offset = 0;
-      } else if (aroundChapter !== undefined && Number.isFinite(aroundChapter)) {
-        const half = Math.floor(limit / 2);
-        const aroundIndex = chapterList.findIndex((c) => c.index >= aroundChapter);
-        offset =
-          aroundIndex >= 0
-            ? Math.max(0, aroundIndex - half)
-            : Math.max(0, chapterList.length - limit);
+        const fallbackError = "error" in fallback ? fallback.error : "Original file TOC was empty";
+        console.warn("[ragToc] Failed to rebuild generic section TOC from original book", {
+          bookId,
+          error: fallbackError,
+        });
+        return formatCompactTocResult({
+          chapters: chapterList,
+          totalChapters: chapters.size,
+          source: "vector-index",
+          args,
+          debug: getTocDebugInfo(chapters, {
+            attempted: true,
+            error: fallbackError,
+          }),
+          warning:
+            "The vector index has mostly generic Section titles, but rebuilding the TOC from the original book failed. See debug.fallback.error.",
+        });
       }
 
-      const pagedChapters = chapterList.slice(offset, offset + limit);
-
-      return {
-        chapters: pagedChapters,
+      return formatCompactTocResult({
+        chapters: chapterList,
         totalChapters: chapters.size,
-        matchedChapters: chapterList.length,
-        returned: pagedChapters.length,
-        offset,
-        limit,
-        hasMore: offset + pagedChapters.length < chapterList.length,
-        nextOffset:
-          offset + pagedChapters.length < chapterList.length
-            ? offset + pagedChapters.length
-            : undefined,
-        instruction:
-          "This is a compact chapter list. Use resolveChapterReference for user-provided chapter numbers or fuzzy chapter titles.",
-      };
+        source: "vector-index",
+        args,
+        debug: getTocDebugInfo(chapters, { attempted: false }),
+      });
     },
   };
 }
