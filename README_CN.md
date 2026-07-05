@@ -170,7 +170,7 @@ TXT 和 UMD 会在导入时转换为 EPUB，以支持阅读、笔记、搜索与
 | macOS (Intel) | [下载 .dmg](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | Windows | [下载 .msi](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | Linux | [下载 .AppImage](https://github.com/codedogQBY/ReadAny/releases/latest) |
-| iOS | App Store（即将上线） |
+| iOS | [加入 TestFlight](https://testflight.apple.com/join/qNdvNv2p) |
 | Android | [下载 .apk](https://github.com/codedogQBY/ReadAny/releases/latest) |
 
 #### Homebrew（macOS）

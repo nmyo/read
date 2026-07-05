@@ -170,7 +170,7 @@ TXT and UMD are imported by converting them to EPUB for reading, notes, search, 
 | macOS (Intel) | [Download .dmg](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | Windows | [Download .msi](https://github.com/codedogQBY/ReadAny/releases/latest) |
 | Linux | [Download .AppImage](https://github.com/codedogQBY/ReadAny/releases/latest) |
-| iOS | App Store (Coming Soon) |
+| iOS | [Join TestFlight](https://testflight.apple.com/join/qNdvNv2p) |
 | Android | [Download .apk](https://github.com/codedogQBY/ReadAny/releases/latest) |
 
 #### Homebrew (macOS)
