@@ -186,6 +186,7 @@ describe("mcp", () => {
 
   it("accepts initialized notifications without reporting an MCP error", async () => {
     const env = await createEnv();
+    env.READANY_AUDIT_ENABLED = "1";
     const response = await handleMcpRequest(
       { method: "notifications/initialized" },
       "readonly",
@@ -757,6 +758,7 @@ describe("mcp", () => {
 
   it("lists recent audit entries without leaking tool arguments", async () => {
     const env = await createEnv();
+    env.READANY_AUDIT_ENABLED = "1";
     const sensitiveValues = [
       "secret-mcp-query",
       "sk-readany-mcp-secret",
@@ -1580,6 +1582,7 @@ describe("mcp", () => {
 
   it("gates epub.export by publisher profile and writes a new EPUB", async () => {
     const env = await createEnv();
+    env.READANY_AUDIT_ENABLED = "1";
     await seedBook(env);
     const sourcePath = join(env.READANY_HOME!, "books", "mcp.epub");
     const sourceBytes = await readFile(sourcePath);
@@ -2303,6 +2306,7 @@ describe("mcp", () => {
 
   it("records MCP audit entries without leaking tool arguments", async () => {
     const env = await createEnv();
+    env.READANY_AUDIT_ENABLED = "1";
     const sensitiveValues = [
       "secret-search-text",
       "sk-readany-audit-secret",

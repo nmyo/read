@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, open, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getCliPaths } from "./paths.js";
@@ -26,6 +26,10 @@ export type CliAuditListResult = {
   limit: number;
 };
 
+const AUDIT_READ_CHUNK_BYTES = 64 * 1024;
+const AUDIT_MAX_READ_BYTES_PER_FILE = 16 * 1024 * 1024;
+const AUDIT_ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
+
 export function isCliAuditSource(value: string): value is CliAuditEntry["source"] {
   return value === "cli" || value === "mcp";
 }
@@ -38,6 +42,8 @@ export async function appendCliAuditEntry(
   env: NodeJS.ProcessEnv,
   entry: CliAuditEntry,
 ): Promise<boolean> {
+  if (!isCliAuditEnabled(env)) return false;
+
   try {
     const { auditLogDir } = getCliPaths(env);
     await mkdir(auditLogDir, { recursive: true });
@@ -47,6 +53,10 @@ export async function appendCliAuditEntry(
   } catch {
     return false;
   }
+}
+
+function isCliAuditEnabled(env: NodeJS.ProcessEnv): boolean {
+  return AUDIT_ENABLED_VALUES.has((env.READANY_AUDIT_ENABLED ?? "").toLowerCase());
 }
 
 export async function listCliAuditEntries(
@@ -59,11 +69,7 @@ export async function listCliAuditEntries(
   const entries: CliAuditEntry[] = [];
 
   for (const file of files) {
-    const content = await readTextIfPresent(join(auditLogDir, file));
-    if (!content) continue;
-
-    const lines = content.split("\n").filter(Boolean).reverse();
-    for (const line of lines) {
+    for await (const line of readAuditLinesNewestFirst(join(auditLogDir, file))) {
       const entry = parseAuditEntry(line);
       if (!entry || !matchesAuditQuery(entry, query)) continue;
       entries.push(entry);
@@ -93,11 +99,45 @@ async function getAuditLogFiles(auditLogDir: string, date: string | undefined): 
   }
 }
 
-async function readTextIfPresent(path: string): Promise<string> {
+async function* readAuditLinesNewestFirst(path: string): AsyncGenerator<string> {
+  let file: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    return await readFile(path, "utf8");
+    file = await open(path, "r");
+    const { size } = await file.stat();
+    let position = size;
+    let bytesReadTotal = 0;
+    let carry = "";
+
+    while (position > 0 && bytesReadTotal < AUDIT_MAX_READ_BYTES_PER_FILE) {
+      const bytesToRead = Math.min(
+        AUDIT_READ_CHUNK_BYTES,
+        position,
+        AUDIT_MAX_READ_BYTES_PER_FILE - bytesReadTotal,
+      );
+      const buffer = Buffer.allocUnsafe(bytesToRead);
+      position -= bytesToRead;
+      const { bytesRead } = await file.read(buffer, 0, bytesToRead, position);
+      if (bytesRead <= 0) break;
+
+      bytesReadTotal += bytesRead;
+      const text = buffer.subarray(0, bytesRead).toString("utf8") + carry;
+      const lines = text.split("\n");
+      carry = lines.shift() ?? "";
+
+      for (let index = lines.length - 1; index >= 0; index -= 1) {
+        const line = lines[index]?.trimEnd();
+        if (line) yield line;
+      }
+    }
+
+    if (position === 0) {
+      const line = carry.trimEnd();
+      if (line) yield line;
+    }
   } catch {
-    return "";
+    return;
+  } finally {
+    await file?.close().catch(() => undefined);
   }
 }
 

@@ -1,14 +1,14 @@
-import { access, lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { constants } from "node:fs";
+import { access, lstat, readFile, readlink } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
-import { CLI_VERSION } from "./version.js";
-import type { AccessProfile } from "./profiles.js";
+import { resolveShimPath } from "./install.js";
 import type { CliPaths } from "./paths.js";
+import type { AccessProfile } from "./profiles.js";
 import { getSkillStatus } from "./skill.js";
 import { listTools } from "./tool-registry.js";
-import { resolveShimPath } from "./install.js";
+import { CLI_VERSION } from "./version.js";
 
 export type DoctorCheck = {
   name: string;
@@ -146,37 +146,68 @@ function createDistributionEvidence(): DoctorReport["distribution"] {
 function getClientSkillPath(client: ClientSkillClient): string {
   const home = homedir();
   if (client === "agents") {
-    return join(process.env.AGENTS_HOME ? resolve(process.env.AGENTS_HOME) : join(home, ".agents"), "skills", "readany");
+    return join(
+      process.env.AGENTS_HOME ? resolve(process.env.AGENTS_HOME) : join(home, ".agents"),
+      "skills",
+      "readany",
+    );
   }
   if (client === "codex") {
-    return join(process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(home, ".codex"), "skills", "readany");
+    return join(
+      process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(home, ".codex"),
+      "skills",
+      "readany",
+    );
   }
   if (client === "claude") {
-    return join(process.env.CLAUDE_HOME ? resolve(process.env.CLAUDE_HOME) : join(home, ".claude"), "skills", "readany");
+    return join(
+      process.env.CLAUDE_HOME ? resolve(process.env.CLAUDE_HOME) : join(home, ".claude"),
+      "skills",
+      "readany",
+    );
   }
   if (client === "cursor") {
-    return join(process.env.CURSOR_HOME ? resolve(process.env.CURSOR_HOME) : join(home, ".cursor"), "skills", "readany");
+    return join(
+      process.env.CURSOR_HOME ? resolve(process.env.CURSOR_HOME) : join(home, ".cursor"),
+      "skills",
+      "readany",
+    );
   }
   const opencodeHome = process.env.OPENCODE_HOME
     ? resolve(process.env.OPENCODE_HOME)
-    : join(process.env.XDG_CONFIG_HOME ? resolve(process.env.XDG_CONFIG_HOME) : join(home, ".config"), "opencode");
+    : join(
+        process.env.XDG_CONFIG_HOME ? resolve(process.env.XDG_CONFIG_HOME) : join(home, ".config"),
+        "opencode",
+      );
   return join(opencodeHome, "skills", "readany");
 }
 
 function getMcpConfigPath(client: McpConfigClient): string {
   const home = homedir();
   if (client === "codex") {
-    return join(process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(home, ".codex"), "config.toml");
+    return join(
+      process.env.CODEX_HOME ? resolve(process.env.CODEX_HOME) : join(home, ".codex"),
+      "config.toml",
+    );
   }
   if (client === "claude") {
-    return join(process.env.CLAUDE_HOME ? resolve(process.env.CLAUDE_HOME) : join(home, ".claude"), "claude_desktop_config.json");
+    return join(
+      process.env.CLAUDE_HOME ? resolve(process.env.CLAUDE_HOME) : join(home, ".claude"),
+      "claude_desktop_config.json",
+    );
   }
   if (client === "cursor") {
-    return join(process.env.CURSOR_HOME ? resolve(process.env.CURSOR_HOME) : join(home, ".cursor"), "mcp.json");
+    return join(
+      process.env.CURSOR_HOME ? resolve(process.env.CURSOR_HOME) : join(home, ".cursor"),
+      "mcp.json",
+    );
   }
   const opencodeHome = process.env.OPENCODE_HOME
     ? resolve(process.env.OPENCODE_HOME)
-    : join(process.env.XDG_CONFIG_HOME ? resolve(process.env.XDG_CONFIG_HOME) : join(home, ".config"), "opencode");
+    : join(
+        process.env.XDG_CONFIG_HOME ? resolve(process.env.XDG_CONFIG_HOME) : join(home, ".config"),
+        "opencode",
+      );
   return join(opencodeHome, "opencode.json");
 }
 
@@ -261,12 +292,9 @@ async function createAgentAccessEvidence(
 }
 
 export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promise<DoctorReport> {
-  await mkdir(paths.auditLogDir, { recursive: true });
-
   const skillStatus = await getSkillStatus(paths.skillFile);
   const agentAccess = await createAgentAccessEvidence(paths, skillStatus);
   const readanyHomeWritable = await canAccess(paths.readanyHome, constants.W_OK);
-  const auditLogWritable = await canAccess(paths.auditLogDir, constants.W_OK);
   const nativeSqlitePath = resolveNativeSqlite();
   const toolCount = listTools().length;
 
@@ -311,13 +339,6 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
         message: readanyHomeWritable
           ? "ReadAny home is writable."
           : "ReadAny home is not writable.",
-      },
-      {
-        name: "audit-log",
-        ok: auditLogWritable,
-        message: auditLogWritable
-          ? "CLI audit log directory is writable."
-          : "CLI audit log directory is not writable.",
       },
       {
         name: "skill",
