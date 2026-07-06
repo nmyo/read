@@ -367,6 +367,33 @@ function compactStatusItem(label: string, status: ReactNode) {
   );
 }
 
+function auditSourceLabel(source: AuditEntry["source"]) {
+  return source === "mcp" ? "MCP 工具" : "CLI 命令";
+}
+
+function formatAuditTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function auditMetaPill(label: string, tone: "default" | "error" = "default") {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-none ${
+        tone === "error" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function ExternalAISettings() {
   const [loadingAction, setLoadingAction] = useState<CliAction | null>(null);
   const [versionResult, setVersionResult] = useState<CliRunResult>();
@@ -431,6 +458,12 @@ export function ExternalAISettings() {
   const betaReady = readyCount >= 5;
   const readinessLabel = betaReady ? "Beta 可用" : readyCount >= 3 ? "需要修复" : "未就绪";
   const readonlyToolNames = tools?.ok ? tools.data.tools.map((tool) => tool.name) : [];
+  const auditEntries = audit?.ok ? audit.data.audit.entries : [];
+  const auditFailureCount = auditEntries.filter((entry) => !entry.ok).length;
+  const latestAuditEntry = auditEntries[0];
+  const latestAuditLabel = latestAuditEntry
+    ? `${formatAuditTime(latestAuditEntry.timestamp)} · ${auditSourceLabel(latestAuditEntry.source)}`
+    : "暂无调用";
   const auditOptions = useMemo<CliRunOptions>(
     () => ({
       auditSource: auditSource === "all" ? undefined : auditSource,
@@ -441,7 +474,6 @@ export function ExternalAISettings() {
     }),
     [auditActionPrefix, auditDate, auditLimit, auditSource, auditStatus],
   );
-  const failedAuditEntries = audit?.ok ? audit.data.audit.entries.filter((entry) => !entry.ok) : [];
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const canCopyMcpConfig = cliAvailable && (!needsProfileConfirmation || profileRiskConfirmed);
   const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
@@ -1132,9 +1164,13 @@ export function ExternalAISettings() {
       <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <History className="h-4 w-4 text-muted-foreground" />,
-          "最近审计",
-          statusLabel(audit?.ok === true, "可读取", "等待日志"),
-          "只显示 CLI/MCP 调用元数据，不显示工具参数、正文、密钥或同步凭证。",
+          "调用记录",
+          audit?.ok
+            ? auditFailureCount > 0
+              ? neutralStatusLabel(`${auditFailureCount} 条失败`)
+              : statusLabel(true, "正常", "")
+            : neutralStatusLabel("等待记录"),
+          "用来确认外部 AI 是否真的调用了 ReadAny。这里只记录来源、动作、结果和时间，不保存工具参数、正文、密钥或同步凭证。",
           <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
             <RefreshCw
               className={`mr-1.5 h-3.5 w-3.5 ${loadingAction === "audit_list" ? "animate-spin" : ""}`}
@@ -1143,12 +1179,45 @@ export function ExternalAISettings() {
           </Button>,
         )}
 
-        <div className="mt-3 rounded-md border border-border/40 bg-background/70 p-3">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-            <p className="text-xs font-medium text-foreground">筛选</p>
+        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-2">
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">本次显示</p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {audit?.ok ? `${auditEntries.length} 条` : "未读取"}
+            </p>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">失败</p>
+            <div className="mt-1">
+              {audit?.ok
+                ? auditFailureCount > 0
+                  ? statusLabel(false, "", `${auditFailureCount} 条`)
+                  : statusLabel(true, "0 条", "")
+                : neutralStatusLabel("未知")}
+            </div>
+          </div>
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">最近一次</p>
+            <p
+              className="mt-1 truncate text-xs font-medium text-foreground"
+              title={latestAuditLabel}
+            >
+              {latestAuditLabel}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-md border border-border/40 bg-muted/25 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-xs font-medium text-foreground">查看范围</p>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              最多读取 {auditOptions.auditLimit} 条元数据。
+            </p>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.4fr_1fr_0.8fr]">
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">来源</p>
               <Select
@@ -1181,10 +1250,10 @@ export function ExternalAISettings() {
               </Select>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] text-muted-foreground">Action 前缀</p>
+              <p className="text-[11px] text-muted-foreground">动作前缀</p>
               <Input
                 className="h-8 text-xs"
-                placeholder="如 epub."
+                placeholder="如 book. / rag."
                 value={auditActionPrefix}
                 onChange={(event) => setAuditActionPrefix(event.target.value)}
               />
@@ -1212,73 +1281,74 @@ export function ExternalAISettings() {
             </div>
           </div>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <div className="mr-auto text-[11px] text-muted-foreground">
-              当前最多读取 {auditOptions.auditLimit} 条元数据记录。
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void refreshAudit()}
-                disabled={busy}
-              >
-                应用
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void resetAuditFilters()}
-                disabled={busy}
-              >
-                重置
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" onClick={() => void refreshAudit()} disabled={busy}>
+              应用筛选
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void resetAuditFilters()}
+              disabled={busy}
+            >
+              重置
+            </Button>
           </div>
         </div>
 
         <div className="mt-3 space-y-2">
-          {audit?.ok && audit.data.audit.entries.length > 0
-            ? audit.data.audit.entries.map((entry) => (
+          {audit?.ok && auditEntries.length > 0
+            ? auditEntries.map((entry) => (
                 <div
                   key={`${entry.timestamp}-${entry.source}-${entry.action}`}
-                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                  className={`rounded-md border px-3 py-2.5 ${
+                    entry.ok
+                      ? "border-border/40 bg-background/70"
+                      : "border-destructive/25 bg-destructive/5"
+                  }`}
                 >
-                  <div className="min-w-0">
-                    <p className="break-words font-mono text-xs text-foreground">{entry.action}</p>
-                    <p className="mt-0.5 break-words text-[11px] leading-5 text-muted-foreground">
-                      {entry.timestamp} · {entry.source}
-                      {entry.profile ? ` · ${entry.profile}` : ""}
-                      {entry.code ? ` · ${entry.code}` : ""}
-                    </p>
-                    {!entry.ok ? (
-                      <p className="mt-1 break-words text-[11px] leading-5 text-destructive">
-                        失败详情：{entry.code || "未返回错误码"}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {entry.ok ? statusLabel(true, "成功", "") : statusLabel(false, "", "失败")}
+                        {auditMetaPill(auditSourceLabel(entry.source))}
+                        {entry.profile ? auditMetaPill(entry.profile) : null}
+                        {entry.code ? auditMetaPill(entry.code, "error") : null}
+                      </div>
+                      <p
+                        className="mt-2 truncate font-mono text-xs font-medium text-foreground"
+                        title={entry.action}
+                      >
+                        {entry.action}
                       </p>
-                    ) : null}
+                    </div>
+                    <p className="shrink-0 text-[11px] leading-5 text-muted-foreground">
+                      {formatAuditTime(entry.timestamp)}
+                    </p>
                   </div>
-                  <div className="self-start">{statusLabel(entry.ok, "成功", "失败")}</div>
+                  {!entry.ok ? (
+                    <p className="mt-2 text-xs leading-5 text-destructive">
+                      调用失败：{entry.code || "未返回错误码"}
+                      。可以按来源和动作前缀筛选，定位是哪类工具失败。
+                    </p>
+                  ) : null}
                 </div>
               ))
             : null}
-          {audit?.ok && audit.data.audit.entries.length === 0 ? (
-            <p className="rounded-md border border-border/40 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-              暂无审计记录。
-            </p>
+          {audit?.ok && auditEntries.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border/60 bg-background/50 px-3 py-4">
+              <p className="text-xs font-medium text-foreground">还没有调用记录</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                在外部 AI 客户端调用一次 ReadAny 工具，或点击上方“验证”后再刷新这里。
+              </p>
+            </div>
           ) : null}
-          {!audit?.ok
-            ? outputPanel(outputSummary(auditResult, audit), auditResult ? "error" : "default")
-            : null}
+          {!audit?.ok ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-foreground">日志读取失败</p>
+              {outputPanel(outputSummary(auditResult, audit), auditResult ? "error" : "default")}
+            </div>
+          ) : null}
         </div>
-        {audit?.ok && failedAuditEntries.length > 0 ? (
-          <div className="mt-3 rounded-md border border-border/40 bg-background/70 px-3 py-2">
-            <p className="text-xs font-medium text-foreground">失败详情</p>
-            <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
-              {failedAuditEntries
-                .map((entry) => `${entry.action}: ${entry.code || "unknown_error"}`)
-                .join(" · ")}
-            </p>
-          </div>
-        ) : null}
       </section>
     </div>
   );
