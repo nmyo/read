@@ -394,6 +394,19 @@ function auditMetaPill(label: string, tone: "default" | "error" = "default") {
   );
 }
 
+function auditDetailValue(label: string, value: string | undefined) {
+  return (
+    <div className="min-w-0 rounded-md border border-border/40 bg-background/70 px-2.5 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 break-words font-mono text-[11px] leading-5 text-foreground">
+        {value || "-"}
+      </p>
+    </div>
+  );
+}
+
 export function ExternalAISettings() {
   const [loadingAction, setLoadingAction] = useState<CliAction | null>(null);
   const [versionResult, setVersionResult] = useState<CliRunResult>();
@@ -1331,6 +1344,19 @@ export function ExternalAISettings() {
                       。可以按来源和动作前缀筛选，定位是哪类工具失败。
                     </p>
                   ) : null}
+                  <details className="mt-2 rounded-md border border-border/40 bg-muted/20 px-3 py-2">
+                    <summary className="cursor-pointer select-none text-[11px] font-medium text-muted-foreground">
+                      完整元数据
+                    </summary>
+                    <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
+                      {auditDetailValue("action", entry.action)}
+                      {auditDetailValue("timestamp", entry.timestamp)}
+                      {auditDetailValue("source", entry.source)}
+                      {auditDetailValue("profile", entry.profile)}
+                      {auditDetailValue("result", entry.ok ? "ok" : "failed")}
+                      {auditDetailValue("code", entry.code)}
+                    </div>
+                  </details>
                 </div>
               ))
             : null}
