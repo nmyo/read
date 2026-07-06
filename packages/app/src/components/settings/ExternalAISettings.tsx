@@ -291,8 +291,8 @@ function sectionHeader(
   actions?: ReactNode,
 ) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-col gap-3">
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           {icon}
           <h2 className="text-sm font-medium text-foreground">{title}</h2>
@@ -301,7 +301,9 @@ function sectionHeader(
         <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+          {actions}
+        </div>
       ) : null}
     </div>
   );
@@ -333,7 +335,7 @@ function evidenceValue(label: string, value: string | number | boolean | undefin
         ? "-"
         : String(value);
   return (
-    <div className="min-w-0 rounded-md bg-background px-3 py-2">
+    <div className="min-w-0 rounded-md border border-border/40 bg-background/70 px-3 py-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p
         className={`mt-1 truncate text-xs text-foreground ${mono ? "font-mono" : "font-medium"}`}
@@ -341,6 +343,26 @@ function evidenceValue(label: string, value: string | number | boolean | undefin
       >
         {rendered}
       </p>
+    </div>
+  );
+}
+
+function pathText(value: string | undefined) {
+  return (
+    <p
+      className="mt-1 truncate font-mono text-[11px] leading-5 text-muted-foreground"
+      title={value}
+    >
+      {value || "-"}
+    </p>
+  );
+}
+
+function compactStatusItem(label: string, status: ReactNode) {
+  return (
+    <div className="flex min-w-[150px] flex-1 items-center justify-between gap-3 rounded-md border border-border/40 bg-background/70 px-3 py-2">
+      <p className="truncate text-[11px] font-medium text-muted-foreground">{label}</p>
+      {status}
     </div>
   );
 }
@@ -396,8 +418,7 @@ export function ExternalAISettings() {
   const mcpConfigRows = agentAccess?.mcpConfigs ?? [];
   const clientSkillReady =
     clientSkillRows.length > 0 && clientSkillRows.every((row) => row.installed && row.managed);
-  const mcpConfigsReady =
-    mcpConfigRows.length > 0 && mcpConfigRows.every((row) => row.configured);
+  const mcpConfigsReady = mcpConfigRows.length > 0 && mcpConfigRows.every((row) => row.configured);
   const readyChecks = [
     cliAvailable,
     doctor?.ok === true,
@@ -661,6 +682,7 @@ export function ExternalAISettings() {
     await runCli("audit_list", { auditLimit: 8 });
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initial diagnostics should run once on mount.
   useEffect(() => {
     void refreshAll();
   }, []);
@@ -669,7 +691,7 @@ export function ExternalAISettings() {
 
   return (
     <div className="space-y-4 p-4 pt-3">
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />,
           "External AI Access Beta",
@@ -684,52 +706,42 @@ export function ExternalAISettings() {
               <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
               验证
             </Button>
-            <Button size="sm" variant="outline" onClick={handleRepairExternalAccess} disabled={busy}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRepairExternalAccess}
+              disabled={busy}
+            >
               <Wrench className="mr-1.5 h-3.5 w-3.5" />
               修复外部 AI
             </Button>
           </>,
         )}
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">CLI</p>
-            <div className="mt-1">{statusLabel(cliAvailable, "可用", "缺失")}</div>
-          </div>
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">Doctor</p>
-            <div className="mt-1">{statusLabel(doctor?.ok === true, "通过", "失败")}</div>
-          </div>
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">Runtime</p>
-            <div className="mt-1">
-              {statusLabel(
-                doctor?.ok ? doctor.data.checks.every((check) => check.ok) : false,
-                "健康",
-                "异常",
-              )}
-            </div>
-          </div>
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">Skill</p>
-            <div className="mt-1">{statusLabel(skillInstalled, "已安装", "未安装")}</div>
-          </div>
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">Client links</p>
-            <div className="mt-1">{statusLabel(clientSkillReady, "完整", "待修复")}</div>
-          </div>
-          <div className="rounded-md bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">MCP config</p>
-            <div className="mt-1">
-              {mcpConfigsReady ? statusLabel(true, "已配置", "") : neutralStatusLabel("需粘贴/重启")}
-            </div>
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {compactStatusItem("CLI", statusLabel(cliAvailable, "可用", "缺失"))}
+          {compactStatusItem("Doctor", statusLabel(doctor?.ok === true, "通过", "失败"))}
+          {compactStatusItem(
+            "Runtime",
+            statusLabel(
+              doctor?.ok ? doctor.data.checks.every((check) => check.ok) : false,
+              "健康",
+              "异常",
+            ),
+          )}
+          {compactStatusItem("Skill", statusLabel(skillInstalled, "已安装", "未安装"))}
+          {compactStatusItem("Client links", statusLabel(clientSkillReady, "完整", "待修复"))}
+          {compactStatusItem(
+            "MCP config",
+            mcpConfigsReady ? statusLabel(true, "已配置", "") : neutralStatusLabel("需粘贴/重启"),
+          )}
         </div>
         <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
-          MCP config 表示常见配置文件里已经出现 ReadAny；真实客户端是否已热加载，需要重启或新建会话后验证工具是否出现。
+          MCP config 表示常见配置文件里已经出现
+          ReadAny；真实客户端是否已热加载，需要重启或新建会话后验证工具是否出现。
         </p>
       </section>
 
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <Terminal className="h-4 w-4 text-muted-foreground" />,
           "ReadAny CLI",
@@ -755,29 +767,40 @@ export function ExternalAISettings() {
           </>,
         )}
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-md bg-background px-3 py-2">
+        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">版本</p>
             <p className="mt-1 truncate font-mono text-xs text-foreground">
               {cliVersion || "未安装或 PATH 不可用"}
             </p>
           </div>
-          <div className="rounded-md bg-background px-3 py-2">
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">Profile</p>
             <p className="mt-1 truncate font-mono text-xs text-foreground">
               {doctor?.ok ? doctor.data.profile : "readonly"}
             </p>
           </div>
-          <div className="rounded-md bg-background px-3 py-2">
+          <div className="rounded-md border border-border/40 bg-background/70 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">Tools</p>
             <p className="mt-1 truncate font-mono text-xs text-foreground">
               {doctor?.ok ? doctor.data.tools.count : readonlyToolNames.length || "-"}
             </p>
           </div>
         </div>
-        <div className="mt-2 rounded-md bg-background px-3 py-2">
+        <div className="mt-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
           <p className="text-[11px] text-muted-foreground">执行来源</p>
-          <p className="mt-1 break-all font-mono text-xs text-foreground">
+          <p
+            className="mt-1 truncate font-mono text-xs text-foreground"
+            title={[
+              lastActionResult?.command_source ??
+                versionResult?.command_source ??
+                doctorResult?.command_source ??
+                "尚未检测",
+              lastActionResult?.command ?? versionResult?.command ?? "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          >
             {lastActionResult?.command_source ??
               versionResult?.command_source ??
               doctorResult?.command_source ??
@@ -791,12 +814,12 @@ export function ExternalAISettings() {
         </div>
 
         {doctor?.ok ? (
-          <div className="mt-3 rounded-md bg-background/40 p-3">
+          <div className="mt-3 rounded-md border border-border/40 bg-muted/30 p-3">
             <div className="flex items-center gap-2">
               <PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />
               <p className="text-xs font-medium text-foreground">运行时 / 打包证据</p>
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
               {evidenceValue("distribution", doctorDistribution?.kind)}
               {evidenceValue("built bundle", doctorDistribution?.builtBundle)}
               {evidenceValue("desktop resource", doctorDistribution?.desktopResourceBundle)}
@@ -806,7 +829,7 @@ export function ExternalAISettings() {
               {evidenceValue("native sqlite", doctorRuntime?.nativeSqliteAvailable)}
               {evidenceValue("bundle root", doctorDistribution?.bundleRoot)}
             </div>
-            <div className="mt-2 grid gap-2 lg:grid-cols-2">
+            <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2">
               {evidenceValue("entrypoint", doctorDistribution?.entrypoint)}
               {evidenceValue("node executable", doctorRuntime?.executable)}
             </div>
@@ -818,7 +841,7 @@ export function ExternalAISettings() {
             ? doctor.data.checks.map((check) => (
                 <div
                   key={check.name}
-                  className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-mono text-xs text-foreground">{check.name}</p>
@@ -835,7 +858,7 @@ export function ExternalAISettings() {
         </div>
       </section>
 
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <PackageCheck className="h-4 w-4 text-muted-foreground" />,
           "Agent bootstrap",
@@ -882,79 +905,73 @@ export function ExternalAISettings() {
           </>,
         )}
 
-        <pre className="mt-3 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+        <pre className="mt-4 max-h-24 overflow-auto rounded-md border border-border/40 bg-background/70 p-3 text-xs leading-5 text-foreground">
           {agentSetupCommand}
           {"\n"}
           {allAgentSetupCommand}
         </pre>
 
-        <div className="mt-3 grid gap-2 lg:grid-cols-3">
+        <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
           {evidenceValue("client", MCP_CLIENT_LABELS[mcpClient], false)}
           {evidenceValue("profile", mcpProfile)}
           {evidenceValue("skill target", "$AGENT_HOME/skills/readany/SKILL.md")}
         </div>
 
-        <div className="mt-3 rounded-md bg-background/40 p-3">
+        <div className="mt-3 rounded-md border border-border/40 bg-muted/30 p-3">
           <div className="flex items-center gap-2">
             <FileCheck2 className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs font-medium text-foreground">客户端发现状态</p>
           </div>
-          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-2">
             {clientSkillRows.length > 0
               ? clientSkillRows.map((row) => (
                   <div
                     key={row.client}
-                    className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                    className="min-w-0 rounded-md border border-border/40 bg-background/70 px-3 py-2"
                   >
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
                       <p className="text-xs font-medium text-foreground">
                         {CLIENT_SKILL_LABELS[row.client]}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[11px] leading-5 text-muted-foreground">
-                        {row.path}
-                      </p>
-                      {row.target ? (
-                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5 text-muted-foreground">
-                          → {row.target}
-                        </p>
-                      ) : null}
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                        {statusLabel(row.installed, "存在", "缺失")}
+                        {statusLabel(row.managed, "托管", "非托管")}
+                      </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-1.5">
-                      {statusLabel(row.installed, "存在", "缺失")}
-                      {statusLabel(row.managed, "托管", "非托管")}
-                    </div>
+                    {pathText(row.path)}
+                    {row.target ? pathText(`→ ${row.target}`) : null}
                   </div>
                 ))
               : outputPanel("运行诊断后显示客户端 skill 发现状态。")}
           </div>
         </div>
 
-        <div className="mt-3 rounded-md bg-background/40 p-3">
+        <div className="mt-3 rounded-md border border-border/40 bg-muted/30 p-3">
           <div className="flex items-center gap-2">
             <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs font-medium text-foreground">MCP 配置状态</p>
           </div>
-          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-2">
             {mcpConfigRows.length > 0
               ? mcpConfigRows.map((row) => (
                   <div
                     key={row.client}
-                    className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                    className="min-w-0 rounded-md border border-border/40 bg-background/70 px-3 py-2"
                   >
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
                       <p className="text-xs font-medium text-foreground">
                         {MCP_CLIENT_LABELS[row.client]}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[11px] leading-5 text-muted-foreground">
-                        {row.path}
-                      </p>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                        {row.checked
+                          ? statusLabel(true, "已检查", "")
+                          : neutralStatusLabel("未找到")}
+                        {row.configured
+                          ? statusLabel(true, "含 readany", "")
+                          : neutralStatusLabel("需配置")}
+                      </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-1.5">
-                      {row.checked ? statusLabel(true, "已检查", "") : neutralStatusLabel("未找到")}
-                      {row.configured
-                        ? statusLabel(true, "含 readany", "")
-                        : neutralStatusLabel("需配置")}
-                    </div>
+                    {pathText(row.path)}
                   </div>
                 ))
               : outputPanel("运行诊断后显示 MCP 配置检测结果。")}
@@ -968,25 +985,25 @@ export function ExternalAISettings() {
         ) : null}
 
         {agentSetup?.ok ? (
-          <div className="mt-3 rounded-md bg-background/40 p-3">
+          <div className="mt-3 rounded-md border border-border/40 bg-muted/30 p-3">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               <p className="text-xs font-medium text-foreground">最近一键安装结果</p>
             </div>
-            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2">
               {evidenceValue("CLI shim", agentSetup.data.install.path)}
               {evidenceValue("Skill", agentSetup.data.skill.path)}
               {evidenceValue("MCP format", agentSetup.data.mcp.format)}
               {evidenceValue("返回命令", agentSetup.data.command)}
             </div>
-            <pre className="mt-3 max-h-36 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+            <pre className="mt-3 max-h-36 overflow-auto rounded-md border border-border/40 bg-background/70 p-3 text-xs leading-5 text-foreground">
               {agentSetup.data.mcp.snippet}
             </pre>
           </div>
         ) : null}
 
         {agentUninstall?.ok ? (
-          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2">
             {evidenceValue("已移除 CLI shim", agentUninstall.data.install.removed)}
             {evidenceValue("已移除 Skill", agentUninstall.data.skill.removed)}
           </div>
@@ -1002,7 +1019,7 @@ export function ExternalAISettings() {
         ) : null}
       </section>
 
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <Bot className="h-4 w-4 text-muted-foreground" />,
           "External AI Skill",
@@ -1025,15 +1042,13 @@ export function ExternalAISettings() {
             </Button>
           </>,
         )}
-        <div className="mt-3 rounded-md bg-background px-3 py-2">
+        <div className="mt-3 rounded-md border border-border/40 bg-background/70 px-3 py-2">
           <p className="text-[11px] text-muted-foreground">安装位置</p>
-          <p className="mt-1 break-all font-mono text-xs text-foreground">
-            {skill?.ok ? skill.data.path : outputSummary(skillResult, skill)}
-          </p>
+          {pathText(skill?.ok ? skill.data.path : outputSummary(skillResult, skill))}
         </div>
       </section>
 
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />,
           "MCP access profile",
@@ -1045,7 +1060,7 @@ export function ExternalAISettings() {
           </Button>,
         )}
 
-        <div className="mt-3 rounded-md bg-background p-3">
+        <div className="mt-3 rounded-md border border-border/40 bg-background/70 p-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">Profile</p>
@@ -1076,13 +1091,20 @@ export function ExternalAISettings() {
               </Select>
             </div>
           </div>
-          <div className="mt-3 rounded-md border border-border/60 bg-muted/50 px-3 py-3">
+          <div className="mt-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3">
             <p className="text-xs leading-5 text-muted-foreground">
               {PROFILE_DESCRIPTIONS[mcpProfile]} 当前复制 {MCP_CLIENT_LABELS[mcpClient]} 模板。
             </p>
             {needsProfileConfirmation ? (
-              <label className="mt-3 flex items-start gap-3 rounded-md bg-background px-3 py-3">
-                <Switch checked={profileRiskConfirmed} onCheckedChange={setProfileRiskConfirmed} />
+              <label
+                className="mt-3 flex items-start gap-3 rounded-md bg-background px-3 py-3"
+                htmlFor="external-ai-profile-confirmation"
+              >
+                <Switch
+                  checked={profileRiskConfirmed}
+                  id="external-ai-profile-confirmation"
+                  onCheckedChange={setProfileRiskConfirmed}
+                />
                 <span className="min-w-0 text-xs leading-5 text-muted-foreground">
                   我确认该 profile 会允许外部 AI 调用 draft
                   写入或导出类工具；原书仍不会被覆盖，导出默认生成新文件。
@@ -1092,22 +1114,22 @@ export function ExternalAISettings() {
           </div>
         </div>
 
-        <pre className="mt-3 max-h-44 overflow-auto rounded-md bg-background p-3 text-xs text-foreground">
+        <pre className="mt-3 max-h-44 overflow-auto rounded-md border border-border/40 bg-background/70 p-3 text-xs leading-5 text-foreground">
           {mcpConfig}
         </pre>
 
-        <div className="mt-3 rounded-md bg-background px-3 py-2">
+        <div className="mt-3 rounded-md border border-border/40 bg-background/70 px-3 py-2">
           <div className="flex items-center gap-2">
             <FileCheck2 className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs font-medium text-foreground">当前 MCP 工具</p>
           </div>
-          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+          <p className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
             {readonlyToolNames.length > 0 ? readonlyToolNames.join(", ") : "运行诊断后显示。"}
           </p>
         </div>
       </section>
 
-      <section className="rounded-lg bg-muted/60 p-4">
+      <section className="rounded-lg border border-border/60 bg-background/45 p-4">
         {sectionHeader(
           <History className="h-4 w-4 text-muted-foreground" />,
           "最近审计",
@@ -1121,7 +1143,7 @@ export function ExternalAISettings() {
           </Button>,
         )}
 
-        <div className="mt-3 rounded-md bg-background p-3">
+        <div className="mt-3 rounded-md border border-border/40 bg-background/70 p-3">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs font-medium text-foreground">筛选</p>
@@ -1219,7 +1241,7 @@ export function ExternalAISettings() {
             ? audit.data.audit.entries.map((entry) => (
                 <div
                   key={`${entry.timestamp}-${entry.source}-${entry.action}`}
-                  className="flex flex-col gap-2 rounded-md bg-background px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="break-words font-mono text-xs text-foreground">{entry.action}</p>
@@ -1239,7 +1261,7 @@ export function ExternalAISettings() {
               ))
             : null}
           {audit?.ok && audit.data.audit.entries.length === 0 ? (
-            <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-md border border-border/40 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
               暂无审计记录。
             </p>
           ) : null}
@@ -1248,9 +1270,9 @@ export function ExternalAISettings() {
             : null}
         </div>
         {audit?.ok && failedAuditEntries.length > 0 ? (
-          <div className="mt-3 rounded-md bg-background px-3 py-2">
+          <div className="mt-3 rounded-md border border-border/40 bg-background/70 px-3 py-2">
             <p className="text-xs font-medium text-foreground">失败详情</p>
-            <p className="mt-1 break-words font-mono text-xs leading-5 text-muted-foreground">
+            <p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
               {failedAuditEntries
                 .map((entry) => `${entry.action}: ${entry.code || "unknown_error"}`)
                 .join(" · ")}
