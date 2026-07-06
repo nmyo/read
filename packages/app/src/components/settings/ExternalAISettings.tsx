@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,10 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   AlertTriangle,
   Bot,
+  CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clipboard,
   FileCheck2,
   History,
@@ -382,6 +386,35 @@ function formatAuditTime(timestamp: string) {
   }).format(date);
 }
 
+function parseAuditDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
+}
+
+function auditDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatAuditDateLabel(value: string) {
+  const date = parseAuditDate(value);
+  if (!date) return "全部日期";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 function auditMetaPill(label: string, tone: "default" | "error" = "default") {
   return (
     <span
@@ -391,6 +424,155 @@ function auditMetaPill(label: string, tone: "default" | "error" = "default") {
     >
       {label}
     </span>
+  );
+}
+
+function AuditDatePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedDate = parseAuditDate(value);
+  const [open, setOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const base = selectedDate ?? new Date();
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+  const today = new Date();
+  const todayKey = auditDateKey(today);
+  const selectedKey = selectedDate ? auditDateKey(selectedDate) : "";
+  const year = visibleMonth.getFullYear();
+  const month = visibleMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const calendarStart = new Date(year, month, 1 - startOffset);
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(calendarStart);
+    date.setDate(calendarStart.getDate() + index);
+    return date;
+  });
+  const monthLabel = new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "long",
+  }).format(visibleMonth);
+
+  const moveMonth = (offset: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
+
+  const selectDate = (date: Date) => {
+    onChange(auditDateKey(date));
+    setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setOpen(false);
+  };
+
+  const selectToday = () => {
+    selectDate(today);
+  };
+
+  const clearDate = () => {
+    onChange("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-8 w-full justify-between gap-2 px-3 text-xs font-normal"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate text-foreground">{formatAuditDateLabel(value)}</span>
+          </span>
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+            {value || "all"}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-3" align="start">
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={() => moveMonth(-1)}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <p className="text-sm font-medium text-foreground">{monthLabel}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={() => moveMonth(1)}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
+          {["一", "二", "三", "四", "五", "六", "日"].map((day) => (
+            <div key={day} className="py-1">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="mt-1 grid grid-cols-7 gap-1">
+          {days.map((date) => {
+            const key = auditDateKey(date);
+            const inMonth = date.getMonth() === month;
+            const selected = key === selectedKey;
+            const isToday = key === todayKey;
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`h-7 rounded-md text-xs transition-colors ${
+                  selected
+                    ? "bg-primary text-primary-foreground"
+                    : isToday
+                      ? "bg-primary/10 text-primary"
+                      : inMonth
+                        ? "text-foreground hover:bg-muted"
+                        : "text-muted-foreground/40 hover:bg-muted/60"
+                }`}
+                onClick={() => selectDate(date)}
+              >
+                {date.getDate()}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={clearDate}
+          >
+            清空
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            onClick={selectToday}
+          >
+            今天
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -1273,12 +1455,7 @@ export function ExternalAISettings() {
             </div>
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">日期</p>
-              <Input
-                className="h-8 text-xs"
-                type="date"
-                value={auditDate}
-                onChange={(event) => setAuditDate(event.target.value)}
-              />
+              <AuditDatePicker value={auditDate} onChange={setAuditDate} />
             </div>
             <div className="space-y-1">
               <p className="text-[11px] text-muted-foreground">数量</p>
