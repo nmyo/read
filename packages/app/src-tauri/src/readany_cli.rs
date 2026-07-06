@@ -68,7 +68,7 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "uninstall" => Ok(strings(&["uninstall", "--user", "--json"])),
         "agent_setup" => agent_setup_args(options),
         "agent_uninstall" => Ok(strings(&["agent", "uninstall", "--user", "--json"])),
-        "doctor" => Ok(strings(&["doctor", "--json"])),
+        "doctor" => doctor_args(options),
         "mcp_config" => mcp_config_args(options),
         "tools_list" => Ok(strings(&["tools", "list", "--json"])),
         "audit_list" => audit_list_args(options),
@@ -134,6 +134,19 @@ fn mcp_config_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String
         "--client".to_string(),
         client.to_string(),
         "--json".to_string(),
+    ])
+}
+
+fn doctor_args(options: &ReadAnyCliRunOptions) -> Result<Vec<String>, String> {
+    let profile = match options.mcp_profile.as_deref().unwrap_or("readonly") {
+        "readonly" | "editor" | "publisher" => options.mcp_profile.as_deref().unwrap_or("readonly"),
+        _ => return Err("Unsupported MCP profile.".to_string()),
+    };
+    Ok(vec![
+        "doctor".to_string(),
+        "--json".to_string(),
+        "--profile".to_string(),
+        profile.to_string(),
     ])
 }
 
@@ -658,7 +671,27 @@ mod tests {
         );
         assert_eq!(
             args_for_action("doctor", &ReadAnyCliRunOptions::default()),
-            Ok(vec!["doctor".to_string(), "--json".to_string()])
+            Ok(vec![
+                "doctor".to_string(),
+                "--json".to_string(),
+                "--profile".to_string(),
+                "readonly".to_string()
+            ])
+        );
+        assert_eq!(
+            args_for_action(
+                "doctor",
+                &ReadAnyCliRunOptions {
+                    mcp_profile: Some("publisher".to_string()),
+                    ..ReadAnyCliRunOptions::default()
+                }
+            ),
+            Ok(vec![
+                "doctor".to_string(),
+                "--json".to_string(),
+                "--profile".to_string(),
+                "publisher".to_string()
+            ])
         );
         assert_eq!(
             args_for_action("repair", &ReadAnyCliRunOptions::default()),
@@ -1012,6 +1045,14 @@ mod tests {
         assert!(
             args_for_action("doctor --profile admin", &ReadAnyCliRunOptions::default()).is_err()
         );
+        assert!(args_for_action(
+            "doctor",
+            &ReadAnyCliRunOptions {
+                mcp_profile: Some("admin".to_string()),
+                ..ReadAnyCliRunOptions::default()
+            }
+        )
+        .is_err());
     }
 
     #[test]

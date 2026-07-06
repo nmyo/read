@@ -605,7 +605,7 @@ export function ExternalAISettings() {
 
   async function refreshAll() {
     await runCli("version");
-    await runCli("doctor");
+    await runCli("doctor", { mcpProfile });
     await runCli("skill_status");
     await runCli("tools_list");
   }
@@ -662,6 +662,7 @@ export function ExternalAISettings() {
     setMcpProfile(nextProfile);
     writeStoredExternalAiOption(EXTERNAL_AI_PROFILE_STORAGE_KEY, nextProfile);
     setCopiedTarget(null);
+    void runCli("doctor", { mcpProfile: nextProfile });
   }
 
   function handleMcpClientChange(value: string) {
@@ -951,7 +952,7 @@ export function ExternalAISettings() {
             )}
             {evidenceValue(
               t("settings.externalAiSettings.labels.profile"),
-              doctor?.ok ? doctor.data.profile : "readonly",
+              doctor?.ok ? doctor.data.profile : mcpProfile,
             )}
             {evidenceValue(
               t("settings.externalAiSettings.labels.tools"),
