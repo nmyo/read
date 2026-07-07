@@ -11,7 +11,6 @@ import { Slider } from "@/components/ui/slider";
 import {
   DASHSCOPE_VOICES,
   EDGE_TTS_VOICES,
-  TTS_PROVIDER_DEFINITIONS,
   XIAOMI_TTS_VOICES,
   getSystemVoices,
 } from "@/lib/tts/tts-service";
@@ -31,7 +30,6 @@ import {
   groupEdgeTTSVoices,
   type TTSProfile,
 } from "@readany/core/tts";
-import { cn } from "@readany/core/utils";
 import { Cloud, Headphones, Mic, Play, Settings2, Zap } from "lucide-react";
 /**
  * TTSSettings — TTS configuration panel in the settings dialog.
@@ -159,26 +157,6 @@ export function TTSSettings() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {TTS_PROVIDER_DEFINITIONS.map((provider) => (
-                <button
-                  key={provider.id}
-                  type="button"
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-left text-xs transition-colors",
-                    activeProfile.provider === provider.id
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40",
-                  )}
-                  onClick={() => {
-                    const profile = profiles.find((item) => item.provider === provider.id);
-                    if (profile) selectProfile(profile.id);
-                  }}
-                >
-                  {provider.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Rate */}

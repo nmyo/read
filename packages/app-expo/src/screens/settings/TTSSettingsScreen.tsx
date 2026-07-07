@@ -12,7 +12,6 @@ import { previewTTSConfig, stopTTSPreview } from "@/lib/platform/tts-preview";
 import {
   DASHSCOPE_VOICES,
   EDGE_TTS_VOICES,
-  TTS_PROVIDER_DEFINITIONS,
   XIAOMI_TTS_VOICES,
   getActiveTTSProfile,
   getLocaleDisplayLabel,
@@ -162,31 +161,6 @@ export default function TTSSettingsScreen() {
                     </TouchableOpacity>
                   );
                 })}
-              </View>
-              <View style={styles.providerGrid}>
-                {TTS_PROVIDER_DEFINITIONS.map((provider) => (
-                  <TouchableOpacity
-                    key={provider.id}
-                    style={[
-                      styles.providerChip,
-                      activeProfile.provider === provider.id && styles.providerChipActive,
-                    ]}
-                    onPress={() => {
-                      const profile = profiles.find((item) => item.provider === provider.id);
-                      if (profile) selectProfile(profile.id);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.providerChipText,
-                        activeProfile.provider === provider.id && styles.providerChipTextActive,
-                      ]}
-                    >
-                      {provider.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
               </View>
             </View>
 
@@ -680,31 +654,6 @@ const makeStyles = (colors: ThemeColors) =>
     },
     profileStatusActive: {
       color: colors.primary,
-    },
-    providerGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-    },
-    providerChip: {
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      paddingHorizontal: 10,
-      paddingVertical: 7,
-    },
-    providerChipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.accent,
-    },
-    providerChipText: {
-      fontSize: fontSize.xs,
-      color: colors.mutedForeground,
-    },
-    providerChipTextActive: {
-      color: colors.primary,
-      fontWeight: fontWeight.medium,
     },
     optionRow: {
       flexDirection: "row",
