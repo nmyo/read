@@ -40,10 +40,13 @@ export async function previewTTSConfig(
         : config.engine === "xiaomi" || config.engine === "openai-compatible"
           ? cloudPreviewPlayer
           : systemPreviewPlayer;
-  player.onStateChange = callbacks.onStateChange;
-  player.onEnd = callbacks.onEnd;
+  player.onStateChange = undefined;
+  player.onEnd = undefined;
   try {
-    await Promise.resolve(player.speak(text, config));
+    const preview = Promise.resolve(player.speak(text, config));
+    player.onStateChange = callbacks.onStateChange;
+    player.onEnd = callbacks.onEnd;
+    await preview;
   } catch (error) {
     console.error("[TTSPreview] Preview failed", error);
     callbacks.onStateChange?.("stopped");
