@@ -2,6 +2,7 @@ import {
   DEFAULT_TTS_CONFIG,
   type ITTSPlayer,
   type TTSConfig,
+  type TTSProfile,
   VOICE_RESPEAK_DEBOUNCE_MS,
   isActivePlay,
   normalizeTTSConfig,
@@ -15,6 +16,7 @@ import { ExpoSpeechTTSPlayer } from "../lib/platform/expo-speech-player";
 import { canUseSystemTtsSynthesis } from "../lib/platform/system-tts-synthesis";
 import { TrackPlayerDashScopeTTSPlayer } from "../lib/platform/track-player-dashscope-player";
 import { TrackPlayerEdgeTTSPlayer } from "../lib/platform/track-player-edge-player";
+import { TrackPlayerCloudTTSPlayer } from "../lib/platform/track-player-cloud-tts-player";
 import { TrackPlayerSystemTTSPlayer } from "../lib/platform/track-player-system-player";
 import { withPersist } from "./persist";
 
@@ -24,6 +26,8 @@ export interface TTSPlayerFactories {
   createSystemTTS: () => ITTSPlayer;
   createEdgeTTS: () => ITTSPlayer;
   createDashScopeTTS: () => ITTSPlayer;
+  createXiaomiTTS: () => ITTSPlayer;
+  createOpenAICompatibleTTS: () => ITTSPlayer;
 }
 
 const defaultFactories: TTSPlayerFactories = {
@@ -38,12 +42,16 @@ const defaultFactories: TTSPlayerFactories = {
   },
   createEdgeTTS: () => new TrackPlayerEdgeTTSPlayer(),
   createDashScopeTTS: () => new TrackPlayerDashScopeTTSPlayer(),
+  createXiaomiTTS: () => new TrackPlayerCloudTTSPlayer(),
+  createOpenAICompatibleTTS: () => new TrackPlayerCloudTTSPlayer(),
 };
 
 let _factories: TTSPlayerFactories = defaultFactories;
 let _systemTTS: ITTSPlayer | null = null;
 let _edgeTTS: ITTSPlayer | null = null;
 let _dashscopeTTS: ITTSPlayer | null = null;
+let _xiaomiTTS: ITTSPlayer | null = null;
+let _openAICompatibleTTS: ITTSPlayer | null = null;
 let _activeTTS: ITTSPlayer | null = null;
 
 let _sessionSegments: string[] = [];
@@ -64,6 +72,18 @@ function getEdgeTTS(): ITTSPlayer {
 function getDashScopeTTS(): ITTSPlayer {
   if (!_dashscopeTTS) _dashscopeTTS = _factories.createDashScopeTTS();
   return _dashscopeTTS;
+}
+
+function getXiaomiTTS(): ITTSPlayer {
+  if (!_xiaomiTTS) _xiaomiTTS = _factories.createXiaomiTTS();
+  return _xiaomiTTS;
+}
+
+function getOpenAICompatibleTTS(): ITTSPlayer {
+  if (!_openAICompatibleTTS) {
+    _openAICompatibleTTS = _factories.createOpenAICompatibleTTS();
+  }
+  return _openAICompatibleTTS;
 }
 
 function clearSleepTimerHandle(): void {
@@ -110,6 +130,8 @@ function detachAndStopAllPlayers(): void {
   detachAndStopPlayer(_systemTTS);
   detachAndStopPlayer(_edgeTTS);
   detachAndStopPlayer(_dashscopeTTS);
+  detachAndStopPlayer(_xiaomiTTS);
+  detachAndStopPlayer(_openAICompatibleTTS);
 }
 
 function normalizeSegments(text: string | string[]): string[] {
@@ -128,12 +150,71 @@ function previewSessionSegments(segments: string[], limit = 8) {
   }));
 }
 
+function syncProfileUpdatesFromLegacyFields(
+  previousConfig: TTSConfig,
+  updates: Partial<TTSConfig>,
+): Partial<TTSConfig> {
+  const targetProvider = updates.engine ?? previousConfig.engine;
+  const requestedProfileId = updates.activeProfileId ?? previousConfig.activeProfileId;
+  const profileUpdates: Partial<TTSProfile> = {};
+
+  if (targetProvider === "edge" && updates.edgeVoice !== undefined) {
+    profileUpdates.voice = updates.edgeVoice;
+  } else if (targetProvider === "system" && updates.voiceName !== undefined) {
+    profileUpdates.voice = updates.voiceName;
+  } else if (targetProvider === "dashscope") {
+    if (updates.dashscopeApiKey !== undefined) profileUpdates.apiKey = updates.dashscopeApiKey;
+    if (updates.dashscopeVoice !== undefined) profileUpdates.voice = updates.dashscopeVoice;
+  } else if (targetProvider === "xiaomi") {
+    if (updates.xiaomiBaseUrl !== undefined) profileUpdates.baseUrl = updates.xiaomiBaseUrl;
+    if (updates.xiaomiApiKey !== undefined) profileUpdates.apiKey = updates.xiaomiApiKey;
+    if (updates.xiaomiVoice !== undefined) profileUpdates.voice = updates.xiaomiVoice;
+    if (updates.xiaomiStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.xiaomiStylePrompt;
+    }
+  } else if (targetProvider === "openai-compatible") {
+    if (updates.openaiTtsBaseUrl !== undefined) profileUpdates.baseUrl = updates.openaiTtsBaseUrl;
+    if (updates.openaiTtsApiKey !== undefined) profileUpdates.apiKey = updates.openaiTtsApiKey;
+    if (updates.openaiTtsEndpoint !== undefined) profileUpdates.endpoint = updates.openaiTtsEndpoint;
+    if (updates.openaiTtsModel !== undefined) profileUpdates.model = updates.openaiTtsModel;
+    if (updates.openaiTtsVoice !== undefined) profileUpdates.voice = updates.openaiTtsVoice;
+    if (updates.openaiTtsFormat !== undefined) profileUpdates.format = updates.openaiTtsFormat;
+    if (updates.openaiTtsStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.openaiTtsStylePrompt;
+    }
+  }
+
+  if (Object.keys(profileUpdates).length === 0) return updates;
+
+  const sourceProfiles = updates.profiles ?? previousConfig.profiles;
+  const requestedProfile = sourceProfiles.find((profile) => profile.id === requestedProfileId);
+  const targetProfileId =
+    requestedProfile?.provider === targetProvider
+      ? requestedProfile.id
+      : sourceProfiles.find((profile) => profile.provider === targetProvider)?.id;
+
+  if (!targetProfileId) return updates;
+
+  return {
+    ...updates,
+    profiles: sourceProfiles.map((profile) =>
+      profile.id === targetProfileId ? { ...profile, ...profileUpdates } : profile,
+    ),
+  };
+}
+
 function getPlayerForConfig(config: TTSConfig): ITTSPlayer {
   if (config.engine === "dashscope" && config.dashscopeApiKey) {
     return getDashScopeTTS();
   }
   if (config.engine === "edge") {
     return getEdgeTTS();
+  }
+  if (config.engine === "xiaomi") {
+    return getXiaomiTTS();
+  }
+  if (config.engine === "openai-compatible") {
+    return getOpenAICompatibleTTS();
   }
   return getSystemTTS();
 }
@@ -147,6 +228,7 @@ function startPlayback(
 ): void {
   const player = getPlayerForConfig(config);
   const gen = _sessionGeneration;
+  let isStarting = true;
   _activeTTS = player;
 
   // Set artwork getter for RNTP players
@@ -175,6 +257,7 @@ function startPlayback(
 
   player.onStateChange = (playState) => {
     if (gen !== _sessionGeneration) return;
+    if (isStarting && playState === "stopped") return;
     console.log("[TTSStore][player] state-change", {
       playState,
       gen,
@@ -229,7 +312,18 @@ function startPlayback(
     get().onEnd?.();
   };
 
-  const playback = player.speak(segments, config);
+  let playback: void | Promise<void>;
+  try {
+    playback = player.speak(segments, config);
+  } catch (error) {
+    isStarting = false;
+    if (gen !== _sessionGeneration) return;
+    console.error("[TTSStore] play failed:", error);
+    _activeTTS = null;
+    set({ playState: "stopped" });
+    return;
+  }
+  isStarting = false;
   void Promise.resolve(playback).catch((error) => {
     if (gen !== _sessionGeneration) return;
     console.error("[TTSStore] play failed:", error);
@@ -444,7 +538,8 @@ export const useTTSStore = create<TTSState>()(
 
       updateConfig: (updates) => {
         const previousConfig = normalizeTTSConfig(get().config);
-        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...updates });
+        const normalizedUpdates = syncProfileUpdatesFromLegacyFields(previousConfig, updates);
+        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...normalizedUpdates });
         set({ config: nextConfig });
 
         if (
@@ -578,4 +673,6 @@ export function setTTSPlayerFactories(factories: Partial<TTSPlayerFactories>): v
   _systemTTS = null;
   _edgeTTS = null;
   _dashscopeTTS = null;
+  _xiaomiTTS = null;
+  _openAICompatibleTTS = null;
 }
