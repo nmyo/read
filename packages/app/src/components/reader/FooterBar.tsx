@@ -380,12 +380,12 @@ export function FooterBar({
                   size="icon"
                   className="h-7 w-7 rounded-full"
                   onClick={() => {
-                    if (playState === "playing") pause();
+                    if (playState === "playing" || playState === "loading") pause();
                     else if (playState === "paused") resume();
                   }}
-                  disabled={playState === "loading" || playState === "stopped"}
+                  disabled={playState === "stopped"}
                 >
-                  {playState === "playing" ? (
+                  {playState === "playing" || playState === "loading" ? (
                     <Pause className="h-3 w-3" />
                   ) : (
                     <Play className="h-3 w-3 ml-0.5" />

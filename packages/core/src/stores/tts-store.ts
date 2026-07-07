@@ -239,10 +239,12 @@ function startPlayback(
 ): void {
   const player = getPlayerForConfig(config);
   const gen = _sessionGeneration;
+  let isStarting = true;
   _activeTTS = player;
 
   player.onStateChange = (playState) => {
     if (gen !== _sessionGeneration) return;
+    if (isStarting && playState === "stopped") return;
     if (playState === "stopped") {
       _activeTTS = null;
     }
@@ -272,7 +274,18 @@ function startPlayback(
     get().onEnd?.();
   };
 
-  const playback = player.speak(segments, config);
+  let playback: void | Promise<void>;
+  try {
+    playback = player.speak(segments, config);
+  } catch (error) {
+    isStarting = false;
+    if (gen !== _sessionGeneration) return;
+    console.error("[TTS] play failed:", error);
+    _activeTTS = null;
+    set({ playState: "stopped" });
+    return;
+  }
+  isStarting = false;
   void Promise.resolve(playback).catch((error) => {
     if (gen !== _sessionGeneration) return;
     console.error("[TTS] play failed:", error);
@@ -370,7 +383,7 @@ export const useTTSStore = create<TTSState>()(
       pause: () => {
         clearRespeakTimer();
         const { playState } = get();
-        if (playState !== "playing") return;
+        if (playState !== "playing" && playState !== "loading") return;
         _activeTTS?.pause();
         set({ playState: "paused" });
       },
@@ -444,7 +457,7 @@ export const useTTSStore = create<TTSState>()(
 
       toggle: (text?: string) => {
         const { playState, currentText, play, pause, resume } = get();
-        if (playState === "playing") {
+        if (playState === "playing" || playState === "loading") {
           pause();
         } else if (playState === "paused") {
           resume();

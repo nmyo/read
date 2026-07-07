@@ -183,6 +183,35 @@ describe("useTTSStore — re-speak on synth change (#370)", () => {
     expect((dashscopePlayer.speak.mock.calls[0][1] as TTSConfig).dashscopeVoice).toBe("Ethan");
   });
 
+  it("[startup] ignores the stopped event emitted by player initialization", () => {
+    edgePlayer.speak.mockImplementationOnce(() => {
+      edgePlayer.onStateChange?.("stopped");
+    });
+
+    startEdge();
+
+    expect(useTTSStore.getState().playState).toBe("loading");
+    expect(useTTSStore.getState().currentChunkIndex).toBe(0);
+
+    edgePlayer.onStateChange?.("playing");
+    expect(useTTSStore.getState().playState).toBe("playing");
+
+    edgePlayer.onStateChange?.("stopped");
+    expect(useTTSStore.getState().playState).toBe("stopped");
+  });
+
+  it("[pause] can pause while a restarted player is still loading", () => {
+    edgePlayer.speak.mockImplementationOnce(() => {
+      edgePlayer.onStateChange?.("stopped");
+    });
+
+    startEdge();
+    useTTSStore.getState().pause();
+
+    expect(edgePlayer.pause).toHaveBeenCalledOnce();
+    expect(useTTSStore.getState().playState).toBe("paused");
+  });
+
   it("does not re-speak when stopped", () => {
     useTTSStore
       .getState()

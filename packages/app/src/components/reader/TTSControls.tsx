@@ -248,12 +248,12 @@ export function TTSControls({ onClose, className }: TTSControlsProps) {
               size="icon"
               className="h-8 w-8 rounded-full"
               onClick={() => {
-                if (playState === "playing") pause();
+                if (playState === "playing" || playState === "loading") pause();
                 else if (playState === "paused") resume();
               }}
-              disabled={playState === "loading" || playState === "stopped"}
+              disabled={playState === "stopped"}
             >
-              {playState === "playing" ? (
+              {playState === "playing" || playState === "loading" ? (
                 <Pause className="h-3.5 w-3.5" />
               ) : (
                 <Play className="h-3.5 w-3.5 ml-0.5" />

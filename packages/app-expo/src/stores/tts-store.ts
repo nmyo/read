@@ -228,6 +228,7 @@ function startPlayback(
 ): void {
   const player = getPlayerForConfig(config);
   const gen = _sessionGeneration;
+  let isStarting = true;
   _activeTTS = player;
 
   // Set artwork getter for RNTP players
@@ -256,6 +257,7 @@ function startPlayback(
 
   player.onStateChange = (playState) => {
     if (gen !== _sessionGeneration) return;
+    if (isStarting && playState === "stopped") return;
     console.log("[TTSStore][player] state-change", {
       playState,
       gen,
@@ -310,7 +312,18 @@ function startPlayback(
     get().onEnd?.();
   };
 
-  const playback = player.speak(segments, config);
+  let playback: void | Promise<void>;
+  try {
+    playback = player.speak(segments, config);
+  } catch (error) {
+    isStarting = false;
+    if (gen !== _sessionGeneration) return;
+    console.error("[TTSStore] play failed:", error);
+    _activeTTS = null;
+    set({ playState: "stopped" });
+    return;
+  }
+  isStarting = false;
   void Promise.resolve(playback).catch((error) => {
     if (gen !== _sessionGeneration) return;
     console.error("[TTSStore] play failed:", error);
