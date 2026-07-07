@@ -12,6 +12,7 @@ import TrackPlayer, { Event, State } from "react-native-track-player";
 
 const CHUNK_MAX_CHARS = 500;
 const PREFETCH_AHEAD_CHUNKS = 2;
+const END_ADVANCE_TOLERANCE_SECONDS = 0.35;
 const MEDIA_ARTIST = "ReadAny";
 const DEFAULT_ARTWORK = (() => {
   try {
@@ -47,6 +48,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
   private _advancing = false;
   private _lastNotifiedIndex = -1;
   private _prefetches = new Map<number, Promise<string>>();
+  private _trackStartedAt = 0;
 
   get paused(): boolean {
     return this._paused;
@@ -76,6 +78,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._advancing = false;
     this._lastNotifiedIndex = -1;
     this._prefetches.clear();
+    this._trackStartedAt = 0;
 
     if (this._chunks.length === 0) {
       this._finishPlayback();
@@ -106,16 +109,16 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       } else if (event.state === State.Paused) {
         this.onStateChange?.(this._paused ? "paused" : "playing");
       } else if (event.state === State.Ended || event.state === State.Stopped) {
-        void this._playNext(gen);
+        void this._handlePlaybackEnded(gen);
       } else if (event.state === State.Error) {
         console.warn("[TrackPlayerCloudTTSPlayer] playback error");
-        void this._playNext(gen);
+        void this._handlePlaybackEnded(gen, { force: true });
       }
     });
 
     const unsubQueueEnded = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
       if (gen !== this._speakGen || this._stopped) return;
-      void this._playNext(gen);
+      void this._handlePlaybackEnded(gen);
     });
 
     this._unsubscribers.push(unsubState.remove, unsubQueueEnded.remove);
@@ -147,6 +150,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       this._prefetchUpcomingChunks(index, gen);
       const uri = await uriPromise;
       if (gen !== this._speakGen || this._stopped) return;
+      this._trackStartedAt = 0;
       await TrackPlayer.reset();
       await TrackPlayer.add({
         id: `cloud-tts-${index}`,
@@ -158,6 +162,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       if (!this._paused) {
         await TrackPlayer.play();
         if (gen !== this._speakGen || this._stopped || this._paused) return;
+        this._trackStartedAt = Date.now();
         this._notifyChunkChange(index);
         this.onStateChange?.("playing");
       }
@@ -166,6 +171,33 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       console.warn("[TrackPlayerCloudTTSPlayer] chunk error:", error);
       await this._playNext(gen);
     }
+  }
+
+  private async _handlePlaybackEnded(
+    gen: number,
+    options: { force?: boolean } = {},
+  ): Promise<void> {
+    if (gen !== this._speakGen || this._stopped || this._paused || this._advancing) return;
+    if (!options.force) {
+      const canAdvance = await this._isCurrentTrackReallyFinished(gen);
+      if (!canAdvance) return;
+    }
+    await this._playNext(gen);
+  }
+
+  private async _isCurrentTrackReallyFinished(gen: number): Promise<boolean> {
+    if (gen !== this._speakGen || this._stopped || this._paused) return false;
+    if (this._trackStartedAt <= 0) return false;
+
+    const progress = await TrackPlayer.getProgress().catch(() => null);
+    if (gen !== this._speakGen || this._stopped || this._paused) return false;
+    if (!progress || progress.duration <= 0) return true;
+
+    const remaining = progress.duration - progress.position;
+    return (
+      progress.position > 0 &&
+      remaining <= END_ADVANCE_TOLERANCE_SECONDS
+    );
   }
 
   private _prefetchUpcomingChunks(index: number, gen: number): void {
@@ -240,6 +272,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._advancing = false;
     this._speakGen += 1;
     this._prefetches.clear();
+    this._trackStartedAt = 0;
     TrackPlayer.stop();
     TrackPlayer.reset();
     this._cleanupEvents();
@@ -262,6 +295,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     await TrackPlayer.stop().catch(() => {});
     await TrackPlayer.reset().catch(() => {});
     this._prefetches.clear();
+    this._trackStartedAt = 0;
     this._cleanupEvents();
     this._cleanupTempFiles();
   }
