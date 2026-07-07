@@ -3,8 +3,11 @@ import { ConfigGuideDialog, type ConfigGuideType } from "@/components/shared/Con
  * ChatPage — standalone full-page chat for general conversations.
  */
 import { useStreamingChat } from "@/hooks/use-streaming-chat";
+import { getBook as getBookRecord } from "@/lib/db/database";
+import { openDesktopBook } from "@/lib/library/open-book";
 import { useChatReaderStore } from "@/stores/chat-reader-store";
 import { useChatStore } from "@/stores/chat-store";
+import { useLibraryStore } from "@/stores/library-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getPlatformService } from "@readany/core/services";
 import type { CitationPart } from "@readany/core/types";
@@ -213,6 +216,7 @@ export function ChatPage() {
   const setGeneralActiveThread = useChatStore((s) => s.setGeneralActiveThread);
   const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
   const { bookTitle } = useChatReaderStore();
+  const books = useLibraryStore((s) => s.books);
 
   // /chats page should only use general threads - always pass undefined for bookId
   const { isStreaming, currentMessage, currentStep, sendMessage, stopStream } = useStreamingChat();
@@ -268,11 +272,36 @@ export function ChatPage() {
     setGeneralActiveThread(null);
   }, [setGeneralActiveThread]);
 
-  const handleCitationClick = useCallback((citation: CitationPart) => {
-    // TODO: Navigate to reader page with this citation
-    // For now, log to console. Future enhancement: use router to navigate to /reader/${citation.bookId}?cfi=${citation.cfi}
-    console.log("Citation clicked:", citation);
-  }, []);
+  const handleCitationClick = useCallback(
+    async (citation: CitationPart) => {
+      const book =
+        books.find((item) => item.id === citation.bookId) ??
+        (await getBookRecord(citation.bookId, { includeDeleted: true }).catch((err) => {
+          console.warn("[ChatPage] Failed to get cited book record:", err);
+          return null;
+        }));
+
+      if (!book) {
+        toast.error(t("chat.citationBookNotFound", "找不到这条引用对应的书籍"));
+        return;
+      }
+
+      const trimmedCfi = citation.cfi?.trim();
+      const initialCfi =
+        trimmedCfi || `chapter:${Math.max(0, Number(citation.chapterIndex) || 0)}`;
+
+      const opened = await openDesktopBook({
+        book,
+        t,
+        initialCfi,
+      });
+
+      if (!opened) {
+        toast.error(t("chat.citationOpenFailed", "无法打开这条引用"));
+      }
+    },
+    [books, t],
+  );
 
   const displayMessages = convertToMessageV2(activeThread?.messages || []);
   const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;

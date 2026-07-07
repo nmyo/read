@@ -32,6 +32,7 @@ export {
 export {
   search,
   configureSearch,
+  clearSearchConfiguration,
   invalidateChunkCache,
   clearChunkCache,
 } from "./search";
