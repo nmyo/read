@@ -1,5 +1,5 @@
 import { getPlatformService } from "../services/platform";
-import type { TTSConfig } from "./types";
+import { DEFAULT_XIAOMI_TTS_BASE_URL, type TTSConfig } from "./types";
 
 export const CLOUD_TTS_PCM_SAMPLE_RATE = 24000;
 
@@ -38,6 +38,10 @@ export function buildXiaomiTTSMessages(text: string, config: TTSConfig) {
   ];
 }
 
+export function buildXiaomiTTSUrl(config: Pick<TTSConfig, "xiaomiBaseUrl">): string {
+  return joinUrl(config.xiaomiBaseUrl || DEFAULT_XIAOMI_TTS_BASE_URL, "/chat/completions");
+}
+
 export function buildOpenAIChatTTSMessages(text: string, config: TTSConfig) {
   const stylePrompt = config.openaiTtsStylePrompt || "自然、平稳、适合长时间听书。";
   return [
@@ -56,7 +60,7 @@ export async function fetchXiaomiTTSWav(text: string, config: TTSConfig): Promis
   if (!config.xiaomiApiKey) throw new Error("Xiaomi MiMo API key is required");
 
   const platform = getPlatformService();
-  const response = await platform.fetch("https://api.xiaomimimo.com/v1/chat/completions", {
+  const response = await platform.fetch(buildXiaomiTTSUrl(config), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

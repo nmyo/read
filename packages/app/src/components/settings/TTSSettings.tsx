@@ -373,6 +373,18 @@ export function TTSSettings() {
                 />
               </div>
               <div className="space-y-2">
+                <span className="text-sm text-foreground">{t("tts.baseUrl", "Base URL")}</span>
+                <input
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={config.xiaomiBaseUrl}
+                  onChange={(e) => {
+                    updateActiveProfile({ baseUrl: e.target.value });
+                    updateConfig({ xiaomiBaseUrl: e.target.value });
+                  }}
+                  placeholder="https://api.xiaomimimo.com/v1"
+                />
+              </div>
+              <div className="space-y-2">
                 <span className="text-sm text-foreground">{t("tts.stylePrompt", "朗读风格")}</span>
                 <textarea
                   className="min-h-[74px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"

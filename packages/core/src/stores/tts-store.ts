@@ -158,6 +158,7 @@ function syncProfileUpdatesFromLegacyFields(
     if (updates.dashscopeApiKey !== undefined) profileUpdates.apiKey = updates.dashscopeApiKey;
     if (updates.dashscopeVoice !== undefined) profileUpdates.voice = updates.dashscopeVoice;
   } else if (targetProvider === "xiaomi") {
+    if (updates.xiaomiBaseUrl !== undefined) profileUpdates.baseUrl = updates.xiaomiBaseUrl;
     if (updates.xiaomiApiKey !== undefined) profileUpdates.apiKey = updates.xiaomiApiKey;
     if (updates.xiaomiVoice !== undefined) profileUpdates.voice = updates.xiaomiVoice;
     if (updates.xiaomiStylePrompt !== undefined) {

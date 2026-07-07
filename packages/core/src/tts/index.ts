@@ -16,6 +16,7 @@ export {
   createDefaultTTSProfiles,
   DEFAULT_TTS_CONFIG,
   DEFAULT_XIAOMI_STYLE_PROMPT,
+  DEFAULT_XIAOMI_TTS_BASE_URL,
   DASHSCOPE_VOICES,
   getActiveTTSProfile,
   getTTSProviderDefinition,
@@ -52,6 +53,7 @@ export {
 export {
   base64ToBytes,
   buildOpenAIChatTTSMessages,
+  buildXiaomiTTSUrl,
   buildXiaomiTTSMessages,
   fetchOpenAITTSAudio,
   fetchXiaomiTTSWav,

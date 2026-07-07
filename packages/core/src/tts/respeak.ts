@@ -18,7 +18,8 @@ export function shouldRespeakForSynthChange(prev: TTSConfig, next: TTSConfig): b
   if (next.engine === "xiaomi") {
     return (
       !!next.xiaomiApiKey &&
-      (next.xiaomiVoice !== prev.xiaomiVoice ||
+      (next.xiaomiBaseUrl !== prev.xiaomiBaseUrl ||
+        next.xiaomiVoice !== prev.xiaomiVoice ||
         next.xiaomiStylePrompt !== prev.xiaomiStylePrompt)
     );
   }

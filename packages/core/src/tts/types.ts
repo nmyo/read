@@ -30,6 +30,8 @@ export interface TTSConfig {
   dashscopeVoice: string;
   /** Xiaomi MiMo API Key */
   xiaomiApiKey: string;
+  /** Xiaomi MiMo TTS base URL */
+  xiaomiBaseUrl: string;
   /** Xiaomi MiMo TTS voice (e.g. "Chloe") */
   xiaomiVoice: string;
   /** Natural-language style instruction for Xiaomi MiMo TTS */
@@ -119,7 +121,7 @@ export const TTS_PROVIDER_DEFINITIONS: TTSProviderDefinition[] = [
     requiresApiKey: true,
     supportsVoice: true,
     supportsStylePrompt: true,
-    supportsBaseUrl: false,
+    supportsBaseUrl: true,
     supportsStreaming: true,
   },
   {
@@ -142,6 +144,7 @@ export const XIAOMI_TTS_VOICES = [
   { id: "Dean", label: "Dean" },
 ] as const;
 
+export const DEFAULT_XIAOMI_TTS_BASE_URL = "https://api.xiaomimimo.com/v1";
 export const DEFAULT_XIAOMI_STYLE_PROMPT = "自然、平稳、适合长时间听书。";
 
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
@@ -155,6 +158,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   dashscopeApiKey: "",
   dashscopeVoice: "Cherry",
   xiaomiApiKey: "",
+  xiaomiBaseUrl: DEFAULT_XIAOMI_TTS_BASE_URL,
   xiaomiVoice: "Chloe",
   xiaomiStylePrompt: DEFAULT_XIAOMI_STYLE_PROMPT,
   openaiTtsBaseUrl: "https://api.openai.com/v1",
@@ -221,6 +225,7 @@ export function createDefaultTTSProfiles(config: Partial<TTSConfig> = {}): TTSPr
       id: "xiaomi-mimo-default",
       name: "Xiaomi MiMo",
       provider: "xiaomi",
+      baseUrl: config.xiaomiBaseUrl ?? DEFAULT_TTS_CONFIG.xiaomiBaseUrl,
       apiKey: config.xiaomiApiKey ?? "",
       voice: config.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice,
       model: "mimo-v2.5-tts",
@@ -287,6 +292,7 @@ export function syncConfigFromActiveProfile(config: TTSConfig): TTSConfig {
     next.dashscopeApiKey = activeProfile.apiKey ?? next.dashscopeApiKey;
     next.dashscopeVoice = activeProfile.voice ?? next.dashscopeVoice;
   } else if (engine === "xiaomi") {
+    next.xiaomiBaseUrl = activeProfile.baseUrl ?? next.xiaomiBaseUrl;
     next.xiaomiApiKey = activeProfile.apiKey ?? next.xiaomiApiKey;
     next.xiaomiVoice = activeProfile.voice ?? next.xiaomiVoice;
     next.xiaomiStylePrompt = activeProfile.stylePrompt ?? next.xiaomiStylePrompt;
@@ -324,6 +330,7 @@ export function normalizeTTSConfig(config: PersistedTTSConfig | null | undefined
     dashscopeApiKey: config?.dashscopeApiKey ?? DEFAULT_TTS_CONFIG.dashscopeApiKey,
     dashscopeVoice: config?.dashscopeVoice ?? DEFAULT_TTS_CONFIG.dashscopeVoice,
     xiaomiApiKey: config?.xiaomiApiKey ?? DEFAULT_TTS_CONFIG.xiaomiApiKey,
+    xiaomiBaseUrl: config?.xiaomiBaseUrl ?? DEFAULT_TTS_CONFIG.xiaomiBaseUrl,
     xiaomiVoice: config?.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice,
     xiaomiStylePrompt: config?.xiaomiStylePrompt ?? DEFAULT_TTS_CONFIG.xiaomiStylePrompt,
     openaiTtsBaseUrl: config?.openaiTtsBaseUrl ?? DEFAULT_TTS_CONFIG.openaiTtsBaseUrl,

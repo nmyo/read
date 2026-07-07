@@ -354,6 +354,20 @@ export default function TTSSettingsScreen() {
                   />
                 </View>
                 <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>{t("tts.baseUrl", "Base URL")}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={config.xiaomiBaseUrl}
+                    onChangeText={(v) => {
+                      updateActiveProfile({ baseUrl: v });
+                      updateConfig({ xiaomiBaseUrl: v });
+                    }}
+                    placeholder="https://api.xiaomimimo.com/v1"
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="none"
+                  />
+                </View>
+                <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>{t("tts.stylePrompt", "朗读风格")}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}

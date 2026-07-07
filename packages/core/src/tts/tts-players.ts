@@ -11,6 +11,7 @@ import {
   CLOUD_TTS_PCM_SAMPLE_RATE,
   base64ToBytes,
   buildOpenAIChatTTSMessages,
+  buildXiaomiTTSUrl,
   buildXiaomiTTSMessages,
   fetchOpenAITTSAudio,
 } from "./cloud-tts";
@@ -715,7 +716,7 @@ export class XiaomiTTSPlayer extends PCMStreamingTTSPlayer {
     if (!config.xiaomiApiKey) throw new Error("Xiaomi MiMo API key is required");
 
     const platform = getPlatformService();
-    const response = await platform.fetch("https://api.xiaomimimo.com/v1/chat/completions", {
+    const response = await platform.fetch(buildXiaomiTTSUrl(config), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
