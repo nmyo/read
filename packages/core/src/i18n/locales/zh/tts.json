@@ -63,6 +63,7 @@
     "model": "模型",
     "format": "格式",
     "stylePrompt": "朗读风格",
+    "defaultStylePrompt": "自然、平稳、适合长时间听书。",
     "apiKeyPlaceholder": "输入 DashScope API 密钥",
     "apiKeyHint": "从阿里百炼平台获取 API 密钥，使用 qwen3-tts-flash 模型",
     "getApiKey": "获取 API Key",

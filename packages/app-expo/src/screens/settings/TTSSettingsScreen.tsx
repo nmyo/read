@@ -11,6 +11,7 @@ import {
 import { previewTTSConfig, stopTTSPreview } from "@/lib/platform/tts-preview";
 import {
   DASHSCOPE_VOICES,
+  DEFAULT_XIAOMI_STYLE_PROMPT,
   EDGE_TTS_VOICES,
   XIAOMI_TTS_VOICES,
   getActiveTTSProfile,
@@ -68,6 +69,15 @@ export default function TTSSettingsScreen() {
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profiles = config.profiles;
   const activeProfile = getActiveTTSProfile(config);
+  const defaultStylePrompt = t("tts.defaultStylePrompt", DEFAULT_XIAOMI_STYLE_PROMPT);
+  const xiaomiStylePromptValue =
+    config.xiaomiStylePrompt === DEFAULT_XIAOMI_STYLE_PROMPT
+      ? defaultStylePrompt
+      : config.xiaomiStylePrompt;
+  const openAIStylePromptValue =
+    config.openaiTtsStylePrompt === DEFAULT_XIAOMI_STYLE_PROMPT
+      ? defaultStylePrompt
+      : config.openaiTtsStylePrompt;
 
   const displayLocale = i18n.resolvedLanguage || i18n.language;
   const edgeVoiceGroups = useMemo(() => groupEdgeTTSVoices(EDGE_TTS_VOICES), []);
@@ -428,13 +438,13 @@ export default function TTSSettingsScreen() {
                   <Text style={styles.fieldLabel}>{t("tts.stylePrompt", "朗读风格")}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
-                    value={config.xiaomiStylePrompt}
+                    value={xiaomiStylePromptValue}
                     onChangeText={(v) => {
                       updateActiveProfile({ stylePrompt: v });
                       updateConfig({ xiaomiStylePrompt: v });
                     }}
                     multiline
-                    placeholder="自然、平稳、适合长时间听书。"
+                    placeholder={defaultStylePrompt}
                     placeholderTextColor={colors.mutedForeground}
                   />
                 </View>
@@ -558,13 +568,13 @@ export default function TTSSettingsScreen() {
                   <Text style={styles.fieldLabel}>{t("tts.stylePrompt", "朗读风格")}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
-                    value={config.openaiTtsStylePrompt}
+                    value={openAIStylePromptValue}
                     onChangeText={(v) => {
                       updateActiveProfile({ stylePrompt: v });
                       updateConfig({ openaiTtsStylePrompt: v });
                     }}
                     multiline
-                    placeholder="自然、平稳、适合长时间听书。"
+                    placeholder={defaultStylePrompt}
                     placeholderTextColor={colors.mutedForeground}
                   />
                 </View>

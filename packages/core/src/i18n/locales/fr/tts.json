@@ -60,6 +60,7 @@
     "model": "Modèle",
     "format": "Format",
     "stylePrompt": "Style de lecture",
+    "defaultStylePrompt": "Naturel, régulier et confortable pour une longue écoute.",
     "apiKeyPlaceholder": "Entrer la clé API DashScope",
     "apiKeyHint": "Obtenez la clé API depuis Alibaba Cloud, utilisez le modèle qwen3-tts-flash",
     "getApiKey": "Obtenir la clé API",

@@ -60,6 +60,7 @@
     "model": "모델",
     "format": "형식",
     "stylePrompt": "낭독 스타일",
+    "defaultStylePrompt": "자연스럽고 안정적이며 오래 듣기 편한 낭독.",
     "apiKeyPlaceholder": "DashScope API 키 입력",
     "apiKeyHint": "알리바바 클라우드에서 API 키를 받으세요, qwen3-tts-flash 모델 사용",
     "getApiKey": "API 키 받기",

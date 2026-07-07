@@ -60,6 +60,7 @@
     "model": "モデル",
     "format": "形式",
     "stylePrompt": "読み上げスタイル",
+    "defaultStylePrompt": "自然で落ち着いた、長時間聴きやすい朗読。",
     "apiKeyPlaceholder": "DashScope APIキーを入力",
     "apiKeyHint": "Alibaba CloudからAPIキーを取得し、qwen3-tts-flashモデルを使用",
     "getApiKey": "APIキーを取得",

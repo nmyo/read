@@ -24,6 +24,7 @@ import {
 import { previewTTSConfig, stopTTSPreview } from "@/lib/tts/tts-preview";
 import { useTTSStore } from "@/stores/tts-store";
 import {
+  DEFAULT_XIAOMI_STYLE_PROMPT,
   getActiveTTSProfile,
   getLocaleDisplayLabel,
   getTTSProviderDefinition,
@@ -145,6 +146,15 @@ export function TTSSettings() {
 
   const profiles = config.profiles;
   const activeProfile = getActiveTTSProfile(config);
+  const defaultStylePrompt = t("tts.defaultStylePrompt", DEFAULT_XIAOMI_STYLE_PROMPT);
+  const xiaomiStylePromptValue =
+    config.xiaomiStylePrompt === DEFAULT_XIAOMI_STYLE_PROMPT
+      ? defaultStylePrompt
+      : config.xiaomiStylePrompt;
+  const openAIStylePromptValue =
+    config.openaiTtsStylePrompt === DEFAULT_XIAOMI_STYLE_PROMPT
+      ? defaultStylePrompt
+      : config.openaiTtsStylePrompt;
   const activeProvider = getTTSProviderDefinition(activeProfile.provider);
   const providerIcon = activeProfile.provider === "system"
     ? Headphones
@@ -448,12 +458,12 @@ export function TTSSettings() {
                 <span className="text-sm text-foreground">{t("tts.stylePrompt", "朗读风格")}</span>
                 <textarea
                   className="min-h-[74px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={config.xiaomiStylePrompt}
+                  value={xiaomiStylePromptValue}
                   onChange={(e) => {
                     updateActiveProfile({ stylePrompt: e.target.value });
                     updateConfig({ xiaomiStylePrompt: e.target.value });
                   }}
-                  placeholder="自然、平稳、适合长时间听书。"
+                  placeholder={defaultStylePrompt}
                 />
               </div>
             </>
@@ -554,11 +564,12 @@ export function TTSSettings() {
                   <span className="text-sm text-foreground">{t("tts.stylePrompt", "朗读风格")}</span>
                   <textarea
                     className="min-h-[74px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={config.openaiTtsStylePrompt}
+                    value={openAIStylePromptValue}
                     onChange={(e) => {
                       updateActiveProfile({ stylePrompt: e.target.value });
                       updateConfig({ openaiTtsStylePrompt: e.target.value });
                     }}
+                    placeholder={defaultStylePrompt}
                   />
                 </div>
               )}
