@@ -31,15 +31,17 @@ import {
   type TTSProviderType,
   type TTSProfile,
 } from "@readany/core/tts";
-import { Cloud, Headphones, Mic, Play, Settings2, Zap } from "lucide-react";
+import { Cloud, Headphones, Mic, Play, Settings2, Square, Zap } from "lucide-react";
 import type { TFunction } from "i18next";
 /**
  * TTSSettings — TTS configuration panel in the settings dialog.
  *
  * Uses shadcn/ui components: Select, Slider, Button.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+const PREVIEW_FALLBACK_TIMEOUT_MS = 8000;
 
 function providerLabel(provider: TTSProviderType, t: TFunction) {
   return t(`tts.provider.${provider}.label`, { defaultValue: provider });
@@ -66,6 +68,25 @@ export function TTSSettings() {
   const stop = useTTSStore((s) => s.stop);
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const previewRunRef = useRef(0);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPreviewTimer = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+  }, []);
+
+  const endPreviewFeedback = useCallback(
+    (run: number) => {
+      if (previewRunRef.current !== run) return;
+      clearPreviewTimer();
+      setIsPreviewing(false);
+    },
+    [clearPreviewTimer],
+  );
 
   useEffect(() => {
     const loadVoices = () => setVoices(getSystemVoices());
@@ -88,11 +109,38 @@ export function TTSSettings() {
     [config.voiceName, systemVoiceOptions],
   );
 
-  useEffect(() => stopTTSPreview, []);
+  useEffect(
+    () => () => {
+      previewRunRef.current += 1;
+      clearPreviewTimer();
+      stopTTSPreview();
+    },
+    [clearPreviewTimer],
+  );
 
   const handlePreview = async () => {
+    if (isPreviewing) {
+      previewRunRef.current += 1;
+      clearPreviewTimer();
+      stopTTSPreview();
+      setIsPreviewing(false);
+      return;
+    }
+
+    const run = previewRunRef.current + 1;
+    previewRunRef.current = run;
+    setIsPreviewing(true);
     stop();
-    await previewTTSConfig(t("tts.testText", "这是一段测试文本"), config);
+    previewTimerRef.current = setTimeout(
+      () => endPreviewFeedback(run),
+      PREVIEW_FALLBACK_TIMEOUT_MS,
+    );
+    await previewTTSConfig(t("tts.testText", "这是一段测试文本"), config, {
+      onStateChange: (state) => {
+        if (state === "stopped") endPreviewFeedback(run);
+      },
+      onEnd: () => endPreviewFeedback(run),
+    });
   };
 
   const profiles = config.profiles;
@@ -131,9 +179,21 @@ export function TTSSettings() {
             <h2 className="text-sm font-medium text-foreground">{t("tts.settingsTitle")}</h2>
             <p className="mt-1 text-xs text-muted-foreground">{t("tts.settingsDesc")}</p>
           </div>
-          <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={handlePreview}>
-            <Play className="mr-1.5 h-3.5 w-3.5" />
-            {t("common.preview", "试听")}
+          <Button
+            type="button"
+            variant={isPreviewing ? "default" : "secondary"}
+            size="sm"
+            className="shrink-0 min-w-[92px]"
+            onClick={handlePreview}
+          >
+            {isPreviewing ? (
+              <Square className="mr-1.5 h-3.5 w-3.5 fill-current" />
+            ) : (
+              <Play className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {isPreviewing
+              ? t("common.previewing", "试听中")
+              : t("common.preview", "试听")}
           </Button>
         </div>
 

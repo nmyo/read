@@ -8,6 +8,11 @@ const edgePreviewPlayer = new ExpoAVEdgeTTSPlayer();
 const dashscopePreviewPlayer = new ExpoSpeechTTSPlayer();
 const cloudPreviewPlayer = new TrackPlayerCloudTTSPlayer();
 
+export interface TTSPreviewCallbacks {
+  onStateChange?: (state: "playing" | "paused" | "stopped") => void;
+  onEnd?: () => void;
+}
+
 function stopPlayer(player: { stop: () => void }) {
   try {
     player.stop();
@@ -21,7 +26,11 @@ export function stopTTSPreview() {
   stopPlayer(cloudPreviewPlayer);
 }
 
-export async function previewTTSConfig(text: string, config: TTSConfig) {
+export async function previewTTSConfig(
+  text: string,
+  config: TTSConfig,
+  callbacks: TTSPreviewCallbacks = {},
+) {
   stopTTSPreview();
   const player =
     config.engine === "edge"
@@ -31,9 +40,12 @@ export async function previewTTSConfig(text: string, config: TTSConfig) {
         : config.engine === "xiaomi" || config.engine === "openai-compatible"
           ? cloudPreviewPlayer
           : systemPreviewPlayer;
+  player.onStateChange = callbacks.onStateChange;
+  player.onEnd = callbacks.onEnd;
   try {
     await Promise.resolve(player.speak(text, config));
   } catch (error) {
     console.error("[TTSPreview] Preview failed", error);
+    callbacks.onStateChange?.("stopped");
   }
 }

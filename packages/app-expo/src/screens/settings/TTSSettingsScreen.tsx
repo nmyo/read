@@ -19,7 +19,7 @@ import {
   type TTSProviderType,
   type TTSProfile,
 } from "@readany/core/tts";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
@@ -44,6 +44,8 @@ import {
 } from "../../styles/theme";
 import { SettingsHeader } from "./SettingsHeader";
 
+const PREVIEW_FALLBACK_TIMEOUT_MS = 8000;
+
 function providerLabel(provider: TTSProviderType, t: TFunction) {
   return t(`tts.provider.${provider}.label`, { defaultValue: provider });
 }
@@ -61,6 +63,9 @@ export default function TTSSettingsScreen() {
   const layout = useResponsiveLayout();
   const { config, updateConfig, stop } = useTTSStore();
   const [systemVoices, setSystemVoices] = useState<NativeSystemVoiceOption[]>([]);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const previewRunRef = useRef(0);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profiles = config.profiles;
   const activeProfile = getActiveTTSProfile(config);
 
@@ -82,12 +87,55 @@ export default function TTSSettingsScreen() {
     }
   }, [config.engine]);
 
-  useEffect(() => stopTTSPreview, []);
+  const clearPreviewTimer = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+  }, []);
+
+  const endPreviewFeedback = useCallback(
+    (run: number) => {
+      if (previewRunRef.current !== run) return;
+      clearPreviewTimer();
+      setIsPreviewing(false);
+    },
+    [clearPreviewTimer],
+  );
+
+  useEffect(
+    () => () => {
+      previewRunRef.current += 1;
+      clearPreviewTimer();
+      stopTTSPreview();
+    },
+    [clearPreviewTimer],
+  );
 
   const handlePreview = useCallback(() => {
+    if (isPreviewing) {
+      previewRunRef.current += 1;
+      clearPreviewTimer();
+      stopTTSPreview();
+      setIsPreviewing(false);
+      return;
+    }
+
+    const run = previewRunRef.current + 1;
+    previewRunRef.current = run;
+    setIsPreviewing(true);
     stop();
-    void previewTTSConfig(t("tts.testText", "这是一段测试文本"), config);
-  }, [config, stop, t]);
+    previewTimerRef.current = setTimeout(
+      () => endPreviewFeedback(run),
+      PREVIEW_FALLBACK_TIMEOUT_MS,
+    );
+    void previewTTSConfig(t("tts.testText", "这是一段测试文本"), config, {
+      onStateChange: (state) => {
+        if (state === "stopped") endPreviewFeedback(run);
+      },
+      onEnd: () => endPreviewFeedback(run),
+    });
+  }, [clearPreviewTimer, config, endPreviewFeedback, isPreviewing, stop, t]);
 
   const selectProfile = useCallback(
     (profileId: string) => {
@@ -110,8 +158,17 @@ export default function TTSSettingsScreen() {
   );
 
   const previewBtn = (
-    <TouchableOpacity style={styles.previewBtn} onPress={handlePreview} activeOpacity={0.7}>
-      <Text style={styles.previewBtnText}>▶ {t("common.preview", "试听")}</Text>
+    <TouchableOpacity
+      style={[styles.previewBtn, isPreviewing && styles.previewBtnActive]}
+      onPress={handlePreview}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.previewBtnText, isPreviewing && styles.previewBtnTextActive]}>
+        {isPreviewing ? "■" : "▶"}{" "}
+        {isPreviewing
+          ? t("common.previewing", "试听中")
+          : t("common.preview", "试听")}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -585,10 +642,21 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
+      borderRadius: radius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      backgroundColor: colors.muted,
+    },
+    previewBtnActive: {
+      backgroundColor: colors.primary,
     },
     previewBtnText: {
       fontSize: fontSize.sm,
       color: colors.primary,
+      fontWeight: fontWeight.medium,
+    },
+    previewBtnTextActive: {
+      color: colors.primaryForeground,
     },
     section: { gap: 14 },
     sectionTitle: {

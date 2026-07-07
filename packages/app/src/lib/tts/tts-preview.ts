@@ -13,6 +13,11 @@ const dashscopePreviewPlayer = new DashScopeTTSPlayer();
 const xiaomiPreviewPlayer = new XiaomiTTSPlayer();
 const openAICompatiblePreviewPlayer = new OpenAICompatibleTTSPlayer();
 
+export interface TTSPreviewCallbacks {
+  onStateChange?: (state: "playing" | "paused" | "stopped") => void;
+  onEnd?: () => void;
+}
+
 function stopPlayer(player: { stop: () => void }) {
   try {
     player.stop();
@@ -29,7 +34,11 @@ export function stopTTSPreview() {
   stopPlayer(openAICompatiblePreviewPlayer);
 }
 
-export async function previewTTSConfig(text: string, config: TTSConfig) {
+export async function previewTTSConfig(
+  text: string,
+  config: TTSConfig,
+  callbacks: TTSPreviewCallbacks = {},
+) {
   stopTTSPreview();
   const player =
     config.engine === "edge"
@@ -41,9 +50,12 @@ export async function previewTTSConfig(text: string, config: TTSConfig) {
           : config.engine === "openai-compatible"
             ? openAICompatiblePreviewPlayer
             : systemPreviewPlayer;
+  player.onStateChange = callbacks.onStateChange;
+  player.onEnd = callbacks.onEnd;
   try {
     await Promise.resolve(player.speak(text, config));
   } catch (error) {
     console.error("[TTSPreview] Preview failed", error);
+    callbacks.onStateChange?.("stopped");
   }
 }
