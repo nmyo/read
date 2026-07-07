@@ -38,6 +38,16 @@ export async function buildTTSHttpError(label: string, response: Response): Prom
   return new Error(`${label} failed: ${response.status}${suffix}`);
 }
 
+export function isTTSAbortError(error: unknown): boolean {
+  if (!error) return false;
+  const maybeError = error as { name?: unknown; code?: unknown; message?: unknown };
+  if (maybeError.name === "AbortError") return true;
+  if (maybeError.code === "ERR_CANCELED" || maybeError.code === "ABORT_ERR") return true;
+  const message =
+    typeof maybeError.message === "string" ? maybeError.message : String(error);
+  return /\b(aborted?|cancel(?:ed|led))\b/iu.test(message);
+}
+
 export function buildXiaomiTTSMessages(text: string, config: TTSConfig) {
   return [
     {

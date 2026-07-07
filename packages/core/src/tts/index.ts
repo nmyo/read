@@ -59,6 +59,7 @@ export {
   buildXiaomiTTSMessages,
   fetchOpenAITTSAudio,
   fetchXiaomiTTSWav,
+  isTTSAbortError,
 } from "./cloud-tts";
 
 // Re-speak on synthesis-param change (#370)

@@ -1,6 +1,7 @@
 import {
   fetchOpenAITTSAudio,
   fetchXiaomiTTSWav,
+  isTTSAbortError,
   splitIntoChunks,
   type ITTSPlayer,
   type TTSConfig,
@@ -43,6 +44,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
   private _getArtwork: (() => string | undefined) | null = null;
   private _getTitle: (() => string | undefined) | null = null;
   private _advancing = false;
+  private _lastNotifiedIndex = -1;
 
   get paused(): boolean {
     return this._paused;
@@ -70,6 +72,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._currentIndex = 0;
     this._tempFiles = [];
     this._advancing = false;
+    this._lastNotifiedIndex = -1;
 
     if (this._chunks.length === 0) {
       this._finishPlayback();
@@ -135,7 +138,6 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
   private async _playChunk(index: number, gen: number): Promise<void> {
     if (gen !== this._speakGen || this._stopped || !this._config) return;
     this._currentIndex = index;
-    this.onChunkChange?.(index, this._chunks.length);
 
     try {
       const uri = await this._fetchChunkFile(index, gen);
@@ -150,12 +152,23 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       });
       if (!this._paused) {
         await TrackPlayer.play();
+        if (gen !== this._speakGen || this._stopped || this._paused) return;
+        this._notifyChunkChange(index);
+        this.onStateChange?.("playing");
       }
     } catch (error) {
-      if ((error as Error)?.message === "aborted") return;
+      if ((error as Error)?.message === "aborted" || isTTSAbortError(error)) return;
       console.warn("[TrackPlayerCloudTTSPlayer] chunk error:", error);
       await this._playNext(gen);
     }
+  }
+
+  private _notifyChunkChange(index: number): void {
+    if (!Number.isFinite(index) || index < 0 || index >= this._chunks.length) return;
+    if (index === this._lastNotifiedIndex) return;
+    this._lastNotifiedIndex = index;
+    this._currentIndex = index;
+    this.onChunkChange?.(index, this._chunks.length);
   }
 
   private async _fetchChunkFile(index: number, gen: number): Promise<string> {

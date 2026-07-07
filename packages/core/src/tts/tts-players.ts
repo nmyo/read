@@ -15,6 +15,7 @@ import {
   buildXiaomiTTSUrl,
   buildXiaomiTTSMessages,
   fetchOpenAITTSAudio,
+  isTTSAbortError,
 } from "./cloud-tts";
 import { fetchEdgeTTSAudio } from "./edge-tts";
 import { type ChunkBoundary, resolveCurrentChunk } from "./playback-cursor";
@@ -222,6 +223,7 @@ export class DashScopeTTSPlayer implements ITTSPlayer {
       try {
         await this.streamChunk(chunks[i], config, i === 0, myRun);
       } catch (err) {
+        if (!this._playing || myRun !== this.runId || isTTSAbortError(err)) return;
         console.error("[DashScope TTS] chunk error:", err);
       }
     }
@@ -542,7 +544,7 @@ abstract class PCMStreamingTTSPlayer implements ITTSPlayer {
           },
         );
       } catch (err) {
-        if ((err as Error)?.name === "AbortError") return;
+        if (!this._playing || myRun !== this.runId || isTTSAbortError(err)) return;
         console.error(`[${this.engineName} TTS] chunk error:`, err);
         this.stop();
         return;
@@ -816,7 +818,7 @@ class BufferedAudioTTSPlayer implements ITTSPlayer {
         this.chunkBoundaries.push({ index: i, startAt });
         if (i === 0) this.onStateChange?.("playing");
       } catch (err) {
-        if ((err as Error)?.name === "AbortError") return;
+        if (!this._playing || myRun !== this.runId || isTTSAbortError(err)) return;
         console.error("[Buffered TTS] chunk error:", err);
       }
     }
