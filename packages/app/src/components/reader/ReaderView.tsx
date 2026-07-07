@@ -2407,8 +2407,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   }, [currentTTSSegment?.cfi, navigateToCfi, readerTab?.currentCfi, ttsCurrentLocationCfi]);
 
   const handleTTSPlayPause = useCallback(async () => {
-    if (ttsPlayState === "loading") return;
-    if (ttsPlayState === "playing") {
+    if (ttsPlayState === "loading" || ttsPlayState === "playing") {
       ttsPause();
       return;
     }

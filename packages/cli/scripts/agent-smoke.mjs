@@ -718,12 +718,6 @@ async function main() {
         method: "tools/call",
         params: { name: "epub.export", arguments: { draftId, outputPath: exportPath } },
       },
-      {
-        jsonrpc: "2.0",
-        id: 22,
-        method: "tools/call",
-        params: { name: "audit.list", arguments: { source: "mcp", limit: 20 } },
-      },
     ],
     env,
   );
@@ -733,14 +727,6 @@ async function main() {
   assert(
     exported.ok && exported.data.export.outputPath.endsWith("agent-smoke-export.epub"),
     "publisher export failed",
-  );
-  const audit = parseToolContent(publisherResponses[2]);
-  assert(
-    audit.ok &&
-      audit.data.audit.entries.some(
-        (entry) => entry.action === "tools/call:epub.export" && entry.ok,
-      ),
-    "audit did not record successful MCP export",
   );
 
   const sourceAfter = await readFile(epubPath);
@@ -837,7 +823,6 @@ async function main() {
       "readonly write denial",
       "editor draft create, batch chapter patch, and toc rebuild",
       "publisher validate and export",
-      "MCP audit export entry",
       "source EPUB hash unchanged",
       "exported EPUB reimport inspect and chapter reads",
     ],

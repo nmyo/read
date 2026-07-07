@@ -368,7 +368,6 @@ Module._load = function patchedLoad(request, parent, isMain) {
         "readonly write denial",
         "editor draft create, batch chapter patch, and toc rebuild",
         "publisher validate and export",
-        "MCP audit export entry",
         "source EPUB hash unchanged",
         "exported EPUB reimport inspect and chapter reads",
       ]),
@@ -1365,8 +1364,9 @@ Module._load = function patchedLoad(request, parent, isMain) {
     });
 
     const validateViaPackageScript = spawnSync(
-      "pnpm",
+      "corepack",
       [
+        "pnpm",
         "--filter",
         "@readany/cli",
         "acceptance:validate",

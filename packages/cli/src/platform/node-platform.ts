@@ -1,7 +1,8 @@
 import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
 import { access, mkdir, readFile as fsReadFile, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type {
   FetchOptions,
@@ -130,6 +131,7 @@ export class NodePlatformService implements IPlatformService {
 
   async loadDatabase(path: string): Promise<IDatabase> {
     const normalizedPath = path.startsWith("sqlite:") ? path.slice("sqlite:".length) : path;
+    mkdirSync(dirname(normalizedPath), { recursive: true });
     return wrapBetterSqliteDatabase(normalizedPath);
   }
 

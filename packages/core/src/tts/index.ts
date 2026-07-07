@@ -2,16 +2,31 @@
 export type {
   ITTSPlayer,
   LegacyTTSEngine,
+  OpenAITTSEndpoint,
   PersistedTTSConfig,
+  TTSAudioFormat,
   TTSEngine,
   TTSConfig,
   TTSPlayState,
+  TTSProfile,
+  TTSProviderDefinition,
+  TTSProviderType,
 } from "./types";
 export {
+  createDefaultTTSProfiles,
   DEFAULT_TTS_CONFIG,
+  DEFAULT_XIAOMI_STYLE_PROMPT,
+  DEFAULT_XIAOMI_TTS_BASE_URL,
+  DEFAULT_XIAOMI_TTS_VOICE,
   DASHSCOPE_VOICES,
+  getActiveTTSProfile,
+  getTTSProviderDefinition,
   normalizeTTSConfig,
   normalizeTTSEngine,
+  normalizeXiaomiTTSVoice,
+  syncConfigFromActiveProfile,
+  TTS_PROVIDER_DEFINITIONS,
+  XIAOMI_TTS_VOICES,
 } from "./types";
 
 // Text utilities
@@ -30,7 +45,22 @@ export { fetchEdgeTTSAudio, EDGE_TTS_VOICES } from "./edge-tts";
 export type { EdgeTTSVoice, EdgeTTSPayload } from "./edge-tts";
 
 // Players
-export { BrowserTTSPlayer, DashScopeTTSPlayer, EdgeTTSPlayer } from "./tts-players";
+export {
+  BrowserTTSPlayer,
+  DashScopeTTSPlayer,
+  EdgeTTSPlayer,
+  OpenAICompatibleTTSPlayer,
+  XiaomiTTSPlayer,
+} from "./tts-players";
+export {
+  base64ToBytes,
+  buildOpenAIChatTTSMessages,
+  buildXiaomiTTSUrl,
+  buildXiaomiTTSMessages,
+  fetchOpenAITTSAudio,
+  fetchXiaomiTTSWav,
+  isTTSAbortError,
+} from "./cloud-tts";
 
 // Re-speak on synthesis-param change (#370)
 export {

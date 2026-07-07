@@ -16,8 +16,14 @@ import {
   isActivePlay,
   shouldRespeakForSynthChange,
 } from "../tts/respeak";
-import { BrowserTTSPlayer, DashScopeTTSPlayer, EdgeTTSPlayer } from "../tts/tts-players";
-import type { ITTSPlayer, TTSConfig } from "../tts/types";
+import {
+  BrowserTTSPlayer,
+  DashScopeTTSPlayer,
+  EdgeTTSPlayer,
+  OpenAICompatibleTTSPlayer,
+  XiaomiTTSPlayer,
+} from "../tts/tts-players";
+import type { ITTSPlayer, TTSConfig, TTSProfile } from "../tts/types";
 import { DEFAULT_TTS_CONFIG, normalizeTTSConfig } from "../tts/types";
 import { withPersist } from "./persist";
 
@@ -30,6 +36,8 @@ export interface TTSPlayerFactories {
   createSystemTTS: () => ITTSPlayer;
   createEdgeTTS: () => ITTSPlayer;
   createDashScopeTTS: () => ITTSPlayer;
+  createXiaomiTTS: () => ITTSPlayer;
+  createOpenAICompatibleTTS: () => ITTSPlayer;
 }
 
 /** Default Web-based factories */
@@ -37,6 +45,8 @@ const defaultFactories: TTSPlayerFactories = {
   createSystemTTS: () => new BrowserTTSPlayer(),
   createEdgeTTS: () => new EdgeTTSPlayer(),
   createDashScopeTTS: () => new DashScopeTTSPlayer(),
+  createXiaomiTTS: () => new XiaomiTTSPlayer(),
+  createOpenAICompatibleTTS: () => new OpenAICompatibleTTSPlayer(),
 };
 
 let _factories: TTSPlayerFactories = defaultFactories;
@@ -58,12 +68,16 @@ export function setTTSPlayerFactories(factories: Partial<TTSPlayerFactories>): v
   _systemTTS = null;
   _edgeTTS = null;
   _dashscopeTTS = null;
+  _xiaomiTTS = null;
+  _openAICompatibleTTS = null;
 }
 
 /** Lazily-created singleton TTS player instances */
 let _systemTTS: ITTSPlayer | null = null;
 let _edgeTTS: ITTSPlayer | null = null;
 let _dashscopeTTS: ITTSPlayer | null = null;
+let _xiaomiTTS: ITTSPlayer | null = null;
+let _openAICompatibleTTS: ITTSPlayer | null = null;
 let _activeTTS: ITTSPlayer | null = null;
 let _sessionSegments: string[] = [];
 let _sessionCurrentIndex = 0;
@@ -87,6 +101,18 @@ function getEdgeTTS(): ITTSPlayer {
 function getDashScopeTTS(): ITTSPlayer {
   if (!_dashscopeTTS) _dashscopeTTS = _factories.createDashScopeTTS();
   return _dashscopeTTS;
+}
+
+function getXiaomiTTS(): ITTSPlayer {
+  if (!_xiaomiTTS) _xiaomiTTS = _factories.createXiaomiTTS();
+  return _xiaomiTTS;
+}
+
+function getOpenAICompatibleTTS(): ITTSPlayer {
+  if (!_openAICompatibleTTS) {
+    _openAICompatibleTTS = _factories.createOpenAICompatibleTTS();
+  }
+  return _openAICompatibleTTS;
 }
 
 function clearSleepTimerHandle(): void {
@@ -116,6 +142,57 @@ function scheduleRespeak(): void {
   }, VOICE_RESPEAK_DEBOUNCE_MS);
 }
 
+function syncProfileUpdatesFromLegacyFields(
+  previousConfig: TTSConfig,
+  updates: Partial<TTSConfig>,
+): Partial<TTSConfig> {
+  const targetProvider = updates.engine ?? previousConfig.engine;
+  const requestedProfileId = updates.activeProfileId ?? previousConfig.activeProfileId;
+  const profileUpdates: Partial<TTSProfile> = {};
+
+  if (targetProvider === "edge" && updates.edgeVoice !== undefined) {
+    profileUpdates.voice = updates.edgeVoice;
+  } else if (targetProvider === "system" && updates.voiceName !== undefined) {
+    profileUpdates.voice = updates.voiceName;
+  } else if (targetProvider === "dashscope") {
+    if (updates.dashscopeApiKey !== undefined) profileUpdates.apiKey = updates.dashscopeApiKey;
+    if (updates.dashscopeVoice !== undefined) profileUpdates.voice = updates.dashscopeVoice;
+  } else if (targetProvider === "xiaomi") {
+    if (updates.xiaomiBaseUrl !== undefined) profileUpdates.baseUrl = updates.xiaomiBaseUrl;
+    if (updates.xiaomiApiKey !== undefined) profileUpdates.apiKey = updates.xiaomiApiKey;
+    if (updates.xiaomiVoice !== undefined) profileUpdates.voice = updates.xiaomiVoice;
+    if (updates.xiaomiStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.xiaomiStylePrompt;
+    }
+  } else if (targetProvider === "openai-compatible") {
+    if (updates.openaiTtsBaseUrl !== undefined) profileUpdates.baseUrl = updates.openaiTtsBaseUrl;
+    if (updates.openaiTtsApiKey !== undefined) profileUpdates.apiKey = updates.openaiTtsApiKey;
+    if (updates.openaiTtsEndpoint !== undefined) profileUpdates.endpoint = updates.openaiTtsEndpoint;
+    if (updates.openaiTtsModel !== undefined) profileUpdates.model = updates.openaiTtsModel;
+    if (updates.openaiTtsVoice !== undefined) profileUpdates.voice = updates.openaiTtsVoice;
+    if (updates.openaiTtsFormat !== undefined) profileUpdates.format = updates.openaiTtsFormat;
+    if (updates.openaiTtsStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.openaiTtsStylePrompt;
+    }
+  }
+
+  if (Object.keys(profileUpdates).length === 0) return updates;
+
+  const sourceProfiles = updates.profiles ?? previousConfig.profiles;
+  const requestedProfile = sourceProfiles.find((profile) => profile.id === requestedProfileId);
+  const targetProfileId =
+    requestedProfile?.provider === targetProvider
+      ? requestedProfile.id
+      : sourceProfiles.find((profile) => profile.provider === targetProvider)?.id;
+  if (!targetProfileId) return updates;
+
+  const profiles = sourceProfiles.map((profile) =>
+    profile.id === targetProfileId ? { ...profile, ...profileUpdates } : profile,
+  );
+
+  return { ...updates, profiles };
+}
+
 function detachAndStopPlayer(player: ITTSPlayer | null): void {
   if (!player) return;
   player.onStateChange = undefined;
@@ -133,6 +210,8 @@ function detachAndStopAllPlayers(): void {
   detachAndStopPlayer(_systemTTS);
   detachAndStopPlayer(_edgeTTS);
   detachAndStopPlayer(_dashscopeTTS);
+  detachAndStopPlayer(_xiaomiTTS);
+  detachAndStopPlayer(_openAICompatibleTTS);
 }
 
 function getPlayerForConfig(config: TTSConfig): ITTSPlayer {
@@ -141,6 +220,12 @@ function getPlayerForConfig(config: TTSConfig): ITTSPlayer {
   }
   if (config.engine === "edge") {
     return getEdgeTTS();
+  }
+  if (config.engine === "xiaomi") {
+    return getXiaomiTTS();
+  }
+  if (config.engine === "openai-compatible") {
+    return getOpenAICompatibleTTS();
   }
   return getSystemTTS();
 }
@@ -154,10 +239,12 @@ function startPlayback(
 ): void {
   const player = getPlayerForConfig(config);
   const gen = _sessionGeneration;
+  let isStarting = true;
   _activeTTS = player;
 
   player.onStateChange = (playState) => {
     if (gen !== _sessionGeneration) return;
+    if (isStarting && playState === "stopped") return;
     if (playState === "stopped") {
       _activeTTS = null;
     }
@@ -187,7 +274,18 @@ function startPlayback(
     get().onEnd?.();
   };
 
-  const playback = player.speak(segments, config);
+  let playback: void | Promise<void>;
+  try {
+    playback = player.speak(segments, config);
+  } catch (error) {
+    isStarting = false;
+    if (gen !== _sessionGeneration) return;
+    console.error("[TTS] play failed:", error);
+    _activeTTS = null;
+    set({ playState: "stopped" });
+    return;
+  }
+  isStarting = false;
   void Promise.resolve(playback).catch((error) => {
     if (gen !== _sessionGeneration) return;
     console.error("[TTS] play failed:", error);
@@ -285,7 +383,7 @@ export const useTTSStore = create<TTSState>()(
       pause: () => {
         clearRespeakTimer();
         const { playState } = get();
-        if (playState !== "playing") return;
+        if (playState !== "playing" && playState !== "loading") return;
         _activeTTS?.pause();
         set({ playState: "paused" });
       },
@@ -359,7 +457,7 @@ export const useTTSStore = create<TTSState>()(
 
       toggle: (text?: string) => {
         const { playState, currentText, play, pause, resume } = get();
-        if (playState === "playing") {
+        if (playState === "playing" || playState === "loading") {
           pause();
         } else if (playState === "paused") {
           resume();
@@ -372,7 +470,8 @@ export const useTTSStore = create<TTSState>()(
 
       updateConfig: (updates) => {
         const previousConfig = normalizeTTSConfig(get().config);
-        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...updates });
+        const normalizedUpdates = syncProfileUpdatesFromLegacyFields(previousConfig, updates);
+        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...normalizedUpdates });
         const engineChanged =
           updates.engine !== undefined && nextConfig.engine !== previousConfig.engine;
         const wasPlaying = isActivePlay(get().playState);

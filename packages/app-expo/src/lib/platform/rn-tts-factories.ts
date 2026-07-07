@@ -9,6 +9,7 @@ import type { TTSPlayerFactories } from "@readany/core/stores";
 import { Platform } from "react-native";
 import { ExpoSpeechTTSPlayer } from "./expo-speech-player";
 import { canUseSystemTtsSynthesis } from "./system-tts-synthesis";
+import { TrackPlayerCloudTTSPlayer } from "./track-player-cloud-tts-player";
 import { TrackPlayerDashScopeTTSPlayer } from "./track-player-dashscope-player";
 import { TrackPlayerEdgeTTSPlayer } from "./track-player-edge-player";
 import { TrackPlayerSystemTTSPlayer } from "./track-player-system-player";
@@ -25,4 +26,6 @@ export const rnTTSPlayerFactories: TTSPlayerFactories = {
   },
   createEdgeTTS: () => new TrackPlayerEdgeTTSPlayer(),
   createDashScopeTTS: () => new TrackPlayerDashScopeTTSPlayer(),
+  createXiaomiTTS: () => new TrackPlayerCloudTTSPlayer(),
+  createOpenAICompatibleTTS: () => new TrackPlayerCloudTTSPlayer(),
 };
