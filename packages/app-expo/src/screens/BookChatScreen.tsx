@@ -112,15 +112,13 @@ export function BookChatScreen({ route, navigation }: Props) {
     setQuotes((prev) => prev.filter((q) => q.id !== id));
   }, []);
 
-  const {
-    threads,
-    loadThreads,
-    getActiveThreadId,
-    setBookActiveThread,
-    createThread,
-    removeThread,
-    getThreadsForContext,
-  } = useChatStore();
+  const threads = useChatStore((s) => s.threads);
+  const loadThreads = useChatStore((s) => s.loadThreads);
+  const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
+  const setBookActiveThread = useChatStore((s) => s.setBookActiveThread);
+  const createThread = useChatStore((s) => s.createThread);
+  const removeThread = useChatStore((s) => s.removeThread);
+  const getThreadsForContext = useChatStore((s) => s.getThreadsForContext);
 
   useEffect(() => {
     loadThreads(bookId);

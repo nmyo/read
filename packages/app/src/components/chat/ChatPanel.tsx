@@ -44,15 +44,13 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const { t } = useTranslation();
   const bookId = book?.id;
 
-  const {
-    threads,
-    loadThreads,
-    createThread,
-    removeThread,
-    setBookActiveThread,
-    getActiveThreadId,
-    getThreadsForContext,
-  } = useChatStore();
+  const threads = useChatStore((s) => s.threads);
+  const loadThreads = useChatStore((s) => s.loadThreads);
+  const createThread = useChatStore((s) => s.createThread);
+  const removeThread = useChatStore((s) => s.removeThread);
+  const setBookActiveThread = useChatStore((s) => s.setBookActiveThread);
+  const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
+  const getThreadsForContext = useChatStore((s) => s.getThreadsForContext);
 
   // Use streaming chat hook with book context
   const { isStreaming, currentMessage, currentStep, sendMessage, stopStream } = useStreamingChat({
