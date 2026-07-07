@@ -154,7 +154,7 @@ export function FooterBar({
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground w-16 shrink-0">{t("tts.engine")}</span>
               <div className="flex gap-1">
-                {(["edge", "system", "dashscope"] as TTSEngine[]).map((eng) => (
+                {(["edge", "system", "dashscope", "xiaomi", "openai-compatible"] as TTSEngine[]).map((eng) => (
                   <Button
                     key={eng}
                     variant={config.engine === eng ? "default" : "secondary"}
@@ -166,7 +166,11 @@ export function FooterBar({
                       ? t("tts.systemEngine")
                       : eng === "edge"
                         ? t("tts.edgeEngine")
-                        : t("tts.dashscopeEngine")}
+                        : eng === "dashscope"
+                          ? t("tts.dashscopeEngine")
+                          : eng === "xiaomi"
+                            ? "Xiaomi"
+                            : "OpenAI"}
                   </Button>
                 ))}
               </div>

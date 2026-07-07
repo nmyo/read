@@ -8,7 +8,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { DASHSCOPE_VOICES, EDGE_TTS_VOICES, getSystemVoices } from "@/lib/tts/tts-service";
+import {
+  DASHSCOPE_VOICES,
+  EDGE_TTS_VOICES,
+  TTS_PROVIDER_DEFINITIONS,
+  XIAOMI_TTS_VOICES,
+  getSystemVoices,
+} from "@/lib/tts/tts-service";
 import {
   DEFAULT_SYSTEM_VOICE_VALUE,
   findSystemVoiceLabel,
@@ -17,11 +23,16 @@ import {
   resolveSystemVoiceValue,
 } from "@/lib/tts/system-voices";
 import { previewTTSConfig, stopTTSPreview } from "@/lib/tts/tts-preview";
-import type { TTSEngine } from "@/lib/tts/tts-service";
 import { useTTSStore } from "@/stores/tts-store";
-import { getLocaleDisplayLabel, groupEdgeTTSVoices } from "@readany/core/tts";
+import {
+  getActiveTTSProfile,
+  getLocaleDisplayLabel,
+  getTTSProviderDefinition,
+  groupEdgeTTSVoices,
+  type TTSProfile,
+} from "@readany/core/tts";
 import { cn } from "@readany/core/utils";
-import { Headphones, Mic, Play, type Volume2, Zap } from "lucide-react";
+import { Cloud, Headphones, Mic, Play, Settings2, Zap } from "lucide-react";
 /**
  * TTSSettings — TTS configuration panel in the settings dialog.
  *
@@ -66,21 +77,33 @@ export function TTSSettings() {
     await previewTTSConfig(t("tts.testText", "这是一段测试文本"), config);
   };
 
-  const engines: { id: TTSEngine; icon: typeof Volume2; label: string; desc: string }[] = [
-    { id: "edge", icon: Zap, label: t("tts.edgeEngine"), desc: t("tts.edgeEngineDesc") },
-    {
-      id: "system",
-      icon: Headphones,
-      label: t("tts.systemEngine"),
-      desc: t("tts.systemEngineDesc"),
-    },
-    {
-      id: "dashscope",
-      icon: Mic,
-      label: t("tts.dashscopeEngine"),
-      desc: t("tts.dashscopeEngineDesc"),
-    },
-  ];
+  const profiles = config.profiles;
+  const activeProfile = getActiveTTSProfile(config);
+  const activeProvider = getTTSProviderDefinition(activeProfile.provider);
+  const providerIcon = activeProfile.provider === "system"
+    ? Headphones
+    : activeProfile.provider === "edge"
+      ? Zap
+      : activeProfile.provider === "dashscope"
+        ? Mic
+        : activeProfile.provider === "xiaomi"
+          ? Cloud
+          : Settings2;
+  const ProviderIcon = providerIcon;
+
+  const selectProfile = (profileId: string) => {
+    const profile = profiles.find((item) => item.id === profileId);
+    if (!profile) return;
+    updateConfig({ activeProfileId: profile.id, engine: profile.provider });
+  };
+
+  const updateActiveProfile = (updates: Partial<TTSProfile>) => {
+    updateConfig({
+      profiles: profiles.map((profile) =>
+        profile.id === activeProfile.id ? { ...profile, ...updates } : profile,
+      ),
+    });
+  };
 
   return (
     <div className="space-y-4 p-4 pt-3">
@@ -97,27 +120,62 @@ export function TTSSettings() {
         </div>
 
         <div className="space-y-5">
-          {/* Engine selection — 3 engines */}
-          <div className="space-y-2">
-            <span className="text-sm text-foreground">{t("tts.engine")}</span>
-            <div className="grid grid-cols-3 gap-2">
-              {engines.map(({ id, icon: Icon, label, desc }) => (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-foreground">{t("tts.voiceProfile", "朗读方案")}</span>
+              <Select value={activeProfile.id} onValueChange={selectProfile}>
+                <SelectTrigger className="w-[240px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((profile) => {
+                    const provider = getTTSProviderDefinition(profile.provider);
+                    return (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.name || provider.label}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  <ProviderIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-foreground">
+                      {activeProfile.name || activeProvider.label}
+                    </div>
+                    <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                      {activeProvider.description}
+                    </p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {activeProvider.category}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {TTS_PROVIDER_DEFINITIONS.map((provider) => (
                 <button
-                  key={id}
+                  key={provider.id}
                   type="button"
                   className={cn(
-                    "rounded-lg border px-3 py-2.5 text-left transition-colors",
-                    config.engine === id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40",
+                    "rounded-lg border px-3 py-2 text-left text-xs transition-colors",
+                    activeProfile.provider === provider.id
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40",
                   )}
-                  onClick={() => updateConfig({ engine: id })}
+                  onClick={() => {
+                    const profile = profiles.find((item) => item.provider === provider.id);
+                    if (profile) selectProfile(profile.id);
+                  }}
                 >
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium">{label}</span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{desc}</p>
+                  {provider.label}
                 </button>
               ))}
             </div>
@@ -165,7 +223,10 @@ export function TTSSettings() {
               <span className="text-sm text-foreground">{t("tts.voice")}</span>
               <Select
                 value={config.edgeVoice}
-                onValueChange={(v) => updateConfig({ edgeVoice: v })}
+                onValueChange={(v) => {
+                  updateActiveProfile({ voice: v });
+                  updateConfig({ edgeVoice: v });
+                }}
               >
                 <SelectTrigger className="w-[240px]">
                   <SelectValue />
@@ -196,8 +257,10 @@ export function TTSSettings() {
                 onValueChange={(v) => {
                   if (v === DEFAULT_SYSTEM_VOICE_VALUE) {
                     updateConfig({ voiceName: "", systemVoiceLabel: "" });
+                    updateActiveProfile({ voice: "" });
                     return;
                   }
+                  updateActiveProfile({ voice: v });
                   updateConfig({
                     voiceName: v,
                     systemVoiceLabel: findSystemVoiceLabel(v, systemVoiceOptions),
@@ -235,7 +298,10 @@ export function TTSSettings() {
                 <span className="text-sm text-foreground">{t("tts.voice")}</span>
                 <Select
                   value={config.dashscopeVoice}
-                  onValueChange={(v) => updateConfig({ dashscopeVoice: v })}
+                  onValueChange={(v) => {
+                    updateActiveProfile({ voice: v });
+                    updateConfig({ dashscopeVoice: v });
+                  }}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue />
@@ -256,7 +322,10 @@ export function TTSSettings() {
                 <PasswordInput
                   placeholder={t("tts.apiKeyPlaceholder")}
                   value={config.dashscopeApiKey}
-                  onChange={(e) => updateConfig({ dashscopeApiKey: e.target.value })}
+                  onChange={(e) => {
+                    updateActiveProfile({ apiKey: e.target.value });
+                    updateConfig({ dashscopeApiKey: e.target.value });
+                  }}
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("tts.apiKeyHint")}{" "}
@@ -270,6 +339,161 @@ export function TTSSettings() {
                   </a>
                 </p>
               </div>
+            </>
+          )}
+
+          {config.engine === "xiaomi" && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">{t("tts.voice")}</span>
+                <Select
+                  value={config.xiaomiVoice}
+                  onValueChange={(v) => {
+                    updateActiveProfile({ voice: v });
+                    updateConfig({ xiaomiVoice: v });
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {XIAOMI_TTS_VOICES.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm text-foreground">{t("tts.apiKey", "API Key")}</span>
+                <PasswordInput
+                  placeholder="MIMO_API_KEY"
+                  value={config.xiaomiApiKey}
+                  onChange={(e) => {
+                    updateActiveProfile({ apiKey: e.target.value });
+                    updateConfig({ xiaomiApiKey: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm text-foreground">{t("tts.stylePrompt", "朗读风格")}</span>
+                <textarea
+                  className="min-h-[74px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={config.xiaomiStylePrompt}
+                  onChange={(e) => {
+                    updateActiveProfile({ stylePrompt: e.target.value });
+                    updateConfig({ xiaomiStylePrompt: e.target.value });
+                  }}
+                  placeholder="自然、平稳、适合长时间听书。"
+                />
+              </div>
+            </>
+          )}
+
+          {config.engine === "openai-compatible" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <span className="text-sm text-foreground">Base URL</span>
+                  <input
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={config.openaiTtsBaseUrl}
+                    onChange={(e) => {
+                      updateActiveProfile({ baseUrl: e.target.value });
+                      updateConfig({ openaiTtsBaseUrl: e.target.value });
+                    }}
+                    placeholder="https://api.openai.com/v1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm text-foreground">Endpoint</span>
+                  <Select
+                    value={config.openaiTtsEndpoint}
+                    onValueChange={(v) => {
+                      const endpoint = v as "audio-speech" | "chat-completions";
+                      updateActiveProfile({ endpoint });
+                      updateConfig({ openaiTtsEndpoint: endpoint });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="audio-speech">/audio/speech</SelectItem>
+                      <SelectItem value="chat-completions">/chat/completions</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <span className="text-sm text-foreground">Model</span>
+                  <input
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={config.openaiTtsModel}
+                    onChange={(e) => {
+                      updateActiveProfile({ model: e.target.value });
+                      updateConfig({ openaiTtsModel: e.target.value });
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm text-foreground">{t("tts.voice")}</span>
+                  <input
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={config.openaiTtsVoice}
+                    onChange={(e) => {
+                      updateActiveProfile({ voice: e.target.value });
+                      updateConfig({ openaiTtsVoice: e.target.value });
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">Format</span>
+                <Select
+                  value={config.openaiTtsFormat}
+                  onValueChange={(v) => {
+                    const format = v as "mp3" | "wav" | "pcm16";
+                    updateActiveProfile({ format });
+                    updateConfig({ openaiTtsFormat: format });
+                  }}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mp3">mp3</SelectItem>
+                    <SelectItem value="wav">wav</SelectItem>
+                    <SelectItem value="pcm16">pcm16</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm text-foreground">{t("tts.apiKey", "API Key")}</span>
+                <PasswordInput
+                  placeholder="sk-..."
+                  value={config.openaiTtsApiKey}
+                  onChange={(e) => {
+                    updateActiveProfile({ apiKey: e.target.value });
+                    updateConfig({ openaiTtsApiKey: e.target.value });
+                  }}
+                />
+              </div>
+              {config.openaiTtsEndpoint === "chat-completions" && (
+                <div className="space-y-2">
+                  <span className="text-sm text-foreground">{t("tts.stylePrompt", "朗读风格")}</span>
+                  <textarea
+                    className="min-h-[74px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={config.openaiTtsStylePrompt}
+                    onChange={(e) => {
+                      updateActiveProfile({ stylePrompt: e.target.value });
+                      updateConfig({ openaiTtsStylePrompt: e.target.value });
+                    }}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

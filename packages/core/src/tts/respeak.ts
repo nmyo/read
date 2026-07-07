@@ -15,6 +15,24 @@ export function shouldRespeakForSynthChange(prev: TTSConfig, next: TTSConfig): b
   if (next.engine === "dashscope") {
     return !!next.dashscopeApiKey && next.dashscopeVoice !== prev.dashscopeVoice;
   }
+  if (next.engine === "xiaomi") {
+    return (
+      !!next.xiaomiApiKey &&
+      (next.xiaomiVoice !== prev.xiaomiVoice ||
+        next.xiaomiStylePrompt !== prev.xiaomiStylePrompt)
+    );
+  }
+  if (next.engine === "openai-compatible") {
+    return (
+      !!next.openaiTtsApiKey &&
+      (next.openaiTtsBaseUrl !== prev.openaiTtsBaseUrl ||
+        next.openaiTtsEndpoint !== prev.openaiTtsEndpoint ||
+        next.openaiTtsModel !== prev.openaiTtsModel ||
+        next.openaiTtsVoice !== prev.openaiTtsVoice ||
+        next.openaiTtsFormat !== prev.openaiTtsFormat ||
+        next.openaiTtsStylePrompt !== prev.openaiTtsStylePrompt)
+    );
+  }
   if (next.engine === "edge") {
     return (
       next.edgeVoice !== prev.edgeVoice || next.rate !== prev.rate || next.pitch !== prev.pitch

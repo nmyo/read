@@ -16,7 +16,13 @@ import {
   isActivePlay,
   shouldRespeakForSynthChange,
 } from "../tts/respeak";
-import { BrowserTTSPlayer, DashScopeTTSPlayer, EdgeTTSPlayer } from "../tts/tts-players";
+import {
+  BrowserTTSPlayer,
+  DashScopeTTSPlayer,
+  EdgeTTSPlayer,
+  OpenAICompatibleTTSPlayer,
+  XiaomiTTSPlayer,
+} from "../tts/tts-players";
 import type { ITTSPlayer, TTSConfig } from "../tts/types";
 import { DEFAULT_TTS_CONFIG, normalizeTTSConfig } from "../tts/types";
 import { withPersist } from "./persist";
@@ -30,6 +36,8 @@ export interface TTSPlayerFactories {
   createSystemTTS: () => ITTSPlayer;
   createEdgeTTS: () => ITTSPlayer;
   createDashScopeTTS: () => ITTSPlayer;
+  createXiaomiTTS: () => ITTSPlayer;
+  createOpenAICompatibleTTS: () => ITTSPlayer;
 }
 
 /** Default Web-based factories */
@@ -37,6 +45,8 @@ const defaultFactories: TTSPlayerFactories = {
   createSystemTTS: () => new BrowserTTSPlayer(),
   createEdgeTTS: () => new EdgeTTSPlayer(),
   createDashScopeTTS: () => new DashScopeTTSPlayer(),
+  createXiaomiTTS: () => new XiaomiTTSPlayer(),
+  createOpenAICompatibleTTS: () => new OpenAICompatibleTTSPlayer(),
 };
 
 let _factories: TTSPlayerFactories = defaultFactories;
@@ -58,12 +68,16 @@ export function setTTSPlayerFactories(factories: Partial<TTSPlayerFactories>): v
   _systemTTS = null;
   _edgeTTS = null;
   _dashscopeTTS = null;
+  _xiaomiTTS = null;
+  _openAICompatibleTTS = null;
 }
 
 /** Lazily-created singleton TTS player instances */
 let _systemTTS: ITTSPlayer | null = null;
 let _edgeTTS: ITTSPlayer | null = null;
 let _dashscopeTTS: ITTSPlayer | null = null;
+let _xiaomiTTS: ITTSPlayer | null = null;
+let _openAICompatibleTTS: ITTSPlayer | null = null;
 let _activeTTS: ITTSPlayer | null = null;
 let _sessionSegments: string[] = [];
 let _sessionCurrentIndex = 0;
@@ -87,6 +101,18 @@ function getEdgeTTS(): ITTSPlayer {
 function getDashScopeTTS(): ITTSPlayer {
   if (!_dashscopeTTS) _dashscopeTTS = _factories.createDashScopeTTS();
   return _dashscopeTTS;
+}
+
+function getXiaomiTTS(): ITTSPlayer {
+  if (!_xiaomiTTS) _xiaomiTTS = _factories.createXiaomiTTS();
+  return _xiaomiTTS;
+}
+
+function getOpenAICompatibleTTS(): ITTSPlayer {
+  if (!_openAICompatibleTTS) {
+    _openAICompatibleTTS = _factories.createOpenAICompatibleTTS();
+  }
+  return _openAICompatibleTTS;
 }
 
 function clearSleepTimerHandle(): void {
@@ -133,6 +159,8 @@ function detachAndStopAllPlayers(): void {
   detachAndStopPlayer(_systemTTS);
   detachAndStopPlayer(_edgeTTS);
   detachAndStopPlayer(_dashscopeTTS);
+  detachAndStopPlayer(_xiaomiTTS);
+  detachAndStopPlayer(_openAICompatibleTTS);
 }
 
 function getPlayerForConfig(config: TTSConfig): ITTSPlayer {
@@ -141,6 +169,12 @@ function getPlayerForConfig(config: TTSConfig): ITTSPlayer {
   }
   if (config.engine === "edge") {
     return getEdgeTTS();
+  }
+  if (config.engine === "xiaomi") {
+    return getXiaomiTTS();
+  }
+  if (config.engine === "openai-compatible") {
+    return getOpenAICompatibleTTS();
   }
   return getSystemTTS();
 }

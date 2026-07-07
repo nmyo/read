@@ -91,7 +91,7 @@ export function TTSControls({ onClose, className }: TTSControlsProps) {
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground w-16 shrink-0">{t("tts.engine")}</span>
               <div className="flex gap-1">
-                {(["system", "dashscope"] as TTSEngine[]).map((eng) => (
+                {(["system", "dashscope", "xiaomi", "openai-compatible"] as TTSEngine[]).map((eng) => (
                   <Button
                     key={eng}
                     variant={config.engine === eng ? "default" : "secondary"}
@@ -99,7 +99,13 @@ export function TTSControls({ onClose, className }: TTSControlsProps) {
                     className="h-7 text-xs"
                     onClick={() => updateConfig({ engine: eng })}
                   >
-                    {eng === "system" ? t("tts.systemEngine") : t("tts.dashscopeEngine")}
+                    {eng === "system"
+                      ? t("tts.systemEngine")
+                      : eng === "dashscope"
+                        ? t("tts.dashscopeEngine")
+                        : eng === "xiaomi"
+                          ? "Xiaomi"
+                          : "OpenAI"}
                   </Button>
                 ))}
               </div>
