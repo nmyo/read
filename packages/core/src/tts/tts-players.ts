@@ -11,6 +11,7 @@ import {
   CLOUD_TTS_PCM_SAMPLE_RATE,
   base64ToBytes,
   buildOpenAIChatTTSMessages,
+  buildTTSHttpError,
   buildXiaomiTTSUrl,
   buildXiaomiTTSMessages,
   fetchOpenAITTSAudio,
@@ -18,7 +19,7 @@ import {
 import { fetchEdgeTTSAudio } from "./edge-tts";
 import { type ChunkBoundary, resolveCurrentChunk } from "./playback-cursor";
 import { splitIntoChunks } from "./text-utils";
-import type { ITTSPlayer, TTSConfig } from "./types";
+import { normalizeXiaomiTTSVoice, type ITTSPlayer, type TTSConfig } from "./types";
 
 // ── Browser SpeechSynthesis ──
 
@@ -543,6 +544,8 @@ abstract class PCMStreamingTTSPlayer implements ITTSPlayer {
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
         console.error(`[${this.engineName} TTS] chunk error:`, err);
+        this.stop();
+        return;
       }
       if (myRun !== this.runId) return;
       this.flushPendingBytes();
@@ -727,14 +730,14 @@ export class XiaomiTTSPlayer extends PCMStreamingTTSPlayer {
         messages: buildXiaomiTTSMessages(text, config),
         audio: {
           format: "pcm16",
-          voice: config.xiaomiVoice || "Chloe",
+          voice: normalizeXiaomiTTSVoice(config.xiaomiVoice),
         },
         stream: true,
       }),
       signal,
     });
 
-    if (!response.ok) throw new Error(`Xiaomi MiMo TTS failed: ${response.status}`);
+    if (!response.ok) throw await buildTTSHttpError("Xiaomi MiMo TTS", response);
     await readChatAudioSSE(response, onAudio);
   }
 }

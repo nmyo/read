@@ -1,5 +1,9 @@
 import { getPlatformService } from "../services/platform";
-import { DEFAULT_XIAOMI_TTS_BASE_URL, type TTSConfig } from "./types";
+import {
+  DEFAULT_XIAOMI_TTS_BASE_URL,
+  normalizeXiaomiTTSVoice,
+  type TTSConfig,
+} from "./types";
 
 export const CLOUD_TTS_PCM_SAMPLE_RATE = 24000;
 
@@ -23,6 +27,15 @@ function openAIHeaders(apiKey: string): Record<string, string> {
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
   };
+}
+
+export async function buildTTSHttpError(label: string, response: Response): Promise<Error> {
+  let detail = "";
+  try {
+    detail = (await response.text()).trim();
+  } catch {}
+  const suffix = detail ? ` — ${detail.slice(0, 500)}` : "";
+  return new Error(`${label} failed: ${response.status}${suffix}`);
 }
 
 export function buildXiaomiTTSMessages(text: string, config: TTSConfig) {
@@ -71,13 +84,13 @@ export async function fetchXiaomiTTSWav(text: string, config: TTSConfig): Promis
       messages: buildXiaomiTTSMessages(text, config),
       audio: {
         format: "wav",
-        voice: config.xiaomiVoice || "Chloe",
+        voice: normalizeXiaomiTTSVoice(config.xiaomiVoice),
       },
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Xiaomi MiMo TTS failed: ${response.status}`);
+    throw await buildTTSHttpError("Xiaomi MiMo TTS", response);
   }
 
   const result = (await response.json()) as {

@@ -32,7 +32,7 @@ export interface TTSConfig {
   xiaomiApiKey: string;
   /** Xiaomi MiMo TTS base URL */
   xiaomiBaseUrl: string;
-  /** Xiaomi MiMo TTS voice (e.g. "Chloe") */
+  /** Xiaomi MiMo TTS voice (e.g. "mimo_default", "冰糖", "Chloe") */
   xiaomiVoice: string;
   /** Natural-language style instruction for Xiaomi MiMo TTS */
   xiaomiStylePrompt: string;
@@ -138,14 +138,25 @@ export const TTS_PROVIDER_DEFINITIONS: TTSProviderDefinition[] = [
 ] as const;
 
 export const XIAOMI_TTS_VOICES = [
+  { id: "mimo_default", label: "MiMo 默认" },
+  { id: "冰糖", label: "冰糖 · 中文女声" },
+  { id: "茉莉", label: "茉莉 · 中文女声" },
+  { id: "苏打", label: "苏打 · 中文男声" },
+  { id: "白桦", label: "白桦 · 中文男声" },
+  { id: "Mia", label: "Mia · English female" },
   { id: "Chloe", label: "Chloe" },
-  { id: "Ethan", label: "Ethan" },
-  { id: "Serena", label: "Serena" },
+  { id: "Milo", label: "Milo · English male" },
   { id: "Dean", label: "Dean" },
 ] as const;
 
+export const DEFAULT_XIAOMI_TTS_VOICE = "mimo_default";
 export const DEFAULT_XIAOMI_TTS_BASE_URL = "https://api.xiaomimimo.com/v1";
 export const DEFAULT_XIAOMI_STYLE_PROMPT = "自然、平稳、适合长时间听书。";
+
+export function normalizeXiaomiTTSVoice(voice: string | null | undefined): string {
+  if (voice && XIAOMI_TTS_VOICES.some((item) => item.id === voice)) return voice;
+  return DEFAULT_XIAOMI_TTS_VOICE;
+}
 
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
   engine: "edge",
@@ -159,7 +170,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
   dashscopeVoice: "Cherry",
   xiaomiApiKey: "",
   xiaomiBaseUrl: DEFAULT_XIAOMI_TTS_BASE_URL,
-  xiaomiVoice: "Chloe",
+  xiaomiVoice: DEFAULT_XIAOMI_TTS_VOICE,
   xiaomiStylePrompt: DEFAULT_XIAOMI_STYLE_PROMPT,
   openaiTtsBaseUrl: "https://api.openai.com/v1",
   openaiTtsApiKey: "",
@@ -227,7 +238,7 @@ export function createDefaultTTSProfiles(config: Partial<TTSConfig> = {}): TTSPr
       provider: "xiaomi",
       baseUrl: config.xiaomiBaseUrl ?? DEFAULT_TTS_CONFIG.xiaomiBaseUrl,
       apiKey: config.xiaomiApiKey ?? "",
-      voice: config.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice,
+      voice: normalizeXiaomiTTSVoice(config.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice),
       model: "mimo-v2.5-tts",
       format: "pcm16",
       stylePrompt: config.xiaomiStylePrompt ?? DEFAULT_XIAOMI_STYLE_PROMPT,
@@ -266,8 +277,15 @@ function normalizeProfiles(config: Partial<TTSConfig>): TTSProfile[] {
   }
   for (const profile of persisted) {
     if (!profile?.id || !profile.provider) continue;
+    const normalizedProfile: TTSProfile =
+      profile.provider === "xiaomi"
+        ? { ...profile, voice: normalizeXiaomiTTSVoice(profile.voice) }
+        : profile;
     const fallback = merged.get(profile.id);
-    merged.set(profile.id, fallback ? { ...fallback, ...profile } : profile);
+    merged.set(
+      profile.id,
+      fallback ? { ...fallback, ...normalizedProfile } : normalizedProfile,
+    );
   }
   return Array.from(merged.values()).filter((profile) => {
     if (defaultIds.has(profile.id)) return true;
@@ -294,7 +312,7 @@ export function syncConfigFromActiveProfile(config: TTSConfig): TTSConfig {
   } else if (engine === "xiaomi") {
     next.xiaomiBaseUrl = activeProfile.baseUrl ?? next.xiaomiBaseUrl;
     next.xiaomiApiKey = activeProfile.apiKey ?? next.xiaomiApiKey;
-    next.xiaomiVoice = activeProfile.voice ?? next.xiaomiVoice;
+    next.xiaomiVoice = normalizeXiaomiTTSVoice(activeProfile.voice ?? next.xiaomiVoice);
     next.xiaomiStylePrompt = activeProfile.stylePrompt ?? next.xiaomiStylePrompt;
   } else if (engine === "openai-compatible") {
     next.openaiTtsBaseUrl = activeProfile.baseUrl ?? next.openaiTtsBaseUrl;
@@ -331,7 +349,9 @@ export function normalizeTTSConfig(config: PersistedTTSConfig | null | undefined
     dashscopeVoice: config?.dashscopeVoice ?? DEFAULT_TTS_CONFIG.dashscopeVoice,
     xiaomiApiKey: config?.xiaomiApiKey ?? DEFAULT_TTS_CONFIG.xiaomiApiKey,
     xiaomiBaseUrl: config?.xiaomiBaseUrl ?? DEFAULT_TTS_CONFIG.xiaomiBaseUrl,
-    xiaomiVoice: config?.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice,
+    xiaomiVoice: normalizeXiaomiTTSVoice(
+      config?.xiaomiVoice ?? DEFAULT_TTS_CONFIG.xiaomiVoice,
+    ),
     xiaomiStylePrompt: config?.xiaomiStylePrompt ?? DEFAULT_TTS_CONFIG.xiaomiStylePrompt,
     openaiTtsBaseUrl: config?.openaiTtsBaseUrl ?? DEFAULT_TTS_CONFIG.openaiTtsBaseUrl,
     openaiTtsApiKey: config?.openaiTtsApiKey ?? DEFAULT_TTS_CONFIG.openaiTtsApiKey,
