@@ -44,15 +44,13 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const { t } = useTranslation();
   const bookId = book?.id;
 
-  const {
-    threads,
-    loadThreads,
-    createThread,
-    removeThread,
-    setBookActiveThread,
-    getActiveThreadId,
-    getThreadsForContext,
-  } = useChatStore();
+  const threads = useChatStore((s) => s.threads);
+  const loadThreads = useChatStore((s) => s.loadThreads);
+  const createThread = useChatStore((s) => s.createThread);
+  const removeThread = useChatStore((s) => s.removeThread);
+  const setBookActiveThread = useChatStore((s) => s.setBookActiveThread);
+  const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
+  const getThreadsForContext = useChatStore((s) => s.getThreadsForContext);
 
   // Use streaming chat hook with book context
   const { isStreaming, currentMessage, currentStep, sendMessage, stopStream } = useStreamingChat({
@@ -70,6 +68,13 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const activeThreadId = bookId ? getActiveThreadId(bookId) : null;
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const bookThreads = bookId ? getThreadsForContext(bookId) : [];
+  const firstBookThreadId = bookThreads[0]?.id;
+
+  useEffect(() => {
+    if (bookId && !activeThreadId && firstBookThreadId) {
+      setBookActiveThread(bookId, firstBookThreadId);
+    }
+  }, [activeThreadId, bookId, firstBookThreadId, setBookActiveThread]);
 
   const [showThreadList, setShowThreadList] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -196,7 +201,8 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
 
   // Build message list with streaming message
   const storeMessages = convertToMessageV2(displayMessages);
-  const allMessages = mergeMessagesWithStreaming(storeMessages, currentMessage, isStreaming);
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
+  const allMessages = mergeMessagesWithStreaming(storeMessages, activeCurrentMessage, isStreaming);
 
   const exportTitle = activeThread?.title || book?.meta?.title || t("chat.aiAssistant");
 

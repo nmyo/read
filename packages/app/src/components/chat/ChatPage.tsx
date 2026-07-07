@@ -52,7 +52,9 @@ function ThreadsSidebar({
   onSelect: (threadId: string) => void;
 }) {
   const { t } = useTranslation();
-  const { getThreadsForContext, getActiveThreadId, removeThread } = useChatStore();
+  const getThreadsForContext = useChatStore((s) => s.getThreadsForContext);
+  const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
+  const removeThread = useChatStore((s) => s.removeThread);
   const generalThreads = getThreadsForContext();
   const activeThreadId = getActiveThreadId();
 
@@ -204,14 +206,12 @@ function EmptyState({ onSuggestionClick }: { onSuggestionClick: (text: string) =
 
 export function ChatPage() {
   const { t } = useTranslation();
-  const {
-    threads,
-    loadAllThreads,
-    initialized,
-    createThread,
-    setGeneralActiveThread,
-    getActiveThreadId,
-  } = useChatStore();
+  const threads = useChatStore((s) => s.threads);
+  const initialized = useChatStore((s) => s.initialized);
+  const loadAllThreads = useChatStore((s) => s.loadAllThreads);
+  const createThread = useChatStore((s) => s.createThread);
+  const setGeneralActiveThread = useChatStore((s) => s.setGeneralActiveThread);
+  const getActiveThreadId = useChatStore((s) => s.getActiveThreadId);
   const { bookTitle } = useChatReaderStore();
 
   // /chats page should only use general threads - always pass undefined for bookId
@@ -275,7 +275,8 @@ export function ChatPage() {
   }, []);
 
   const displayMessages = convertToMessageV2(activeThread?.messages || []);
-  const allMessages = mergeMessagesWithStreaming(displayMessages, currentMessage, isStreaming);
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
+  const allMessages = mergeMessagesWithStreaming(displayMessages, activeCurrentMessage, isStreaming);
 
   const exportTitle = activeThread?.title || t("chat.aiAssistant");
 

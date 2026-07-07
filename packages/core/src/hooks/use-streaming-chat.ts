@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { maybeCompressThreadMemory } from "../ai/chat-memory";
 import { getBuiltinSkills } from "../ai/skills/builtin-skills";
 import { StreamingChat, createMessageId } from "../ai/streaming";
@@ -10,7 +10,7 @@ import {
 import { getAvailableTools } from "../ai/tools";
 import { getSkills as getDbSkills } from "../db/database";
 import i18n from "../i18n";
-import { useChatStore } from "../stores/chat-store";
+import { getChatStreamingKey, useChatStore } from "../stores/chat-store";
 import { useSettingsStore } from "../stores/settings-store";
 import type {
   AIConfig,
@@ -92,16 +92,30 @@ export interface StreamingState {
   currentStep: "thinking" | "tool_calling" | "responding" | "idle";
 }
 
-export function useStreamingChat(options?: StreamingChatOptions) {
-  const [state, setState] = useState<StreamingState>({
-    isStreaming: false,
-    currentMessage: null,
-    currentStep: "idle",
-  });
-  const [error, setError] = useState<Error | null>(null);
-  const streamingRef = useRef<StreamingChat | null>(null);
+const activeStreams = new Map<string, StreamingChat>();
+const STREAMING_PUBLISH_INTERVAL_MS = 160;
 
-  const { createThread, addMessage, updateThreadTitle, setStreaming } = useChatStore();
+export function useStreamingChat(options?: StreamingChatOptions) {
+  const streamingKey = getChatStreamingKey(options?.bookId);
+  const streamingSession = useChatStore(
+    useCallback((store) => store.streamingSessions[streamingKey] ?? null, [streamingKey]),
+  );
+  const state: StreamingState = {
+    isStreaming: streamingSession?.isStreaming ?? false,
+    currentMessage: streamingSession?.currentMessage ?? null,
+    currentStep: streamingSession?.currentStep ?? "idle",
+  };
+  const error = useMemo(
+    () => (streamingSession?.errorMessage ? new Error(streamingSession.errorMessage) : null),
+    [streamingSession?.errorMessage],
+  );
+
+  const createThread = useChatStore((s) => s.createThread);
+  const addMessage = useChatStore((s) => s.addMessage);
+  const updateThreadTitle = useChatStore((s) => s.updateThreadTitle);
+  const startStreamingSession = useChatStore((s) => s.startStreamingSession);
+  const updateStreamingSession = useChatStore((s) => s.updateStreamingSession);
+  const finishStreamingSession = useChatStore((s) => s.finishStreamingSession);
 
   const aiConfig = useSettingsStore((s) => s.aiConfig);
 
@@ -160,22 +174,29 @@ export function useStreamingChat(options?: StreamingChatOptions) {
       quotes?: AttachedQuote[],
       aiConfigOverride?: AIConfig,
     ) => {
-      if ((!content.trim() && (!quotes || quotes.length === 0)) || state.isStreaming) return;
+      const bookId = overrideBookId ?? options?.bookId;
+      const sessionKey = getChatStreamingKey(bookId);
+      const activeSession = useChatStore.getState().streamingSessions[sessionKey];
+      if (
+        (!content.trim() && (!quotes || quotes.length === 0)) ||
+        activeSession?.isStreaming
+      ) {
+        return;
+      }
 
       const messageId = createMessageId();
-      const initialMessage = {
+      const initialMessage: MessageV2 = {
         id: messageId,
         threadId: "",
         role: "assistant" as const,
         parts: [],
         createdAt: Date.now(),
       };
-
-      setError(null);
+      let clearPendingPublish: (() => void) | null = null;
 
       try {
-        const bookId = overrideBookId ?? options?.bookId;
         const thread = await getOrCreateThread(bookId);
+        initialMessage.threadId = thread.id;
 
         if (thread.messages.length === 0 && !thread.title) {
           await updateThreadTitle(thread.id, content.slice(0, 50));
@@ -219,14 +240,20 @@ export function useStreamingChat(options?: StreamingChatOptions) {
         await addMessage(thread.id, userMessage as any);
 
         // Then set streaming state — user message is already visible
-        setState({
+        startStreamingSession({
+          key: sessionKey,
+          threadId: thread.id,
+          bookId: bookId || undefined,
           isStreaming: true,
           currentMessage: initialMessage,
           currentStep: "thinking",
+          errorMessage: null,
+          startedAt: Date.now(),
+          updatedAt: Date.now(),
         });
-        setStreaming(true);
 
-        streamingRef.current = new StreamingChat();
+        const stream = new StreamingChat();
+        activeStreams.set(sessionKey, stream);
 
         const enabledSkills = await loadEnabledSkills();
 
@@ -257,8 +284,57 @@ export function useStreamingChat(options?: StreamingChatOptions) {
         let currentTextPart: TextPart | null = null;
         let currentReasoningPart: ReasoningPart | null = null;
         let currentToolCallPart: ToolCallPart | null = null;
+        let pendingPublishTimer: ReturnType<typeof setTimeout> | null = null;
+        let pendingCurrentStep: StreamingState["currentStep"] | undefined;
+        let lastPublishedAt = 0;
         void currentToolCallPart;
-        await streamingRef.current.stream({
+
+        clearPendingPublish = () => {
+          if (pendingPublishTimer) {
+            clearTimeout(pendingPublishTimer);
+            pendingPublishTimer = null;
+          }
+        };
+
+        const publishCurrentMessage = (currentStep?: StreamingState["currentStep"]) => {
+          lastPublishedAt = Date.now();
+          pendingCurrentStep = undefined;
+          updateStreamingSession(sessionKey, {
+            isStreaming: true,
+            currentMessage: { ...initialMessage, parts: [...currentParts] },
+            ...(currentStep ? { currentStep } : {}),
+            updatedAt: lastPublishedAt,
+          });
+        };
+
+        const flushCurrentMessage = (currentStep?: StreamingState["currentStep"]) => {
+          clearPendingPublish?.();
+          publishCurrentMessage(currentStep ?? pendingCurrentStep);
+        };
+
+        const scheduleCurrentMessage = (currentStep?: StreamingState["currentStep"]) => {
+          if (currentStep) {
+            pendingCurrentStep = currentStep;
+          }
+
+          const now = Date.now();
+          const elapsed = now - lastPublishedAt;
+
+          if (!pendingPublishTimer) {
+            pendingPublishTimer = setTimeout(() => {
+              pendingPublishTimer = null;
+              publishCurrentMessage(pendingCurrentStep);
+            }, lastPublishedAt === 0 ? 0 : Math.max(STREAMING_PUBLISH_INTERVAL_MS - elapsed, 0));
+          }
+        };
+
+        const finishCurrentSession = () => {
+          clearPendingPublish?.();
+          activeStreams.delete(sessionKey);
+          finishStreamingSession(sessionKey);
+        };
+
+        await stream.stream({
           thread: threadForStream,
           book: options?.book || null,
           bookId,
@@ -277,13 +353,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentTextPart.text += token;
             currentTextPart.status = "running";
             currentTextPart.updatedAt = Date.now();
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "responding",
-            }));
+            scheduleCurrentMessage("responding");
           },
           onComplete: async () => {
             if (currentTextPart) {
@@ -328,18 +398,17 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             // This prevents the gap where message disappears
             // Set currentStep to "idle" before addMessage to prevent
             // the "thinking" indicator from briefly flashing during persist
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
+            flushCurrentMessage("idle");
             await addMessage(thread.id, assistantMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
-              currentStep: "idle",
-            });
-            setStreaming(false);
+            finishCurrentSession();
           },
           onError: async (err) => {
-            setError(err);
+            flushCurrentMessage();
+            updateStreamingSession(sessionKey, {
+              isStreaming: true,
+              errorMessage: err.message,
+              updatedAt: Date.now(),
+            });
             markRunningToolCallPartsAsError(currentParts, err.message || "Unknown error");
 
             const errorPart = createTextPart(`⚠️ ${err.message || "Unknown error"}`);
@@ -375,15 +444,9 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             };
 
             // Persist error message FIRST, then clear streaming state
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
+            flushCurrentMessage("idle");
             await addMessage(thread.id, errorMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
-              currentStep: "idle",
-            });
-            setStreaming(false);
+            finishCurrentSession();
           },
           onAbort: async () => {
             for (const part of currentParts) {
@@ -431,15 +494,9 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               createdAt: Date.now(),
             };
 
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
+            flushCurrentMessage("idle");
             await addMessage(thread.id, abortedMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
-              currentStep: "idle",
-            });
-            setStreaming(false);
+            finishCurrentSession();
           },
           onToolCall: (name, args) => {
             if (currentTextPart) {
@@ -454,13 +511,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentReasoningPart = null;
             currentToolCallPart = createToolCallPart(name, args);
             currentParts.push(currentToolCallPart);
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "tool_calling",
-            }));
+            flushCurrentMessage("tool_calling");
           },
           onToolResult: (name, result) => {
             const part = applyToolResultToParts(currentParts, name, result);
@@ -471,12 +522,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               }
 
               currentTextPart = null;
-              setState((prev) => ({
-                ...prev,
-                currentMessage: prev.currentMessage
-                  ? { ...prev.currentMessage, parts: [...currentParts] }
-                  : null,
-              }));
+              flushCurrentMessage();
             }
           },
           onReasoning: (content, type) => {
@@ -487,13 +533,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentReasoningPart.text += content;
             currentReasoningPart.status = "running";
             currentReasoningPart.updatedAt = Date.now();
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "thinking",
-            }));
+            scheduleCurrentMessage("thinking");
           },
           onCitation: (citation) => {
             const citationPart = createCitationPart(
@@ -505,30 +545,29 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               citation.citationIndex,
             );
             currentParts.push(citationPart);
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-            }));
+            flushCurrentMessage();
           },
         });
       } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error"));
-        setState({
+        clearPendingPublish?.();
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        updateStreamingSession(sessionKey, {
           isStreaming: false,
           currentMessage: null,
           currentStep: "idle",
+          errorMessage,
+          updatedAt: Date.now(),
         });
-        setStreaming(false);
+        activeStreams.delete(sessionKey);
       }
     },
     [
-      state.isStreaming,
       getOrCreateThread,
       addMessage,
       updateThreadTitle,
-      setStreaming,
+      startStreamingSession,
+      updateStreamingSession,
+      finishStreamingSession,
       aiConfig,
       loadEnabledSkills,
       options?.book,
@@ -538,11 +577,8 @@ export function useStreamingChat(options?: StreamingChatOptions) {
   );
 
   const stopStream = useCallback(() => {
-    streamingRef.current?.abort();
-    // Immediately update UI state
-    setState((prev) => ({ ...prev, isStreaming: false }));
-    setStreaming(false);
-  }, [setStreaming]);
+    activeStreams.get(streamingKey)?.abort();
+  }, [streamingKey]);
 
   return {
     ...state,
