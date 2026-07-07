@@ -15,8 +15,8 @@ import {
   XIAOMI_TTS_VOICES,
   getActiveTTSProfile,
   getLocaleDisplayLabel,
-  getTTSProviderDefinition,
   groupEdgeTTSVoices,
+  type TTSProviderType,
   type TTSProfile,
 } from "@readany/core/tts";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,6 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import type { TFunction } from "i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PasswordInput } from "../../components/ui/PasswordInput";
 import {
@@ -43,6 +44,16 @@ import {
 } from "../../styles/theme";
 import { SettingsHeader } from "./SettingsHeader";
 
+function providerLabel(provider: TTSProviderType, t: TFunction) {
+  return t(`tts.provider.${provider}.label`, { defaultValue: provider });
+}
+
+function profileName(profile: TTSProfile, t: TFunction) {
+  return profile.id.endsWith("-default")
+    ? providerLabel(profile.provider, t)
+    : profile.name || providerLabel(profile.provider, t);
+}
+
 export default function TTSSettingsScreen() {
   const colors = useColors();
   const styles = makeStyles(colors);
@@ -52,7 +63,6 @@ export default function TTSSettingsScreen() {
   const [systemVoices, setSystemVoices] = useState<NativeSystemVoiceOption[]>([]);
   const profiles = config.profiles;
   const activeProfile = getActiveTTSProfile(config);
-  const activeProvider = getTTSProviderDefinition(activeProfile.provider);
 
   const displayLocale = i18n.resolvedLanguage || i18n.language;
   const edgeVoiceGroups = useMemo(() => groupEdgeTTSVoices(EDGE_TTS_VOICES), []);
@@ -129,19 +139,9 @@ export default function TTSSettingsScreen() {
           <View style={[styles.contentColumn, { width: "100%", maxWidth: layout.centeredContentWidth }]}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t("tts.voiceProfile", "朗读方案")}</Text>
-              <View style={styles.activeProfileCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.activeProfileTitle}>
-                    {activeProfile.name || activeProvider.label}
-                  </Text>
-                  <Text style={styles.activeProfileDesc}>{activeProvider.description}</Text>
-                </View>
-                <Text style={styles.providerBadge}>{activeProvider.category}</Text>
-              </View>
               <View style={styles.profileList}>
                 {profiles.map((profile) => {
                   const active = activeProfile.id === profile.id;
-                  const provider = getTTSProviderDefinition(profile.provider);
                   return (
                     <TouchableOpacity
                       key={profile.id}
@@ -151,13 +151,10 @@ export default function TTSSettingsScreen() {
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.profileName, active && styles.profileNameActive]}>
-                          {profile.name || provider.label}
+                          {profileName(profile, t)}
                         </Text>
-                        <Text style={styles.profileProvider}>{provider.label}</Text>
                       </View>
-                      <Text style={[styles.profileStatus, active && styles.profileStatusActive]}>
-                        {active ? "✓" : "›"}
-                      </Text>
+                      {active && <Text style={styles.profileStatus}>✓</Text>}
                     </TouchableOpacity>
                   );
                 })}
@@ -376,7 +373,7 @@ export default function TTSSettingsScreen() {
             {config.engine === "openai-compatible" && (
               <>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Base URL</Text>
+                  <Text style={styles.fieldLabel}>{t("tts.baseUrl", "Base URL")}</Text>
                   <TextInput
                     style={styles.input}
                     value={config.openaiTtsBaseUrl}
@@ -390,7 +387,7 @@ export default function TTSSettingsScreen() {
                   />
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Endpoint</Text>
+                  <Text style={styles.fieldLabel}>{t("tts.endpoint", "Endpoint")}</Text>
                   <View style={styles.optionRow}>
                     {(["audio-speech", "chat-completions"] as const).map((endpoint) => {
                       const active = config.openaiTtsEndpoint === endpoint;
@@ -418,7 +415,7 @@ export default function TTSSettingsScreen() {
                   </View>
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Format</Text>
+                  <Text style={styles.fieldLabel}>{t("tts.format", "Format")}</Text>
                   <View style={styles.optionRow}>
                     {(["mp3", "wav", "pcm16"] as const).map((format) => {
                       const active = config.openaiTtsFormat === format;
@@ -446,7 +443,7 @@ export default function TTSSettingsScreen() {
                   </View>
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Model</Text>
+                  <Text style={styles.fieldLabel}>{t("tts.model", "Model")}</Text>
                   <TextInput
                     style={styles.input}
                     value={config.openaiTtsModel}
@@ -585,36 +582,6 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: fontWeight.semibold,
       color: colors.foreground,
     },
-    activeProfileCard: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 12,
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: colors.primary,
-      backgroundColor: colors.accent,
-      padding: spacing.lg,
-    },
-    activeProfileTitle: {
-      fontSize: fontSize.base,
-      fontWeight: fontWeight.semibold,
-      color: colors.foreground,
-    },
-    activeProfileDesc: {
-      marginTop: 4,
-      fontSize: fontSize.sm,
-      color: colors.mutedForeground,
-      lineHeight: 20,
-    },
-    providerBadge: {
-      overflow: "hidden",
-      borderRadius: radius.md,
-      backgroundColor: colors.card,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      fontSize: fontSize.xs,
-      color: colors.primary,
-    },
     profileList: {
       borderRadius: radius.xl,
       backgroundColor: colors.card,
@@ -643,16 +610,8 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: fontWeight.medium,
       color: colors.primary,
     },
-    profileProvider: {
-      marginTop: 2,
-      fontSize: fontSize.xs,
-      color: colors.mutedForeground,
-    },
     profileStatus: {
       fontSize: fontSize.lg,
-      color: colors.mutedForeground,
-    },
-    profileStatusActive: {
       color: colors.primary,
     },
     optionRow: {

@@ -28,9 +28,11 @@ import {
   getLocaleDisplayLabel,
   getTTSProviderDefinition,
   groupEdgeTTSVoices,
+  type TTSProviderType,
   type TTSProfile,
 } from "@readany/core/tts";
 import { Cloud, Headphones, Mic, Play, Settings2, Zap } from "lucide-react";
+import type { TFunction } from "i18next";
 /**
  * TTSSettings — TTS configuration panel in the settings dialog.
  *
@@ -38,6 +40,24 @@ import { Cloud, Headphones, Mic, Play, Settings2, Zap } from "lucide-react";
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+function providerLabel(provider: TTSProviderType, t: TFunction) {
+  return t(`tts.provider.${provider}.label`, { defaultValue: provider });
+}
+
+function providerDescription(provider: TTSProviderType, t: TFunction) {
+  return t(`tts.provider.${provider}.description`, { defaultValue: "" });
+}
+
+function providerCategory(category: string, t: TFunction) {
+  return t(`tts.providerCategory.${category}`, { defaultValue: category });
+}
+
+function profileName(profile: TTSProfile, t: TFunction) {
+  return profile.id.endsWith("-default")
+    ? providerLabel(profile.provider, t)
+    : profile.name || providerLabel(profile.provider, t);
+}
 
 export function TTSSettings() {
   const { t, i18n } = useTranslation();
@@ -127,10 +147,9 @@ export function TTSSettings() {
                 </SelectTrigger>
                 <SelectContent>
                   {profiles.map((profile) => {
-                    const provider = getTTSProviderDefinition(profile.provider);
                     return (
                       <SelectItem key={profile.id} value={profile.id}>
-                        {profile.name || provider.label}
+                        {profileName(profile, t)}
                       </SelectItem>
                     );
                   })}
@@ -144,19 +163,18 @@ export function TTSSettings() {
                   <ProviderIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <div className="text-xs font-medium text-foreground">
-                      {activeProfile.name || activeProvider.label}
+                      {profileName(activeProfile, t)}
                     </div>
                     <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                      {activeProvider.description}
+                      {providerDescription(activeProfile.provider, t)}
                     </p>
                   </div>
                 </div>
                 <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {activeProvider.category}
+                  {providerCategory(activeProvider.category, t)}
                 </span>
               </div>
             </div>
-
           </div>
 
           {/* Rate */}
@@ -373,7 +391,7 @@ export function TTSSettings() {
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <span className="text-sm text-foreground">Base URL</span>
+                  <span className="text-sm text-foreground">{t("tts.baseUrl", "Base URL")}</span>
                   <input
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     value={config.openaiTtsBaseUrl}
@@ -385,7 +403,7 @@ export function TTSSettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <span className="text-sm text-foreground">Endpoint</span>
+                  <span className="text-sm text-foreground">{t("tts.endpoint", "Endpoint")}</span>
                   <Select
                     value={config.openaiTtsEndpoint}
                     onValueChange={(v) => {
@@ -406,7 +424,7 @@ export function TTSSettings() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <span className="text-sm text-foreground">Model</span>
+                  <span className="text-sm text-foreground">{t("tts.model", "Model")}</span>
                   <input
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     value={config.openaiTtsModel}
@@ -429,7 +447,7 @@ export function TTSSettings() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground">Format</span>
+                <span className="text-sm text-foreground">{t("tts.format", "Format")}</span>
                 <Select
                   value={config.openaiTtsFormat}
                   onValueChange={(v) => {
