@@ -23,7 +23,7 @@ type ZipEntryLike = {
 };
 
 export async function summarizeZipEntries(bytes: Uint8Array): Promise<ZipEntrySummary[]> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const buffer = toArrayBuffer(bytes);
   const reader = new ZipReader(new BlobReader(new Blob([buffer])));
 
   try {
@@ -111,9 +111,15 @@ export async function readZipTextEntry(
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const buffer = toArrayBuffer(bytes);
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+export function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer as ArrayBuffer;
 }

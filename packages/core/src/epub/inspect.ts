@@ -1,5 +1,6 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { BlobReader, TextWriter, ZipReader, configure } from "@zip.js/zip.js";
+import { toArrayBuffer } from "./zip";
 
 export type EpubInspectManifestItem = {
   id: string;
@@ -83,7 +84,7 @@ export async function withEpubPackageResourceReader<T>(
   bytes: Uint8Array,
   callback: (reader: EpubPackageResourceReader) => Promise<T>,
 ): Promise<T> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const buffer = toArrayBuffer(bytes);
   const reader = new ZipReader(new BlobReader(new Blob([buffer])));
 
   try {

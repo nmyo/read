@@ -247,7 +247,7 @@ describe("createEpubDraft", () => {
 
     const history = await readEpubDraftHistory("draft-1");
     expect(history.status).toBe("discarded");
-    expect(history.entries.at(-1)).toMatchObject({
+    expect(history.entries[history.entries.length - 1]).toMatchObject({
       action: "epub.draft.discard",
       reason: "No longer needed",
     });
@@ -306,7 +306,7 @@ describe("createEpubDraft", () => {
 
     const history = await readEpubDraftHistory("draft-1");
     expect(history.entries).toHaveLength(3);
-    expect(history.entries.at(-1)).toMatchObject({
+    expect(history.entries[history.entries.length - 1]).toMatchObject({
       action: "epub.undo",
       operationId: patched.operationId,
       undoneAction: "epub.chapter.patch",

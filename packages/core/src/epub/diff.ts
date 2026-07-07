@@ -1,5 +1,5 @@
 import { getPlatformService } from "../services";
-import { readActiveEpubDraftManifest, type EpubDraftManifest } from "./draft";
+import { readActiveEpubDraftManifest } from "./draft";
 import { sha256Hex, summarizeZipEntries } from "./zip";
 
 export type EpubDiffEntry = {

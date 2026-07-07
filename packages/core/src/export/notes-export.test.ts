@@ -26,8 +26,13 @@ const book = {
     author: "Ada Reader",
     language: "en",
   },
+  addedAt: 1000,
+  updatedAt: 1000,
   progress: 0,
+  isVectorized: false,
+  vectorizeProgress: 0,
   tags: [],
+  syncStatus: "local",
 } as Book;
 
 const highlight: Highlight = {

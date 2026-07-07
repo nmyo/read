@@ -2,7 +2,7 @@ import type { Book } from "../types";
 import { generateId } from "../utils/generate-id";
 import { getPlatformService } from "../services";
 import { inspectEpubBytes, type EpubInspectResult } from "./inspect";
-import { readZipTextEntry, replaceZipTextEntry } from "./zip";
+import { readZipTextEntry, replaceZipTextEntry, sha256Hex } from "./zip";
 
 export type EpubDraftManifest = {
   version: 1;
@@ -436,14 +436,6 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64) || "book";
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 async function appendHistoryLine(path: string, entry: unknown): Promise<void> {

@@ -196,7 +196,7 @@ describe("rebuildEpubTocInDraft", () => {
     ]);
 
     const history = await readEpubDraftHistory("draft-1");
-    expect(history.entries.at(-1)).toMatchObject({
+    expect(history.entries[history.entries.length - 1]).toMatchObject({
       action: "epub.toc.rebuild",
       itemCount: 2,
     });
