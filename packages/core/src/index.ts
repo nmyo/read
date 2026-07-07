@@ -75,7 +75,5 @@ export type {
 } from "./epub/draft";
 export { readEpubChapterFromBookFile, readEpubChapterFromDraft } from "./epub/chapter";
 export type { EpubChapterReadResult } from "./epub/chapter";
-export { listPdfPagesFromBookFile, readPdfPageFromBookFile } from "./pdf/chapter";
-export type { PdfPageReadResult, PdfPageSummary } from "./pdf/chapter";
 export { searchKnowledge } from "./knowledge/search";
 export type { KnowledgeSearchHit, KnowledgeSearchResult, KnowledgeSearchSource } from "./knowledge/search";
