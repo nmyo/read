@@ -11,6 +11,7 @@ import { Image } from "react-native";
 import TrackPlayer, { Event, State } from "react-native-track-player";
 
 const CHUNK_MAX_CHARS = 500;
+const PREFETCH_AHEAD_CHUNKS = 2;
 const MEDIA_ARTIST = "ReadAny";
 const DEFAULT_ARTWORK = (() => {
   try {
@@ -45,6 +46,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
   private _getTitle: (() => string | undefined) | null = null;
   private _advancing = false;
   private _lastNotifiedIndex = -1;
+  private _prefetches = new Map<number, Promise<string>>();
 
   get paused(): boolean {
     return this._paused;
@@ -73,6 +75,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._tempFiles = [];
     this._advancing = false;
     this._lastNotifiedIndex = -1;
+    this._prefetches.clear();
 
     if (this._chunks.length === 0) {
       this._finishPlayback();
@@ -140,7 +143,9 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._currentIndex = index;
 
     try {
-      const uri = await this._fetchChunkFile(index, gen);
+      const uriPromise = this._takePrefetchedChunk(index, gen);
+      this._prefetchUpcomingChunks(index, gen);
+      const uri = await uriPromise;
       if (gen !== this._speakGen || this._stopped) return;
       await TrackPlayer.reset();
       await TrackPlayer.add({
@@ -161,6 +166,33 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
       console.warn("[TrackPlayerCloudTTSPlayer] chunk error:", error);
       await this._playNext(gen);
     }
+  }
+
+  private _prefetchUpcomingChunks(index: number, gen: number): void {
+    for (let offset = 1; offset <= PREFETCH_AHEAD_CHUNKS; offset++) {
+      const nextIndex = index + offset;
+      if (nextIndex >= this._chunks.length) break;
+      this._prefetchChunk(nextIndex, gen);
+    }
+  }
+
+  private _prefetchChunk(index: number, gen: number): void {
+    if (this._prefetches.has(index)) return;
+    const promise = this._fetchChunkFile(index, gen).catch((error) => {
+      this._prefetches.delete(index);
+      throw error;
+    });
+    void promise.catch(() => {});
+    this._prefetches.set(index, promise);
+  }
+
+  private async _takePrefetchedChunk(index: number, gen: number): Promise<string> {
+    const existing = this._prefetches.get(index);
+    if (existing) {
+      this._prefetches.delete(index);
+      return existing;
+    }
+    return this._fetchChunkFile(index, gen);
   }
 
   private _notifyChunkChange(index: number): void {
@@ -207,6 +239,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._paused = false;
     this._advancing = false;
     this._speakGen += 1;
+    this._prefetches.clear();
     TrackPlayer.stop();
     TrackPlayer.reset();
     this._cleanupEvents();
@@ -228,6 +261,7 @@ export class TrackPlayerCloudTTSPlayer implements ITTSPlayer {
     this._paused = false;
     await TrackPlayer.stop().catch(() => {});
     await TrackPlayer.reset().catch(() => {});
+    this._prefetches.clear();
     this._cleanupEvents();
     this._cleanupTempFiles();
   }
