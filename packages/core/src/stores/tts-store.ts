@@ -23,7 +23,7 @@ import {
   OpenAICompatibleTTSPlayer,
   XiaomiTTSPlayer,
 } from "../tts/tts-players";
-import type { ITTSPlayer, TTSConfig } from "../tts/types";
+import type { ITTSPlayer, TTSConfig, TTSProfile } from "../tts/types";
 import { DEFAULT_TTS_CONFIG, normalizeTTSConfig } from "../tts/types";
 import { withPersist } from "./persist";
 
@@ -140,6 +140,56 @@ function scheduleRespeak(): void {
       jumpToChunk(_sessionCurrentIndex);
     }
   }, VOICE_RESPEAK_DEBOUNCE_MS);
+}
+
+function syncProfileUpdatesFromLegacyFields(
+  previousConfig: TTSConfig,
+  updates: Partial<TTSConfig>,
+): Partial<TTSConfig> {
+  const targetProvider = updates.engine ?? previousConfig.engine;
+  const requestedProfileId = updates.activeProfileId ?? previousConfig.activeProfileId;
+  const profileUpdates: Partial<TTSProfile> = {};
+
+  if (targetProvider === "edge" && updates.edgeVoice !== undefined) {
+    profileUpdates.voice = updates.edgeVoice;
+  } else if (targetProvider === "system" && updates.voiceName !== undefined) {
+    profileUpdates.voice = updates.voiceName;
+  } else if (targetProvider === "dashscope") {
+    if (updates.dashscopeApiKey !== undefined) profileUpdates.apiKey = updates.dashscopeApiKey;
+    if (updates.dashscopeVoice !== undefined) profileUpdates.voice = updates.dashscopeVoice;
+  } else if (targetProvider === "xiaomi") {
+    if (updates.xiaomiApiKey !== undefined) profileUpdates.apiKey = updates.xiaomiApiKey;
+    if (updates.xiaomiVoice !== undefined) profileUpdates.voice = updates.xiaomiVoice;
+    if (updates.xiaomiStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.xiaomiStylePrompt;
+    }
+  } else if (targetProvider === "openai-compatible") {
+    if (updates.openaiTtsBaseUrl !== undefined) profileUpdates.baseUrl = updates.openaiTtsBaseUrl;
+    if (updates.openaiTtsApiKey !== undefined) profileUpdates.apiKey = updates.openaiTtsApiKey;
+    if (updates.openaiTtsEndpoint !== undefined) profileUpdates.endpoint = updates.openaiTtsEndpoint;
+    if (updates.openaiTtsModel !== undefined) profileUpdates.model = updates.openaiTtsModel;
+    if (updates.openaiTtsVoice !== undefined) profileUpdates.voice = updates.openaiTtsVoice;
+    if (updates.openaiTtsFormat !== undefined) profileUpdates.format = updates.openaiTtsFormat;
+    if (updates.openaiTtsStylePrompt !== undefined) {
+      profileUpdates.stylePrompt = updates.openaiTtsStylePrompt;
+    }
+  }
+
+  if (Object.keys(profileUpdates).length === 0) return updates;
+
+  const sourceProfiles = updates.profiles ?? previousConfig.profiles;
+  const requestedProfile = sourceProfiles.find((profile) => profile.id === requestedProfileId);
+  const targetProfileId =
+    requestedProfile?.provider === targetProvider
+      ? requestedProfile.id
+      : sourceProfiles.find((profile) => profile.provider === targetProvider)?.id;
+  if (!targetProfileId) return updates;
+
+  const profiles = sourceProfiles.map((profile) =>
+    profile.id === targetProfileId ? { ...profile, ...profileUpdates } : profile,
+  );
+
+  return { ...updates, profiles };
 }
 
 function detachAndStopPlayer(player: ITTSPlayer | null): void {
@@ -406,7 +456,8 @@ export const useTTSStore = create<TTSState>()(
 
       updateConfig: (updates) => {
         const previousConfig = normalizeTTSConfig(get().config);
-        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...updates });
+        const normalizedUpdates = syncProfileUpdatesFromLegacyFields(previousConfig, updates);
+        const nextConfig = normalizeTTSConfig({ ...previousConfig, ...normalizedUpdates });
         const engineChanged =
           updates.engine !== undefined && nextConfig.engine !== previousConfig.engine;
         const wasPlaying = isActivePlay(get().playState);

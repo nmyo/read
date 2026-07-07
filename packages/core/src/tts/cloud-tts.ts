@@ -131,4 +131,3 @@ export async function fetchOpenAITTSAudio(text: string, config: TTSConfig): Prom
 
   return new Uint8Array(await response.arrayBuffer());
 }
-

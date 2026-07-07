@@ -256,15 +256,13 @@ function normalizeProfiles(config: Partial<TTSConfig>): TTSProfile[] {
   const persisted = Array.isArray(config.profiles) ? config.profiles : [];
   const defaultIds = new Set(defaults.map((profile) => profile.id));
   const merged = new Map<string, TTSProfile>();
-  for (const profile of persisted) {
-    if (!profile?.id || !profile.provider) continue;
+  for (const profile of defaults) {
     merged.set(profile.id, profile);
   }
-  for (const profile of defaults) {
-    merged.set(profile.id, {
-      ...merged.get(profile.id),
-      ...profile,
-    });
+  for (const profile of persisted) {
+    if (!profile?.id || !profile.provider) continue;
+    const fallback = merged.get(profile.id);
+    merged.set(profile.id, fallback ? { ...fallback, ...profile } : profile);
   }
   return Array.from(merged.values()).filter((profile) => {
     if (defaultIds.has(profile.id)) return true;
