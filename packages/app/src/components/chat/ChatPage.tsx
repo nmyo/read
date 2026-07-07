@@ -275,7 +275,8 @@ export function ChatPage() {
   }, []);
 
   const displayMessages = convertToMessageV2(activeThread?.messages || []);
-  const allMessages = mergeMessagesWithStreaming(displayMessages, currentMessage, isStreaming);
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
+  const allMessages = mergeMessagesWithStreaming(displayMessages, activeCurrentMessage, isStreaming);
 
   const exportTitle = activeThread?.title || t("chat.aiAssistant");
 

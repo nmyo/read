@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { maybeCompressThreadMemory } from "../ai/chat-memory";
 import { getBuiltinSkills } from "../ai/skills/builtin-skills";
 import { StreamingChat, createMessageId } from "../ai/streaming";
@@ -10,7 +10,7 @@ import {
 import { getAvailableTools } from "../ai/tools";
 import { getSkills as getDbSkills } from "../db/database";
 import i18n from "../i18n";
-import { useChatStore } from "../stores/chat-store";
+import { getChatStreamingKey, useChatStore } from "../stores/chat-store";
 import { useSettingsStore } from "../stores/settings-store";
 import type {
   AIConfig,
@@ -92,16 +92,31 @@ export interface StreamingState {
   currentStep: "thinking" | "tool_calling" | "responding" | "idle";
 }
 
-export function useStreamingChat(options?: StreamingChatOptions) {
-  const [state, setState] = useState<StreamingState>({
-    isStreaming: false,
-    currentMessage: null,
-    currentStep: "idle",
-  });
-  const [error, setError] = useState<Error | null>(null);
-  const streamingRef = useRef<StreamingChat | null>(null);
+const activeStreams = new Map<string, StreamingChat>();
 
-  const { createThread, addMessage, updateThreadTitle, setStreaming } = useChatStore();
+export function useStreamingChat(options?: StreamingChatOptions) {
+  const streamingKey = getChatStreamingKey(options?.bookId);
+  const streamingSession = useChatStore(
+    useCallback((store) => store.streamingSessions[streamingKey] ?? null, [streamingKey]),
+  );
+  const state: StreamingState = {
+    isStreaming: streamingSession?.isStreaming ?? false,
+    currentMessage: streamingSession?.currentMessage ?? null,
+    currentStep: streamingSession?.currentStep ?? "idle",
+  };
+  const error = useMemo(
+    () => (streamingSession?.errorMessage ? new Error(streamingSession.errorMessage) : null),
+    [streamingSession?.errorMessage],
+  );
+
+  const {
+    createThread,
+    addMessage,
+    updateThreadTitle,
+    startStreamingSession,
+    updateStreamingSession,
+    finishStreamingSession,
+  } = useChatStore();
 
   const aiConfig = useSettingsStore((s) => s.aiConfig);
 
@@ -160,10 +175,18 @@ export function useStreamingChat(options?: StreamingChatOptions) {
       quotes?: AttachedQuote[],
       aiConfigOverride?: AIConfig,
     ) => {
-      if ((!content.trim() && (!quotes || quotes.length === 0)) || state.isStreaming) return;
+      const bookId = overrideBookId ?? options?.bookId;
+      const sessionKey = getChatStreamingKey(bookId);
+      const activeSession = useChatStore.getState().streamingSessions[sessionKey];
+      if (
+        (!content.trim() && (!quotes || quotes.length === 0)) ||
+        activeSession?.isStreaming
+      ) {
+        return;
+      }
 
       const messageId = createMessageId();
-      const initialMessage = {
+      const initialMessage: MessageV2 = {
         id: messageId,
         threadId: "",
         role: "assistant" as const,
@@ -171,11 +194,9 @@ export function useStreamingChat(options?: StreamingChatOptions) {
         createdAt: Date.now(),
       };
 
-      setError(null);
-
       try {
-        const bookId = overrideBookId ?? options?.bookId;
         const thread = await getOrCreateThread(bookId);
+        initialMessage.threadId = thread.id;
 
         if (thread.messages.length === 0 && !thread.title) {
           await updateThreadTitle(thread.id, content.slice(0, 50));
@@ -219,14 +240,20 @@ export function useStreamingChat(options?: StreamingChatOptions) {
         await addMessage(thread.id, userMessage as any);
 
         // Then set streaming state — user message is already visible
-        setState({
+        startStreamingSession({
+          key: sessionKey,
+          threadId: thread.id,
+          bookId: bookId || undefined,
           isStreaming: true,
           currentMessage: initialMessage,
           currentStep: "thinking",
+          errorMessage: null,
+          startedAt: Date.now(),
+          updatedAt: Date.now(),
         });
-        setStreaming(true);
 
-        streamingRef.current = new StreamingChat();
+        const stream = new StreamingChat();
+        activeStreams.set(sessionKey, stream);
 
         const enabledSkills = await loadEnabledSkills();
 
@@ -258,7 +285,20 @@ export function useStreamingChat(options?: StreamingChatOptions) {
         let currentReasoningPart: ReasoningPart | null = null;
         let currentToolCallPart: ToolCallPart | null = null;
         void currentToolCallPart;
-        await streamingRef.current.stream({
+        const publishCurrentMessage = (currentStep?: StreamingState["currentStep"]) => {
+          updateStreamingSession(sessionKey, {
+            isStreaming: true,
+            currentMessage: { ...initialMessage, parts: [...currentParts] },
+            ...(currentStep ? { currentStep } : {}),
+            updatedAt: Date.now(),
+          });
+        };
+        const finishCurrentSession = () => {
+          activeStreams.delete(sessionKey);
+          finishStreamingSession(sessionKey);
+        };
+
+        await stream.stream({
           thread: threadForStream,
           book: options?.book || null,
           bookId,
@@ -277,13 +317,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentTextPart.text += token;
             currentTextPart.status = "running";
             currentTextPart.updatedAt = Date.now();
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "responding",
-            }));
+            publishCurrentMessage("responding");
           },
           onComplete: async () => {
             if (currentTextPart) {
@@ -328,18 +362,21 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             // This prevents the gap where message disappears
             // Set currentStep to "idle" before addMessage to prevent
             // the "thinking" indicator from briefly flashing during persist
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
-            await addMessage(thread.id, assistantMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
+            updateStreamingSession(sessionKey, {
+              isStreaming: true,
+              currentMessage: { ...initialMessage, parts: [...currentParts] },
               currentStep: "idle",
+              updatedAt: Date.now(),
             });
-            setStreaming(false);
+            await addMessage(thread.id, assistantMessage as any);
+            finishCurrentSession();
           },
           onError: async (err) => {
-            setError(err);
+            updateStreamingSession(sessionKey, {
+              isStreaming: true,
+              errorMessage: err.message,
+              updatedAt: Date.now(),
+            });
             markRunningToolCallPartsAsError(currentParts, err.message || "Unknown error");
 
             const errorPart = createTextPart(`⚠️ ${err.message || "Unknown error"}`);
@@ -375,15 +412,14 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             };
 
             // Persist error message FIRST, then clear streaming state
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
-            await addMessage(thread.id, errorMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
+            updateStreamingSession(sessionKey, {
+              isStreaming: true,
+              currentMessage: { ...initialMessage, parts: [...currentParts] },
               currentStep: "idle",
+              updatedAt: Date.now(),
             });
-            setStreaming(false);
+            await addMessage(thread.id, errorMessage as any);
+            finishCurrentSession();
           },
           onAbort: async () => {
             for (const part of currentParts) {
@@ -431,15 +467,14 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               createdAt: Date.now(),
             };
 
-            setState((prev) => ({ ...prev, currentStep: "idle" }));
-            await addMessage(thread.id, abortedMessage as any);
-
-            setState({
-              isStreaming: false,
-              currentMessage: null,
+            updateStreamingSession(sessionKey, {
+              isStreaming: true,
+              currentMessage: { ...initialMessage, parts: [...currentParts] },
               currentStep: "idle",
+              updatedAt: Date.now(),
             });
-            setStreaming(false);
+            await addMessage(thread.id, abortedMessage as any);
+            finishCurrentSession();
           },
           onToolCall: (name, args) => {
             if (currentTextPart) {
@@ -454,13 +489,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentReasoningPart = null;
             currentToolCallPart = createToolCallPart(name, args);
             currentParts.push(currentToolCallPart);
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "tool_calling",
-            }));
+            publishCurrentMessage("tool_calling");
           },
           onToolResult: (name, result) => {
             const part = applyToolResultToParts(currentParts, name, result);
@@ -471,12 +500,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               }
 
               currentTextPart = null;
-              setState((prev) => ({
-                ...prev,
-                currentMessage: prev.currentMessage
-                  ? { ...prev.currentMessage, parts: [...currentParts] }
-                  : null,
-              }));
+              publishCurrentMessage();
             }
           },
           onReasoning: (content, type) => {
@@ -487,13 +511,7 @@ export function useStreamingChat(options?: StreamingChatOptions) {
             currentReasoningPart.text += content;
             currentReasoningPart.status = "running";
             currentReasoningPart.updatedAt = Date.now();
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-              currentStep: "thinking",
-            }));
+            publishCurrentMessage("thinking");
           },
           onCitation: (citation) => {
             const citationPart = createCitationPart(
@@ -505,30 +523,28 @@ export function useStreamingChat(options?: StreamingChatOptions) {
               citation.citationIndex,
             );
             currentParts.push(citationPart);
-            setState((prev) => ({
-              ...prev,
-              currentMessage: prev.currentMessage
-                ? { ...prev.currentMessage, parts: [...currentParts] }
-                : null,
-            }));
+            publishCurrentMessage();
           },
         });
       } catch (err) {
-        setError(err instanceof Error ? err : new Error("Unknown error"));
-        setState({
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        updateStreamingSession(sessionKey, {
           isStreaming: false,
           currentMessage: null,
           currentStep: "idle",
+          errorMessage,
+          updatedAt: Date.now(),
         });
-        setStreaming(false);
+        activeStreams.delete(sessionKey);
       }
     },
     [
-      state.isStreaming,
       getOrCreateThread,
       addMessage,
       updateThreadTitle,
-      setStreaming,
+      startStreamingSession,
+      updateStreamingSession,
+      finishStreamingSession,
       aiConfig,
       loadEnabledSkills,
       options?.book,
@@ -538,11 +554,8 @@ export function useStreamingChat(options?: StreamingChatOptions) {
   );
 
   const stopStream = useCallback(() => {
-    streamingRef.current?.abort();
-    // Immediately update UI state
-    setState((prev) => ({ ...prev, isStreaming: false }));
-    setStreaming(false);
-  }, [setStreaming]);
+    activeStreams.get(streamingKey)?.abort();
+  }, [streamingKey]);
 
   return {
     ...state,

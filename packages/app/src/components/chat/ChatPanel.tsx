@@ -70,6 +70,13 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
   const activeThreadId = bookId ? getActiveThreadId(bookId) : null;
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const bookThreads = bookId ? getThreadsForContext(bookId) : [];
+  const firstBookThreadId = bookThreads[0]?.id;
+
+  useEffect(() => {
+    if (bookId && !activeThreadId && firstBookThreadId) {
+      setBookActiveThread(bookId, firstBookThreadId);
+    }
+  }, [activeThreadId, bookId, firstBookThreadId, setBookActiveThread]);
 
   const [showThreadList, setShowThreadList] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -196,7 +203,8 @@ export function ChatPanel({ book, onNavigateToCitation }: ChatPanelProps) {
 
   // Build message list with streaming message
   const storeMessages = convertToMessageV2(displayMessages);
-  const allMessages = mergeMessagesWithStreaming(storeMessages, currentMessage, isStreaming);
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
+  const allMessages = mergeMessagesWithStreaming(storeMessages, activeCurrentMessage, isStreaming);
 
   const exportTitle = activeThread?.title || book?.meta?.title || t("chat.aiAssistant");
 

@@ -179,8 +179,9 @@ export function ChatScreen() {
     ? threads.find((th) => th.id === generalActiveThreadId)
     : null;
 
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
   const displayMessages = convertToMessageV2(activeThread?.messages || []);
-  const allMessages = mergeMessagesWithStreaming(displayMessages, currentMessage, isStreaming);
+  const allMessages = mergeMessagesWithStreaming(displayMessages, activeCurrentMessage, isStreaming);
 
   // Handlers
   const handleSend = useCallback(

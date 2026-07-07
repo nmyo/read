@@ -132,6 +132,13 @@ export function BookChatScreen({ route, navigation }: Props) {
     [threads, activeThreadId],
   );
   const bookThreads = getThreadsForContext(bookId);
+  const firstBookThreadId = bookThreads[0]?.id;
+  useEffect(() => {
+    if (!activeThreadId && firstBookThreadId) {
+      setBookActiveThread(bookId, firstBookThreadId);
+    }
+  }, [activeThreadId, bookId, firstBookThreadId, setBookActiveThread]);
+
   const groupedThreads = useMemo(() => {
     const grouped = groupThreadsByTime(bookThreads);
     const sections: { key: string; label: string; threads: typeof bookThreads }[] = [
@@ -230,9 +237,10 @@ export function BookChatScreen({ route, navigation }: Props) {
     return convertToMessageV2(activeThread.messages);
   }, [activeThread]);
 
+  const activeCurrentMessage = activeThread?.id === currentMessage?.threadId ? currentMessage : null;
   const allMessages = useMemo(
-    () => mergeMessagesWithStreaming(messagesV2, currentMessage, isStreaming),
-    [currentMessage, isStreaming, messagesV2],
+    () => mergeMessagesWithStreaming(messagesV2, activeCurrentMessage, isStreaming),
+    [activeCurrentMessage, isStreaming, messagesV2],
   );
 
   const handleSend = useCallback(
