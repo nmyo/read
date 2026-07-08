@@ -27,6 +27,8 @@ const CHAPTER_TOOL_EXECUTION_LIMIT = 8;
 const DEFAULT_RECURSION_LIMIT = 24;
 const CHAPTER_TASK_RECURSION_LIMIT = 24;
 const DEFAULT_TOOL_TIMEOUT_MS = 45_000;
+const TOOL_EXECUTION_LIMIT = 12;
+const REPEATED_TOOL_CALL_LIMIT = 2;
 
 const CHAPTER_LOOKUP_STOP_TOOL_NAMES = new Set([
   "resolveChapterReference",
@@ -73,6 +75,90 @@ const GENERAL_TOOL_NAMES = new Set([
   "updateBookMetadata",
   "manageBookGroups",
 ]);
+
+const CATEGORY_TOOL_ORDER: Record<ReadingQuestionCategory, string[]> = {
+  general_chat: [],
+  library_request: [
+    "listBooks",
+    "searchAllHighlights",
+    "searchAllNotes",
+    "getReadingStats",
+    "getSkills",
+    "mindmap",
+    "classifyBooks",
+    "tagBooks",
+    "manageBookTags",
+    "updateBookMetadata",
+    "manageBookGroups",
+  ],
+  current_selection: [
+    "getSelection",
+    "getSurroundingContext",
+    "getCurrentChapter",
+    "ragSearch",
+    "ragContext",
+    "fallbackSearch",
+    "fallbackChapterContext",
+    "addCitation",
+  ],
+  current_page_context: [
+    "getSurroundingContext",
+    "getCurrentChapter",
+    "getReadingProgress",
+    "ragSearch",
+    "ragContext",
+    "fallbackSearch",
+    "fallbackChapterContext",
+    "addCitation",
+  ],
+  current_chapter_context: [
+    "getCurrentChapter",
+    "getSurroundingContext",
+    "getReadingProgress",
+    "resolveChapterReference",
+    "ragSearch",
+    "ragContext",
+    "summarize",
+    "findQuotes",
+    "fallbackChapterContext",
+    "fallbackSearch",
+    "addCitation",
+  ],
+  specific_chapter_request: [
+    "resolveChapterReference",
+    "ragSearch",
+    "ragToc",
+    "ragContext",
+    "summarize",
+    "findQuotes",
+    "extractEntities",
+    "analyzeArguments",
+    "fallbackToc",
+    "fallbackSearch",
+    "fallbackChapterContext",
+    "addCitation",
+  ],
+  book_wide_search: [
+    "ragSearch",
+    "resolveChapterReference",
+    "ragToc",
+    "ragContext",
+    "summarize",
+    "findQuotes",
+    "extractEntities",
+    "analyzeArguments",
+    "compareSections",
+    "fallbackSearch",
+    "fallbackToc",
+    "fallbackChapterContext",
+    "getCurrentChapter",
+    "getSurroundingContext",
+    "getReadingProgress",
+    "getRecentHighlights",
+    "getAnnotations",
+    "addCitation",
+  ],
+};
 
 type ReadingQuestionCategory =
   | "general_chat"
@@ -154,25 +240,74 @@ function getFocusedToolNames(
     case "library_request":
       return GENERAL_TOOL_NAMES;
     case "current_selection":
-      return new Set(["getSelection", "getSurroundingContext", "getCurrentChapter", "addCitation"]);
+      return new Set(
+        isVectorized
+          ? [
+              "getSelection",
+              "getSurroundingContext",
+              "getCurrentChapter",
+              "ragSearch",
+              "ragContext",
+              "addCitation",
+            ]
+          : [
+              "getSelection",
+              "getSurroundingContext",
+              "getCurrentChapter",
+              "fallbackSearch",
+              "fallbackChapterContext",
+              "addCitation",
+            ],
+      );
     case "current_page_context":
-      return new Set([
-        "getCurrentChapter",
-        "getSurroundingContext",
-        "getReadingProgress",
-        "addCitation",
-      ]);
+      return new Set(
+        isVectorized
+          ? [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "getReadingProgress",
+              "ragSearch",
+              "ragContext",
+              "addCitation",
+            ]
+          : [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "getReadingProgress",
+              "fallbackSearch",
+              "fallbackChapterContext",
+              "addCitation",
+            ],
+      );
     case "current_chapter_context":
       return new Set(
         isVectorized
-          ? ["getCurrentChapter", "getSurroundingContext", "ragContext", "summarize", "addCitation"]
-          : ["getCurrentChapter", "getSurroundingContext", "fallbackChapterContext", "addCitation"],
+          ? [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "getReadingProgress",
+              "resolveChapterReference",
+              "ragSearch",
+              "ragContext",
+              "summarize",
+              "findQuotes",
+              "addCitation",
+            ]
+          : [
+              "getCurrentChapter",
+              "getSurroundingContext",
+              "getReadingProgress",
+              "fallbackChapterContext",
+              "addCitation",
+            ],
       );
     case "specific_chapter_request":
       return new Set(
         isVectorized
           ? [
               "resolveChapterReference",
+              "ragSearch",
+              "ragToc",
               "ragContext",
               "summarize",
               "findQuotes",
@@ -187,6 +322,22 @@ function getFocusedToolNames(
   }
 }
 
+function sortToolsForCategory(
+  tools: ToolDefinition[],
+  category: ReadingQuestionCategory,
+): ToolDefinition[] {
+  const order = CATEGORY_TOOL_ORDER[category];
+  if (order.length === 0) return tools;
+
+  const priority = new Map(order.map((name, index) => [name, index]));
+  return [...tools].sort((a, b) => {
+    const aPriority = priority.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+    const bPriority = priority.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return 0;
+  });
+}
+
 function filterToolsForQuestion(options: {
   tools: ToolDefinition[];
   category: ReadingQuestionCategory;
@@ -194,30 +345,42 @@ function filterToolsForQuestion(options: {
 }): ToolDefinition[] {
   const focusedNames = getFocusedToolNames(options.category, options.isVectorized);
   if (focusedNames === null) {
-    return options.tools.filter((tool) => !GENERAL_TOOL_NAMES.has(tool.name));
+    return sortToolsForCategory(
+      options.tools.filter((tool) => !GENERAL_TOOL_NAMES.has(tool.name)),
+      options.category,
+    );
   }
 
   const filtered = options.tools.filter((tool) => focusedNames.has(tool.name));
-  return filtered;
+  return sortToolsForCategory(filtered, options.category);
 }
 
 function buildRouteHint(
   category: ReadingQuestionCategory,
   selectionActive: boolean,
+  isVectorized: boolean,
 ): string | undefined {
   switch (category) {
     case "current_selection":
       return selectionActive
-        ? "The user already has an active selection. Prefer the selected text and surrounding context before any chapter-wide or book-wide retrieval."
+        ? "The user already has an active selection. Start with the selected text and surrounding context; if that is not enough, use content retrieval instead of guessing."
         : undefined;
     case "current_page_context":
-      return "This question is about the user's current page or current reading location. Prefer current-context tools before any wider retrieval.";
+      return isVectorized
+        ? "This question is about the user's current page or current reading location. Start with current-context tools; use ragSearch/ragContext when visible text is insufficient."
+        : "This question is about the user's current page or current reading location. Start with current-context tools; use fallback content tools when visible text is insufficient.";
     case "current_chapter_context":
-      return "This question is about the chapter the user is currently reading. Get the current chapter first, then use chapter context tools.";
+      return isVectorized
+        ? "This question is about the chapter the user is currently reading. Get the current chapter first, then prefer indexed chapter/content retrieval."
+        : "This question is about the chapter the user is currently reading. Get the current chapter first, then use fallback chapter content.";
     case "specific_chapter_request":
-      return "This question targets a specific chapter reference. Resolve the chapter reference first, then read that chapter. Do not start with full-book search.";
+      return isVectorized
+        ? "This question targets a specific chapter reference. Resolve the chapter reference first; if resolution is weak or the user asks for content, use ragSearch/ragToc/ragContext instead of guessing."
+        : "This question targets a specific chapter reference. Resolve the chapter reference first; if resolution is weak, use fallbackToc/fallbackSearch or ask for clarification.";
     case "book_wide_search":
-      return "This question may require broader retrieval. Use book-wide search only when current-context tools are insufficient.";
+      return isVectorized
+        ? "This is a book-content question and the book is indexed. Prefer ragSearch first for retrieval; use current-context tools only when the question is explicitly about the current page."
+        : "This is a book-content question and the book is not indexed. Prefer fallbackSearch/fallbackToc for retrieval.";
     case "library_request":
       return "This is a library-management or cross-book request. Stay within library tools.";
     default:
@@ -302,6 +465,32 @@ function buildChapterReferenceLimitResult(
     notice: "未能可靠定位章节，请补充更准确的章节名",
     reason:
       "Chapter lookup attempt limit reached. Stop chapter search in this turn and ask the user for a more accurate chapter title.",
+  };
+}
+
+function buildRepeatedToolCallResult(
+  lastResult: unknown,
+  toolName: string,
+  reason: "duplicate" | "limit",
+): Record<string, unknown> {
+  const base =
+    lastResult && typeof lastResult === "object" && !Array.isArray(lastResult)
+      ? (lastResult as Record<string, unknown>)
+      : lastResult === undefined
+        ? {}
+        : { previousResult: lastResult };
+  return {
+    ...base,
+    ...(toolName === "addCitation" ? { type: "notice" } : {}),
+    repeatedToolCall: true,
+    toolName,
+    stopToolCalls: true,
+    reason:
+      reason === "duplicate"
+        ? "This tool call repeats information already returned in this turn."
+        : "Tool execution limit reached for this turn.",
+    instruction:
+      "Stop calling tools now. Use the tool results already available in the conversation to answer the user directly. If the available results are insufficient, ask one concise clarification question.",
   };
 }
 
@@ -515,6 +704,9 @@ export async function* streamReadingAgent(
   };
   const toolResultCache = new Map<string, unknown>();
   const searchResultCache = new Map<string, unknown>();
+  const toolExecutionCounts = new Map<string, number>();
+  const lastToolResults = new Map<string, unknown>();
+  let totalToolExecutions = 0;
   const pendingToolCallNames: string[] = [];
   const isChapterTask =
     questionCategory === "specific_chapter_request" || CHAPTER_REFERENCE_RE.test(userInput);
@@ -565,7 +757,7 @@ export async function* streamReadingAgent(
       memorySummary,
       questionCategory,
       selectionActive,
-      routeHint: buildRouteHint(questionCategory, selectionActive),
+      routeHint: buildRouteHint(questionCategory, selectionActive, isVectorized),
       allowedToolNames: tools.map((tool) => tool.name),
     });
 
@@ -715,13 +907,34 @@ export async function* streamReadingAgent(
             chapterReferenceState.attemptedQueries.push(effectiveQuery);
           }
 
+          const progressKey =
+            tool.name === "ragSearch" || tool.name === "fallbackSearch"
+              ? buildSearchToolCacheKey(tool.name, toolInput) ||
+                buildToolCacheKey(tool.name, toolInput)
+              : buildToolCacheKey(tool.name, toolInput);
+          const previousExecutions = toolExecutionCounts.get(progressKey) ?? 0;
+          if (previousExecutions >= REPEATED_TOOL_CALL_LIMIT) {
+            return JSON.stringify(
+              buildRepeatedToolCallResult(lastToolResults.get(progressKey), tool.name, "duplicate"),
+            );
+          }
+          if (totalToolExecutions >= TOOL_EXECUTION_LIMIT) {
+            return JSON.stringify(
+              buildRepeatedToolCallResult(lastToolResults.get(progressKey), tool.name, "limit"),
+            );
+          }
+          toolExecutionCounts.set(progressKey, previousExecutions + 1);
+          totalToolExecutions += 1;
+
           const skipExactCache =
             tool.name === "addCitation" || tool.name === "resolveChapterReference";
           const exactCacheKey = skipExactCache
             ? undefined
             : buildToolCacheKey(tool.name, toolInput);
           if (exactCacheKey && toolResultCache.has(exactCacheKey)) {
-            return JSON.stringify(toolResultCache.get(exactCacheKey));
+            const cachedResult = toolResultCache.get(exactCacheKey);
+            lastToolResults.set(progressKey, cachedResult);
+            return JSON.stringify(cachedResult);
           }
 
           const searchCacheKey =
@@ -729,7 +942,9 @@ export async function* streamReadingAgent(
               ? buildSearchToolCacheKey(tool.name, toolInput)
               : undefined;
           if (searchCacheKey && searchResultCache.has(searchCacheKey)) {
-            return JSON.stringify(searchResultCache.get(searchCacheKey));
+            const cachedResult = searchResultCache.get(searchCacheKey);
+            lastToolResults.set(progressKey, cachedResult);
+            return JSON.stringify(cachedResult);
           }
 
           const result = await executeTool(tool, toolInput, toolTimeoutMs);
@@ -750,6 +965,7 @@ export async function* streamReadingAgent(
               chapterReferenceState.limitReached = true;
             }
           }
+          lastToolResults.set(progressKey, result);
           return JSON.stringify(result);
         },
       });
