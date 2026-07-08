@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { access, mkdir, readFile as fsReadFile, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -13,6 +12,8 @@ import type {
   UpdateInfo,
   WebSocketOptions,
 } from "@readany/core/services";
+
+type BetterSqliteDatabaseConstructor = typeof import("better-sqlite3");
 
 function normalizeDir(path: string): string {
   const trimmed = path.replace(/^file:\/\//, "").trim();
@@ -46,7 +47,23 @@ async function getDesktopLibraryRoot(env: NodeJS.ProcessEnv): Promise<string> {
   return configured || getDefaultDataRoot(env);
 }
 
-function wrapBetterSqliteDatabase(filePath: string): IDatabase {
+async function loadBetterSqliteDatabase(): Promise<BetterSqliteDatabaseConstructor> {
+  try {
+    const module = await import("better-sqlite3");
+    return module.default ?? module;
+  } catch (error) {
+    throw new Error(
+      `ReadAny CLI requires better-sqlite3 for local library access. Install native sqlite support and try again. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function wrapBetterSqliteDatabase(
+  Database: BetterSqliteDatabaseConstructor,
+  filePath: string,
+): IDatabase {
   const db = new Database(filePath);
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = NORMAL");
@@ -132,7 +149,8 @@ export class NodePlatformService implements IPlatformService {
   async loadDatabase(path: string): Promise<IDatabase> {
     const normalizedPath = path.startsWith("sqlite:") ? path.slice("sqlite:".length) : path;
     mkdirSync(dirname(normalizedPath), { recursive: true });
-    return wrapBetterSqliteDatabase(normalizedPath);
+    const Database = await loadBetterSqliteDatabase();
+    return wrapBetterSqliteDatabase(Database, normalizedPath);
   }
 
   async fetch(url: string, options?: FetchOptions): Promise<Response> {
