@@ -6,6 +6,7 @@ import {
   mkdir,
   readFile,
   readlink,
+  symlink,
   truncate,
   writeFile,
 } from "node:fs/promises";
@@ -403,6 +404,47 @@ describe("commands", () => {
         path: repairData.path,
       },
     });
+  });
+
+  it("uninstalls additional managed CLI shims discovered on PATH when requested", async () => {
+    const workspace = await createWorkspace();
+    const cliBinPath = join(workspace.root, "dist", "bin", "readany.js");
+    const oldCliBinPath = join(
+      workspace.root,
+      "global",
+      "lib",
+      "node_modules",
+      "@readany",
+      "cli",
+      "dist",
+      "bin",
+      "readany.js",
+    );
+    const userBinDir = join(workspace.root, "bin");
+    const pathBinDir = join(workspace.root, "path-bin");
+    const pathShim = join(pathBinDir, "readany");
+    await mkdir(join(workspace.root, "dist", "bin"), { recursive: true });
+    await mkdir(join(workspace.root, "global", "lib", "node_modules", "@readany", "cli", "dist", "bin"), {
+      recursive: true,
+    });
+    await mkdir(pathBinDir, { recursive: true });
+    await writeFile(cliBinPath, "#!/usr/bin/env node\n", "utf8");
+    await writeFile(oldCliBinPath, "#!/usr/bin/env node\nconst marker = 'readany-cli-managed';\n", "utf8");
+    await symlink(oldCliBinPath, pathShim);
+
+    const uninstall = await runCommand(
+      ["uninstall", "--user", "--user-bin-dir", userBinDir, "--remove-path-shims"],
+      { ...workspace.env, READANY_CLI_BIN_PATH: cliBinPath, PATH: pathBinDir },
+    );
+    expect(uninstall).toMatchObject({
+      ok: true,
+      data: {
+        removed: false,
+        path: join(userBinDir, process.platform === "win32" ? "readany.cmd" : "readany"),
+        extraRemoved: [pathShim],
+      },
+    });
+    await expect(lstat(pathShim)).rejects.toThrow();
   });
 
   it("sets up and uninstalls the external agent entrypoint", async () => {

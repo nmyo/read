@@ -3,7 +3,7 @@ import { access, lstat, readFile, readlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveShimPath } from "./install.js";
+import { isManagedShim, resolveShimPath } from "./install.js";
 import type { CliPaths } from "./paths.js";
 import type { AccessProfile } from "./profiles.js";
 import { getSkillStatus } from "./skill.js";
@@ -235,13 +235,9 @@ async function createAgentAccessEvidence(
   const cliShimInstalled = await pathExists(cliShimPath);
   const cliShimStat = cliShimInstalled ? await lstat(cliShimPath) : undefined;
   const cliShimTarget = cliShimStat?.isSymbolicLink() ? await readlink(cliShimPath) : undefined;
-  const cliShimContent =
-    cliShimInstalled && !cliShimStat?.isSymbolicLink()
-      ? await readFile(cliShimPath, "utf8").catch(() => "")
-      : "";
-  const cliShimManaged =
-    cliShimTarget === paths.binPath ||
-    (cliShimContent.includes("readany-cli-managed") && cliShimContent.includes(paths.binPath));
+  const cliShimManaged = cliShimInstalled
+    ? await isManagedShim(cliShimPath, paths.binPath)
+    : false;
 
   const clientSkills = await Promise.all(
     CLIENT_SKILL_CLIENTS.map(async (client) => {

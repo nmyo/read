@@ -478,7 +478,7 @@
         "notRun": "Not run yet.",
         "success": "Command completed successfully.",
         "exitStatus": "Command exited with status {{status}}",
-        "accessUninstalled": "External AI access has been uninstalled.",
+        "accessUninstalled": "External AI access and CLI have been uninstalled.",
         "cliUninstalled": "ReadAny CLI has been uninstalled."
       },
       "skillPrompt": {

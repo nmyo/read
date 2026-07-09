@@ -65,9 +65,20 @@ fn args_for_action(action: &str, options: &ReadAnyCliRunOptions) -> Result<Vec<S
         "version" => Ok(strings(&["--version"])),
         "install" => Ok(strings(&["install", "--user", "--json"])),
         "repair" => Ok(strings(&["repair", "--user", "--json"])),
-        "uninstall" => Ok(strings(&["uninstall", "--user", "--json"])),
+        "uninstall" => Ok(strings(&[
+            "uninstall",
+            "--user",
+            "--json",
+            "--remove-path-shims",
+        ])),
         "agent_setup" => agent_setup_args(options),
-        "agent_uninstall" => Ok(strings(&["agent", "uninstall", "--user", "--json"])),
+        "agent_uninstall" => Ok(strings(&[
+            "agent",
+            "uninstall",
+            "--user",
+            "--json",
+            "--remove-path-shims",
+        ])),
         "doctor" => doctor_args(options),
         "mcp_config" => mcp_config_args(options),
         "tools_list" => Ok(strings(&["tools", "list", "--json"])),
@@ -614,8 +625,7 @@ fn path_cli_command() -> CliCommand {
 fn action_can_use_bundled_cli(action: &str) -> bool {
     matches!(
         action,
-        "version"
-            | "install"
+        "install"
             | "repair"
             | "uninstall"
             | "agent_setup"
@@ -636,9 +646,16 @@ fn resolve_cli_command(action: &str, resource_dir: Option<PathBuf>) -> CliComman
     }
 
     if action_can_use_bundled_cli(action) {
+        #[cfg(debug_assertions)]
+        if let Some(command) = dev_cli_command() {
+            return command;
+        }
+
         if let Some(command) = bundled_cli_command(resource_dir.clone()) {
             return command;
         }
+
+        #[cfg(not(debug_assertions))]
         if let Some(command) = dev_cli_command() {
             return command;
         }
@@ -761,12 +778,12 @@ pub async fn readany_cli_run(
 #[cfg(test)]
 mod tests {
     use super::{
-        args_for_action, bundled_cli_command, format_cli_spawn_error, resolve_cli_command,
-        CliCommand, ReadAnyCliRunOptions, BUNDLED_CLI_RESOURCE_PATH,
+        args_for_action, bundled_cli_command, dev_cli_command, format_cli_spawn_error,
+        resolve_cli_command, CliCommand, ReadAnyCliRunOptions, BUNDLED_CLI_RESOURCE_PATH,
     };
     use std::fs;
     use std::io;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_test_dir(name: &str) -> PathBuf {
@@ -787,6 +804,22 @@ mod tests {
                 || program.ends_with("/node.exe"),
             "expected node executable, got {program}",
         );
+    }
+
+    fn assert_management_command(command: &CliCommand, bundled_cli: &Path) {
+        assert_node_program(&command.program);
+        #[cfg(debug_assertions)]
+        if let Some(dev_command) = dev_cli_command() {
+            assert_eq!(command.prefix_args, dev_command.prefix_args);
+            assert_eq!(command.source, "workspace");
+            return;
+        }
+
+        assert_eq!(
+            command.prefix_args,
+            vec![bundled_cli.to_string_lossy().to_string()]
+        );
+        assert_eq!(command.source, "bundle");
     }
 
     #[test]
@@ -833,7 +866,8 @@ mod tests {
                 "agent".to_string(),
                 "uninstall".to_string(),
                 "--user".to_string(),
-                "--json".to_string()
+                "--json".to_string(),
+                "--remove-path-shims".to_string()
             ])
         );
         assert_eq!(
@@ -1337,42 +1371,37 @@ mod tests {
     }
 
     #[test]
-    fn resolves_install_to_bundled_cli_before_path() {
+    fn resolves_install_to_packaged_or_workspace_cli_before_path() {
         let root = temp_test_dir("bundle");
         let cli = root.join("readany-cli/bin/readany.js");
         fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
         fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
 
         let command = resolve_cli_command("install", Some(root.clone()));
-        assert_node_program(&command.program);
-        assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
-        assert_eq!(command.source, "bundle");
+        assert_management_command(&command, &cli);
         let _ = fs::remove_dir_all(root);
     }
 
     #[test]
-    fn resolves_agent_setup_to_bundled_cli_before_path() {
+    fn resolves_agent_setup_to_packaged_or_workspace_cli_before_path() {
         let root = temp_test_dir("agent-bundle");
         let cli = root.join("readany-cli/bin/readany.js");
         fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
         fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
 
         let command = resolve_cli_command("agent_setup", Some(root.clone()));
-        assert_node_program(&command.program);
-        assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
-        assert_eq!(command.source, "bundle");
+        assert_management_command(&command, &cli);
         let _ = fs::remove_dir_all(root);
     }
 
     #[test]
-    fn resolves_management_actions_to_bundled_cli_before_path() {
+    fn resolves_management_actions_to_packaged_or_workspace_cli_before_path() {
         let root = temp_test_dir("management-bundle");
         let cli = root.join("readany-cli/bin/readany.js");
         fs::create_dir_all(cli.parent().expect("cli parent")).expect("mkdir");
         fs::write(&cli, "#!/usr/bin/env node\n").expect("write cli");
 
         for action in [
-            "version",
             "install",
             "repair",
             "doctor",
@@ -1384,9 +1413,7 @@ mod tests {
             "skill_uninstall",
         ] {
             let command = resolve_cli_command(action, Some(root.clone()));
-            assert_node_program(&command.program);
-            assert_eq!(command.prefix_args, vec![cli.to_string_lossy().to_string()]);
-            assert_eq!(command.source, "bundle", "{action}");
+            assert_management_command(&command, &cli);
         }
 
         let _ = fs::remove_dir_all(root);
@@ -1401,6 +1428,7 @@ mod tests {
 
         for action in [
             "audit_list",
+            "version",
             "epub_draft_create",
             "epub_chapter_read",
             "epub_export",

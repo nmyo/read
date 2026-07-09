@@ -319,10 +319,10 @@ export function createHelpText(): string {
 Usage:
   readany --version
   readany agent setup [--user|--global] [--json] [--client generic|claude|cursor|codex|opencode|all] [--profile readonly|editor|publisher] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
-  readany agent uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany agent uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>] [--remove-path-shims]
   readany install [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
   readany repair [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
-  readany uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>]
+  readany uninstall [--user|--global] [--json] [--user-bin-dir <dir>] [--global-bin-dir <dir>] [--remove-path-shims]
   readany doctor [--json] [--profile readonly]
   readany skill install
   readany skill update
@@ -388,12 +388,18 @@ function isEpubNestedCommand(command: string | undefined): boolean {
   );
 }
 
-function getInstallOptions(command: ParsedCommand, binPath: string): InstallOptions {
+function getInstallOptions(
+  command: ParsedCommand,
+  binPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+): InstallOptions {
   return {
     binPath,
     mode: command.mode,
     userBinDir: getRequiredStringOption(command, "user-bin-dir"),
     globalBinDir: getRequiredStringOption(command, "global-bin-dir"),
+    removePathShims: getBooleanOption(command, "remove-path-shims", false),
+    pathEnv: env.PATH,
   };
 }
 
@@ -430,6 +436,7 @@ function createAgentUninstallCommand(command: ParsedCommand): string {
   if (userBinDir) args.push("--user-bin-dir", userBinDir);
   const globalBinDir = getRequiredStringOption(command, "global-bin-dir");
   if (globalBinDir) args.push("--global-bin-dir", globalBinDir);
+  if (command.options["remove-path-shims"] === true) args.push("--remove-path-shims");
 
   return args.map(quoteShellArg).join(" ");
 }
@@ -637,7 +644,7 @@ async function setupAgent(
     env,
     skillDir: paths.skillDir,
   });
-  const install = await installCli(getInstallOptions(command, paths.binPath));
+  const install = await installCli(getInstallOptions(command, paths.binPath, env));
   const skill = await installOrUpdateReadAnySkill(paths.skillFile);
   const clientSkillLinks = await installClientSkillLinks({
     client,
@@ -672,7 +679,7 @@ async function uninstallAgent(
   return {
     uninstalled: true,
     command: uninstallCommand,
-    install: await uninstallCli(getInstallOptions(command, paths.binPath)),
+    install: await uninstallCli(getInstallOptions(command, paths.binPath, env)),
     skill: await uninstallSkill(paths.skillFile),
     clientSkillLinks: await uninstallClientSkillLinks(env, paths.skillDir),
     nextSteps: [
@@ -785,18 +792,18 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
     }
 
     if (command.name === "install") {
-      return success(await installCli(getInstallOptions(command, paths.binPath)));
+      return success(await installCli(getInstallOptions(command, paths.binPath, env)));
     }
 
     if (command.name === "repair") {
       return success({
         repaired: true,
-        ...(await installCli(getInstallOptions(command, paths.binPath))),
+        ...(await installCli(getInstallOptions(command, paths.binPath, env))),
       });
     }
 
     if (command.name === "uninstall") {
-      return success(await uninstallCli(getInstallOptions(command, paths.binPath)));
+      return success(await uninstallCli(getInstallOptions(command, paths.binPath, env)));
     }
 
     if (command.name === "books") {

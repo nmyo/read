@@ -253,13 +253,15 @@ function createSkillInstallPrompt(
 
 function parseCliJson<T>(result?: CliRunResult): CommandResult<T> | undefined {
   if (!result) return undefined;
-  const text = result.stdout.trim();
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text) as CommandResult<T>;
-  } catch {
-    return undefined;
+  for (const text of [result.stdout.trim(), result.stderr.trim()]) {
+    if (!text) continue;
+    try {
+      return JSON.parse(text) as CommandResult<T>;
+    } catch {
+      // Some failures are plain text from process spawning or the shell.
+    }
   }
+  return undefined;
 }
 
 function statusLabel(ok: boolean, yes: string, no: string) {
@@ -465,19 +467,21 @@ export function ExternalAISettings() {
     [toolsResult],
   );
 
-  const cliAvailable = Boolean(versionResult?.ok);
+  const cliRuntimeAvailable = Boolean(versionResult?.ok);
   const cliVersion = versionResult?.ok ? versionResult.stdout.trim() : "";
   const doctorRuntime = doctor?.ok ? doctor.data.runtime : undefined;
   const doctorDistribution = doctor?.ok ? doctor.data.distribution : undefined;
   const skillInstalled = skill?.ok ? skill.data.installed : false;
   const agentAccess = doctor?.ok ? doctor.data.agentAccess : undefined;
+  const cliShim = agentAccess?.cliShim;
+  const cliInstalled = cliRuntimeAvailable || Boolean(cliShim?.installed && cliShim.managed);
   const clientSkillRows = agentAccess?.clientSkills ?? [];
   const mcpConfigRows = agentAccess?.mcpConfigs ?? [];
   const clientSkillReady =
     clientSkillRows.length > 0 && clientSkillRows.every((row) => row.installed && row.managed);
   const mcpConfigsReady = mcpConfigRows.length > 0 && mcpConfigRows.every((row) => row.configured);
   const readyChecks = [
-    cliAvailable,
+    cliInstalled,
     doctor?.ok === true,
     doctor?.ok ? doctor.data.checks.every((check) => check.ok) : false,
     skillInstalled,
@@ -495,7 +499,7 @@ export function ExternalAISettings() {
   const needsProfileConfirmation = mcpProfile !== "readonly";
   const profileAccessConfirmed = !needsProfileConfirmation || profileRiskConfirmed;
   const canCopySkillInstallPrompt = profileAccessConfirmed;
-  const canCopyMcpConfig = cliAvailable && profileAccessConfirmed;
+  const canCopyMcpConfig = cliInstalled && profileAccessConfirmed;
   const mcpConfig = useMemo(() => createMcpConfig(mcpProfile, mcpClient), [mcpClient, mcpProfile]);
   const mcpClientLabels = useMemo<Record<McpClient, string>>(
     () => ({
@@ -532,9 +536,11 @@ export function ExternalAISettings() {
         {
           generatedAt: new Date().toISOString(),
           cli: {
-            available: cliAvailable,
+            runtimeAvailable: cliRuntimeAvailable,
+            installed: cliInstalled,
             version: cliVersion || null,
             source: lastActionResult?.command_source ?? versionResult?.command_source ?? null,
+            shim: cliShim ?? null,
           },
           doctor: doctor?.ok ? doctor.data : null,
           skill: skill?.ok ? skill.data : null,
@@ -560,7 +566,9 @@ export function ExternalAISettings() {
         2,
       ),
     [
-      cliAvailable,
+      cliRuntimeAvailable,
+      cliInstalled,
+      cliShim,
       cliVersion,
       doctor,
       lastActionResult,
@@ -769,9 +777,9 @@ export function ExternalAISettings() {
           {compactStatusItem(
             t("settings.externalAiSettings.labels.cli"),
             statusLabel(
-              cliAvailable,
-              t("settings.externalAiSettings.status.available"),
-              t("settings.externalAiSettings.status.missing"),
+              cliInstalled,
+              t("settings.externalAiSettings.status.installed"),
+              t("settings.externalAiSettings.status.notInstalled"),
             ),
           )}
           {compactStatusItem(
@@ -952,8 +960,8 @@ export function ExternalAISettings() {
                 {t("settings.externalAiSettings.cli.title")}
               </h2>
               {statusLabel(
-                cliAvailable,
-                t("settings.externalAiSettings.status.available"),
+                cliInstalled,
+                t("settings.externalAiSettings.status.installed"),
                 t("settings.externalAiSettings.status.notDetected"),
               )}
             </div>
