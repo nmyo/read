@@ -197,7 +197,7 @@ app.post("/api/db/execute", (req, res) => {
 // ==================== SPA FALLBACK ====================
 
 if (fs.existsSync(DIST_DIR)) {
-  app.get("*", (_req, res) => {
+  app.get("/{*path}", (_req, res) => {
     res.sendFile(path.join(DIST_DIR, "index.html"));
   });
 }
