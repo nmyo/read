@@ -81,63 +81,42 @@ export function HomePage() {
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [detailsBookId, setDetailsBookId] = useState<string | null>(null);
   const detailsBook = detailsBookId ? books.find(b => b.id === detailsBookId) ?? null : null;
-  const handleShowDetails = useCallback((bookId: string) => setDetailsBookId(bookId), []);
+  const handleShowDetails = useCallback((book: Book) => setDetailsBookId(book.id), []);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
   const lastDropTime = useRef(0);
   const tRef = useRef(t);
   tRef.current = t;
 
-  // Use Tauri's native drag-drop event (HTML5 dataTransfer.files doesn't have paths in Tauri v2)
-  // Register ONCE — use refs to avoid re-subscribing on every render
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-
-    (async () => {
-      try {
-        const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-        const webview = getCurrentWebview();
-        unlisten = await webview.onDragDropEvent((event) => {
-          if (event.payload.type === "over") {
-            setIsDragOver(true);
-          } else if (event.payload.type === "leave") {
-            setIsDragOver(false);
-          } else if (event.payload.type === "drop") {
-            setIsDragOver(false);
-            // Guard against duplicate drop events firing within 2s
-            const now = Date.now();
-            if (now - lastDropTime.current < 2000) return;
-            lastDropTime.current = now;
-
-            const paths = (event.payload.paths || []).filter((p: string) => {
-              const ext = p.split(".").pop()?.toLowerCase() || "";
-              return SUPPORTED_EXTS.has(ext);
-            });
-            if (paths.length > 0) {
-              importBooksRef.current(paths).then((result) => {
-                toast.success(
-                  tRef.current("library.importResultSummary", {
-                    imported: result.imported.length,
-                    skipped: result.skippedDuplicates.length,
-                    failed: result.failures.length,
-                  }),
-                );
-              });
-            }
-          }
-        });
-      } catch {
-        // Not in Tauri environment (browser dev mode) — HTML5 fallback handled below
-      }
-    })();
-
-    return () => {
-      unlisten?.();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — refs keep values fresh
 
 
   const hasSearch = filter.search.trim().length > 0;
+
+  const filtered = useMemo(() => {
+    let result = books.filter((b) => {
+      if (activeTag === "__uncategorized__") {
+        if (b.tags.length > 0) return false;
+      } else if (activeTag && !b.tags.includes(activeTag)) {
+        return false;
+      }
+      if (activeGroupId && b.groupId !== activeGroupId) {
+        return false;
+      }
+      if (filter.search) {
+        const q = filter.search.toLowerCase();
+        if (!b.title.toLowerCase().includes(q) && !b.author?.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+    result.sort((a, b) => {
+      const field = filter.sortField;
+      const order = filter.sortOrder === "asc" ? 1 : -1;
+      if (field === "title") return order * a.title.localeCompare(b.title);
+      if (field === "author") return order * (a.author || "").localeCompare(b.author || "");
+      return 0;
+    });
+    return result;
+  }, [books, activeTag, activeGroupId, filter.search, filter.sortField, filter.sortOrder]);
 
   const groupedEntries = useMemo(() => {
     if (hasSearch) return [];
@@ -297,14 +276,6 @@ export function HomePage() {
       onDrop={handleFileDrop}
     >
       {/* Drop overlay */}
-      {isDragOver && (
-        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2">
-            <Plus className="size-10 text-primary" />
-            <p className="text-sm font-medium text-primary">{t("home.dropToUpload")}</p>
-          </div>
-        </div>
-      )}
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between px-6 pt-5 pb-2">
         {selectionMode ? (
