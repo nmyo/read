@@ -12,7 +12,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { LogIn, LogOut, User, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 interface UserInfo {
@@ -22,7 +21,6 @@ interface UserInfo {
 }
 
 export function UserMenu() {
-  const { t } = useTranslation();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
@@ -147,7 +145,7 @@ export function UserMenu() {
           <Button
             size="sm"
             className="flex-1"
-            onClick={showLogin ? handleLogin() : handleRegister()}
+            onClick={() => { showLogin ? handleLogin() : handleRegister(); }}
             disabled={loading}
           >
             {loading ? "处理中..." : showLogin ? "登录" : "注册"}

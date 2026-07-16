@@ -30,6 +30,7 @@ const TAB_KEYS: Record<SettingsTab, string> = {
   general: "settings.general",
   reading: "settings.reading",
   fonts: "settings.fonts",
+  sync: "settings.sync",
   feedback: "feedback.title",
   about: "settings.about",
 };

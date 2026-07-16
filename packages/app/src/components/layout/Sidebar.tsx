@@ -19,9 +19,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { UserMenu } from "@/components/user/UserMenu";
-import { useTranslation } from "react-i18next";
 
 interface NavItem {
   tabType: "home";
@@ -35,8 +34,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function HomeSidebar() {
-  const { t, i18n } = useTranslation();
-  const { activeTabId, setActiveTab, addTab } = useAppStore();
+  const { activeTabId, setActiveTab } = useAppStore();
   const {
     filter,
     setFilter,
@@ -44,7 +42,6 @@ export function HomeSidebar() {
     activeTag,
     activeGroupId,
     groups,
-    isLoaded: libraryLoaded,
     setActiveTag,
     setActiveGroupId,
     addTag,
@@ -67,7 +64,7 @@ export function HomeSidebar() {
   const activeTab = useAppStore((s) => s.tabs.find((t) => t.id === activeTabId));
   const activeType = activeTab?.type ?? "home";
 
-  const handleNavClick = (tabType: "home") => {
+  const handleNavClick = () => {
     setActiveTab("home");
   };
 
