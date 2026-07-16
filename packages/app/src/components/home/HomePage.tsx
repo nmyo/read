@@ -14,16 +14,14 @@ import {
   FolderMinus,
   Hash,
   Layers,
-  Loader2,
   MoreHorizontal,
   Plus,
   SortAsc,
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { BookCard } from "./BookCard";
 import { BookDetailsDialog } from "./BookDetailsDialog";
 import { BookGrid } from "./BookGrid";
@@ -37,18 +35,6 @@ const SORT_OPTIONS: { field: SortField; labelKey: string }[] = [
   { field: "progress", labelKey: "library.sortProgress" },
 ];
 
-const SUPPORTED_EXTS = new Set([
-  "epub",
-  "pdf",
-  "mobi",
-  "azw",
-  "azw3",
-  "fb2",
-  "fbz",
-  "txt",
-  "umd",
-  "cbz",
-]);
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -59,7 +45,6 @@ export function HomePage() {
     activeTag,
     activeGroupId,
     isGroupView,
-    isImporting,
     removeBook,
     addTagToBook,
     addTag,
@@ -84,10 +69,8 @@ export function HomePage() {
   const handleShowDetails = useCallback((book: Book) => setDetailsBookId(book.id), []);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
-  const lastDropTime = useRef(0);
   const tRef = useRef(t);
   tRef.current = t;
-
 
 
   const hasSearch = filter.search.trim().length > 0;
@@ -104,15 +87,15 @@ export function HomePage() {
       }
       if (filter.search) {
         const q = filter.search.toLowerCase();
-        if (!b.title.toLowerCase().includes(q) && !b.author?.toLowerCase().includes(q)) return false;
+        if (!b.meta.title.toLowerCase().includes(q) && !b.meta.author?.toLowerCase().includes(q)) return false;
       }
       return true;
     });
     result.sort((a, b) => {
       const field = filter.sortField;
       const order = filter.sortOrder === "asc" ? 1 : -1;
-      if (field === "title") return order * a.title.localeCompare(b.title);
-      if (field === "author") return order * (a.author || "").localeCompare(b.author || "");
+      if (field === "title") return order * a.meta.title.localeCompare(b.meta.title);
+      if (field === "author") return order * (a.meta.author || "").localeCompare(b.meta.author || "");
       return 0;
     });
     return result;
@@ -273,7 +256,6 @@ export function HomePage() {
     <div
       className="relative flex h-full flex-col"
       onDragOver={(e) => e.preventDefault()}
-      onDrop={handleFileDrop}
     >
       {/* Drop overlay */}
       {/* Header */}
@@ -409,8 +391,8 @@ export function HomePage() {
                 </button>
               )}
               <h1 className="text-3xl font-bold text-foreground">
-                {activeGroup
-                  ? activeGroup.name
+                {activeGroupId
+                  ? groups.find(g => g.id === activeGroupId)?.name
                   : activeTag === "__uncategorized__"
                     ? t("sidebar.uncategorized")
                     : activeTag || t("home.library")}
@@ -439,7 +421,7 @@ export function HomePage() {
                           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10"
                           onClick={() => {
                             setShowGroupMenu(false);
-                            handleDeleteGroup(activeGroup);
+                            const g = groups.find(g => g.id === activeGroupId); if (g) handleDeleteGroup(g);
                           }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
