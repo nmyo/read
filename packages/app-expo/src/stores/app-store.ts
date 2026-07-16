@@ -23,7 +23,6 @@ export type SettingsTab =
   | "reading"
   | "ai"
   | "vectorModel"
-  | "tts"
   | "translation"
   | "sync"
   | "about";

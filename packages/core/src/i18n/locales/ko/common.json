@@ -28,7 +28,6 @@
     "less": "접기",
     "more": "더보기",
     "success": "성공!",
-    "failed": "실패",
     "testing": "테스트 중...",
     "minutes": "분",
     "hours": "시간",
@@ -50,7 +49,6 @@
     "library": "서재",
     "chat": "채팅",
     "notes": "노트",
-    "skills": "스킬",
     "allBooks": "전체 책",
     "uncategorized": "미분류",
     "addTag": "새 태그",
@@ -64,7 +62,6 @@
   },
   "tabs": {
     "library": "서재",
-    "ai": "AI",
     "notes": "노트",
     "profile": "내 정보"
   },

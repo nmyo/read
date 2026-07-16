@@ -43,14 +43,6 @@ export {
   getReadingSessionsByDateRange,
   insertReadingSession,
   updateReadingSession,
-  getChunks,
-  insertChunks,
-  deleteChunks,
-  getSkills,
-  insertSkill,
-  upsertSkill,
-  updateSkill,
-  deleteSkill,
 } from "@readany/core/db/database";
 
 export type { HighlightWithBook } from "@readany/core/db/database";

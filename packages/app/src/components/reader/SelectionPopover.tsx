@@ -4,7 +4,6 @@ import { cn } from "@readany/core/utils";
 import {
   Check,
   Copy,
-  Headphones,
   Highlighter,
   Languages,
   NotebookPen,
@@ -30,7 +29,6 @@ interface SelectionPopoverProps {
   onCopy: () => void;
   onTranslate: () => void;
   onAskAI: () => void;
-  onSpeak: () => void;
   onClose: () => void;
 }
 
@@ -49,7 +47,6 @@ export function SelectionPopover({
   onCopy,
   onTranslate,
   onAskAI,
-  onSpeak,
   onClose,
 }: SelectionPopoverProps) {
   const { t } = useTranslation();
@@ -92,7 +89,6 @@ export function SelectionPopover({
     { icon: Copy, label: t("common.copy"), onClick: onCopy },
     { icon: Languages, label: t("reader.translate"), onClick: onTranslate },
     { icon: Sparkles, label: t("reader.askAI"), onClick: onAskAI },
-    { icon: Headphones, label: t("tts.speakSelection"), onClick: onSpeak },
     ...(annotated
       ? [
           {

@@ -68,17 +68,7 @@ export {
   getReadingSessionsByDateRange,
   insertReadingSession,
   updateReadingSession,
-  // Chunk queries
-  getChunks,
-  insertChunks,
-  deleteChunks,
-  clearVectorizationFlagsWithoutLocalChunks,
-  // Skill queries
-  getSkills,
-  insertSkill,
-  upsertSkill,
-  updateSkill,
-  deleteSkill,
+
 } from "./database";
 
 export type { HighlightWithBook } from "./database";

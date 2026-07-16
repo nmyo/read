@@ -11,8 +11,6 @@ export type { NavigationHistoryItem, ReaderTab, ReaderState } from "./reader-sto
 export { useSettingsStore } from "./settings-store";
 export type { SettingsState } from "./settings-store";
 
-export { useTTSStore, setTTSPlayerFactories } from "./tts-store";
-export type { TTSPlayState, TTSState } from "./tts-store";
 
 export { useAnnotationStore } from "./annotation-store";
 export type { HighlightStats, AnnotationState } from "./annotation-store";
@@ -24,8 +22,5 @@ export { useLibraryStore } from "./library-store";
 
 export { useUpdateStore } from "./update-store";
 export type { UpdateState } from "./update-store";
-
-export { useVectorModelStore } from "./vector-model-store";
-export type { BuiltinModelStatus, BuiltinModelState, VectorModelState } from "./vector-model-store";
 
 export { debouncedSave, loadFromFS, flushAllWrites, withPersist } from "./persist";

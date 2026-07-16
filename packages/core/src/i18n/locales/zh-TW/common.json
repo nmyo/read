@@ -28,7 +28,6 @@
     "less": "少",
     "more": "多",
     "success": "成功！",
-    "failed": "失敗",
     "testing": "測試中...",
     "minutes": "分鐘",
     "hours": "小時",
@@ -50,7 +49,6 @@
     "library": "書庫",
     "chat": "對話",
     "notes": "筆記",
-    "skills": "技能",
     "allBooks": "全部書籍",
     "uncategorized": "未分類",
     "addTag": "新建標籤",
@@ -64,7 +62,6 @@
   },
   "tabs": {
     "library": "書庫",
-    "ai": "AI",
     "notes": "筆記",
     "profile": "我的"
   },

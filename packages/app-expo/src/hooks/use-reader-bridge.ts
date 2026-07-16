@@ -34,14 +34,14 @@ export interface BookmarkPullEvent {
   active: boolean;
 }
 
-export interface VisibleTTSSegment {
+export interface any {
   text: string;
   cfi: string;
 }
 
-export interface VisibleTTSContext {
-  before: VisibleTTSSegment[];
-  after: VisibleTTSSegment[];
+export interface any {
+  before: any[];
+  after: any[];
 }
 
 export interface ReaderInitialSettings {
@@ -87,25 +87,18 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
   const pendingVisibleTextResolveRef = useRef<((text: string) => void) | null>(null);
-  const pendingVisibleTTSSegmentsResolveRef = useRef(
-    new Map<string, (segments: VisibleTTSSegment[]) => void>(),
+  const pendinganysResolveRef = useRef(
+    new Map<string, (segments: any[]) => void>(),
   );
-  const lastTTSHighlightRef = useRef<{
-    cfi: string | null;
+  // TTS removed
     color: string | null;
   }>({
     cfi: null,
     color: null,
   });
-  const pendingTTSContextResolveRef = useRef(
-    new Map<string, (context: VisibleTTSContext) => void>(),
-  );
-  const pendingHrefTTSSegmentsResolveRef = useRef(
-    new Map<string, (segments: VisibleTTSSegment[]) => void>(),
-  );
-  const pendingSectionTTSSegmentsResolveRef = useRef(
-    new Map<string, (segments: VisibleTTSSegment[]) => void>(),
-  );
+  // TTS removed
+  // TTS removed
+  // TTS removed
   const pendingChapterParagraphsResolveRef = useRef<
     ((paragraphs: Array<{ id: string; text: string; tagName: string }>) => void) | null
   >(null);
@@ -345,19 +338,19 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
     });
   }, []);
 
-  const getVisibleTTSSegments = useCallback(
+  const getanys = useCallback(
     (alignCfi?: string | null) => {
-      return new Promise<VisibleTTSSegment[]>((resolve) => {
+      return new Promise<any[]>((resolve) => {
         const requestId = createRequestId("visible-tts");
-        pendingVisibleTTSSegmentsResolveRef.current.set(requestId, resolve);
+        pendinganysResolveRef.current.set(requestId, resolve);
 
         webViewRef.current?.injectJavaScript(`
         (function() {
           try {
-            if (window.doGetVisibleTTSSegments) {
-              window.doGetVisibleTTSSegments(${JSON.stringify(alignCfi || null)}, ${JSON.stringify(requestId)});
+            if (window.doGetanys) {
+              window.doGetanys(${JSON.stringify(alignCfi || null)}, ${JSON.stringify(requestId)});
             } else {
-              window.ReactNativeWebView.postMessage(JSON.stringify({type:'visibleTTSSegments',requestId:${JSON.stringify(requestId)},segments:[],error:'doGetVisibleTTSSegments not defined'}));
+              window.ReactNativeWebView.postMessage(JSON.stringify({type:'visibleTTSSegments',requestId:${JSON.stringify(requestId)},segments:[],error:'doGetanys not defined'}));
             }
           } catch(e) {
             window.ReactNativeWebView.postMessage(JSON.stringify({type:'visibleTTSSegments',requestId:${JSON.stringify(requestId)},segments:[],error:String(e)}));
@@ -367,9 +360,9 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       `);
 
         setTimeout(() => {
-          const pendingResolve = pendingVisibleTTSSegmentsResolveRef.current.get(requestId);
+          const pendingResolve = pendinganysResolveRef.current.get(requestId);
           if (pendingResolve === resolve) {
-            pendingVisibleTTSSegmentsResolveRef.current.delete(requestId);
+            pendinganysResolveRef.current.delete(requestId);
             resolve([]);
           }
         }, 4000);
@@ -380,7 +373,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
 
   const getTTSSegmentContext = useCallback(
     (cfi: string, before = 10, after = 10) => {
-      return new Promise<VisibleTTSContext>((resolve) => {
+      return new Promise<any>((resolve) => {
         const requestId = createRequestId("tts-context");
         pendingTTSContextResolveRef.current.set(requestId, resolve);
 
@@ -413,7 +406,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
 
   const getHrefTTSSegments = useCallback(
     (href: string, count = 24) => {
-      return new Promise<VisibleTTSSegment[]>((resolve) => {
+      return new Promise<any[]>((resolve) => {
         const requestId = createRequestId("href-tts");
         pendingHrefTTSSegmentsResolveRef.current.set(requestId, resolve);
 
@@ -446,7 +439,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
 
   const getSectionTTSSegments = useCallback(
     (sectionIndex: number, count = 24) => {
-      return new Promise<VisibleTTSSegment[]>((resolve) => {
+      return new Promise<any[]>((resolve) => {
         const requestId = createRequestId("section-tts");
         pendingSectionTTSSegmentsResolveRef.current.set(requestId, resolve);
 
@@ -784,17 +777,17 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
               }
               const requestId = typeof msg.requestId === "string" ? msg.requestId : null;
               const pendingResolve = requestId
-                ? pendingVisibleTTSSegmentsResolveRef.current.get(requestId)
-                : pendingVisibleTTSSegmentsResolveRef.current.values().next().value;
+                ? pendinganysResolveRef.current.get(requestId)
+                : pendinganysResolveRef.current.values().next().value;
               if (pendingResolve) {
                 if (msg.error) {
                   console.warn("[ReaderBridge] visibleTTSSegments error:", msg.error);
                 }
                 pendingResolve(msg.segments || []);
                 if (requestId) {
-                  pendingVisibleTTSSegmentsResolveRef.current.delete(requestId);
+                  pendinganysResolveRef.current.delete(requestId);
                 } else {
-                  pendingVisibleTTSSegmentsResolveRef.current.clear();
+                  pendinganysResolveRef.current.clear();
                 }
               }
             }
@@ -937,7 +930,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       setBookmarkPullState,
       requestPageSnippet,
       getVisibleText,
-      getVisibleTTSSegments,
+      getanys,
       getTTSSegmentContext,
       getHrefTTSSegments,
       getSectionTTSSegments,
@@ -973,7 +966,7 @@ export function useReaderBridge(callbacks: ReaderBridgeCallbacks) {
       setBookmarkPullState,
       requestPageSnippet,
       getVisibleText,
-      getVisibleTTSSegments,
+      getanys,
       getTTSSegmentContext,
       getHrefTTSSegments,
       getSectionTTSSegments,

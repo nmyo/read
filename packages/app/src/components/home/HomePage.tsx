@@ -4,7 +4,6 @@
 import { DesktopImportActions } from "@/components/home/DesktopImportActions";
 import { GroupPickerPopover } from "@/components/home/GroupPickerPopover";
 import { SyncButton } from "@/components/ui/SyncButton";
-import { triggerVectorizeBook } from "@/lib/rag/vectorize-trigger";
 import { useLibraryStore } from "@/stores/library-store";
 import type { Book, BookGroup, SortField } from "@readany/core/types";
 import {
@@ -354,8 +353,8 @@ export function HomePage() {
   const handleBatchVectorize = useCallback(async () => {
     if (selectedBookIds.size === 0) return;
     const selectedBooks = books.filter((b) => selectedBookIds.has(b.id));
-    for (const book of selectedBooks) {
-      triggerVectorizeBook(book.id, book.filePath);
+    for (const _book of selectedBooks) {
+      // AI feature removed
     }
     exitSelectionMode();
   }, [selectedBookIds, books, exitSelectionMode]);

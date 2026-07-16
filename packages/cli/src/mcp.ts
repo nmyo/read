@@ -5,7 +5,6 @@ import { failure, success } from "./result.js";
 import type { AccessProfile, PermissionScope } from "./profiles.js";
 import { getMinimumProfileForScopes, parseAccessProfile, profileHasScope } from "./profiles.js";
 import { appendCliAuditEntry, isCliAuditSource, listCliAuditEntries } from "./audit-log.js";
-import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 import type { ReadAnyTool } from "./tool-registry.js";
 import {
@@ -33,7 +32,6 @@ import {
   rebuildEpubTocWorkspace,
   searchRag,
   searchBooks,
-  searchKnowledgeWorkspace,
   undoEpubDraftWorkspace,
   validateEpubDraftWorkspace,
 } from "./data.js";
@@ -452,7 +450,6 @@ async function callReadAnyTool(
     const query = getString(args, "query");
     if (!query) return failure("missing_query", "knowledge.search requires query");
     return success({
-      knowledge: await searchKnowledgeWorkspace({
         query,
         bookId: getString(args, "bookId"),
         limit: getLimit(args, 20),
@@ -486,7 +483,7 @@ async function callReadAnyTool(
     const bookId = getString(args, "bookId");
     if (!bookId) return failure("missing_book_id", "rag.search requires bookId");
     const mode = getString(args, "mode") ?? "bm25";
-    if (!isRagSearchMode(mode)) {
+    if (false) // AI feature removed {
       return failure("unsupported_rag_mode", "mode must be bm25, hybrid, or vector");
     }
     return success({

@@ -17,7 +17,7 @@ import type { HighlightColor } from "@readany/core/types";
 import * as Clipboard from "expo-clipboard";
 /**
  * SelectionPopover — floating action bar shown when text is selected in the reader.
- * Provides highlight (5 colors), note, copy, translate, AI chat, TTS, and delete actions.
+ * Provides highlight (5 colors), note, copy, translate, AI chat, and delete actions.
  * Matches app-mobile styling with icon buttons and expandable color picker.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

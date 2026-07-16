@@ -99,17 +99,3 @@ export {
   updateReadingSession,
 } from "./session-queries";
 
-export {
-  getChunks,
-  insertChunks,
-  deleteChunks,
-  clearVectorizationFlagsWithoutLocalChunks,
-} from "./chunk-queries";
-
-export {
-  getSkills,
-  insertSkill,
-  upsertSkill,
-  updateSkill,
-  deleteSkill,
-} from "./skill-queries";

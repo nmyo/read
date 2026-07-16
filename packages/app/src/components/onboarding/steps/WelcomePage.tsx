@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@readany/core/stores/settings-store";
-import { Bot, Languages, Search } from "lucide-react";
+import { BookOpen, BarChart3, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { OnboardingLayout } from "../OnboardingLayout";
@@ -15,19 +15,19 @@ export function WelcomePage({ onNext, onPrev: _onPrev, step, totalSteps }: any) 
 
   const features = [
     {
-      icon: <Bot className="h-6 w-6 text-indigo-500" />,
-      title: t("onboarding.welcome.ai", "AI Co-pilot"),
-      desc: t("onboarding.welcome.aiDesc", "Discuss books naturally with AI"),
+      icon: <BookOpen className="h-6 w-6 text-indigo-500" />,
+      title: t("onboarding.welcome.multiFormat", "Multi-Format Support"),
+      desc: t("onboarding.welcome.multiFormatDesc", "EPUB, PDF, MOBI and more"),
     },
     {
       icon: <Search className="h-6 w-6 text-emerald-500" />,
-      title: t("onboarding.welcome.search", "Smart Search"),
-      desc: t("onboarding.welcome.searchDesc", "Semantic knowledge retrieval"),
+      title: t("onboarding.welcome.notes", "Notes & Highlights"),
+      desc: t("onboarding.welcome.notesDesc", "Annotate and export your thoughts"),
     },
     {
-      icon: <Languages className="h-6 w-6 text-rose-500" />,
-      title: t("onboarding.welcome.translate", "Instant Translation"),
-      desc: t("onboarding.welcome.translateDesc", "Seamless bilingual reading"),
+      icon: <BarChart3 className="h-6 w-6 text-rose-500" />,
+      title: t("onboarding.welcome.stats", "Reading Statistics"),
+      desc: t("onboarding.welcome.statsDesc", "Track your reading habits and progress"),
     },
   ];
 

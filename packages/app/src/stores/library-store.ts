@@ -1,5 +1,4 @@
 import * as db from "@/lib/db/database";
-import { triggerVectorizeBook } from "@/lib/rag/vectorize-trigger";
 import {
   getDesktopLibraryRoot,
   isDesktopManagedRelativePath,
@@ -12,7 +11,6 @@ import {
   findDuplicateBookByHash,
 } from "@readany/core";
 import { debouncedSave, loadFromFS } from "@readany/core/stores/persist";
-import { useVectorModelStore } from "@readany/core/stores/vector-model-store";
 import type { Book, BookGroup, LibraryFilter, SortField, SortOrder } from "@readany/core/types";
 import { create } from "zustand";
 
@@ -1110,23 +1108,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             duplicateIndex.byHash.set(fileHash, book);
           }
 
-          // Auto-vectorize if enabled
-          const vmState = useVectorModelStore.getState();
-          if (
-            vmState.autoVectorizeOnImport &&
-            vmState.vectorModelEnabled &&
-            vmState.hasVectorCapability()
-          ) {
-            triggerVectorizeBook(book.id, relativePath, (progress) => {
-              // Update book's vectorizeProgress so BookCard can show it
-              const pct = progress.totalChunks > 0
-                ? progress.processedChunks / progress.totalChunks
-                : 0;
-              get().updateBook(book.id, { vectorizeProgress: pct });
-            }).catch((err) => {
-              console.warn(`[importBooks] Auto-vectorize failed for ${title}:`, err);
-            });
-          }
+          // Auto-vectorize removed (AI feature)
         } catch (err) {
           console.error(`Failed to import ${filePath}:`, err);
           result.failures.push({

@@ -3,7 +3,6 @@ import {
   extractBookMetadata,
   extractBookMetadataFromFile,
 } from "@/lib/book/metadata-extractor";
-import { queueBook as queueAutoVectorize } from "@/lib/rag/auto-vectorize-service";
 import {
   type ImportBooksResult,
   createEmptyImportBooksResult,
@@ -17,7 +16,6 @@ import type { Book, BookGroup, LibraryFilter, SortField, SortOrder } from "@read
 import { generateId } from "@readany/core/utils";
 import { create } from "zustand";
 import { debouncedSave, loadFromFS } from "./persist";
-import { useVectorModelStore } from "./vector-model-store";
 
 // Hermes (React Native) only supports UTF-8 in TextDecoder.
 // text-encoding polyfill detects the native TextDecoder and skips installing
@@ -994,7 +992,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               // Auto-vectorize if enabled. Keep failures isolated so a
               // successful import doesn't get reported as a failed import.
               try {
-                const vmState = useVectorModelStore.getState();
+                const vmState = { hasVectorCapability: false };
                 if (
                   vmState.autoVectorizeOnImport &&
                   vmState.vectorModelEnabled &&
@@ -1002,7 +1000,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                   shouldAutoVectorizeMobile("txt")
                 ) {
                   const base64 = bytesToBase64(conversion.epubBytes);
-                  queueAutoVectorize(book, base64, "application/epub+zip");
+                  // AI feature removed
                 }
               } catch (autoVectorizeErr) {
                 console.warn(
@@ -1115,7 +1113,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               console.log(`[importBooks] UMD imported as EPUB: ${title}`);
 
               try {
-                const vmState = useVectorModelStore.getState();
+                const vmState = { hasVectorCapability: false };
                 if (
                   vmState.autoVectorizeOnImport &&
                   vmState.vectorModelEnabled &&
@@ -1123,7 +1121,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                   shouldAutoVectorizeMobile("umd")
                 ) {
                   const base64 = bytesToBase64(conversion.epubBytes);
-                  queueAutoVectorize(book, base64, "application/epub+zip");
+                  // AI feature removed
                 }
               } catch (autoVectorizeErr) {
                 console.warn(
@@ -1234,7 +1232,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           // Auto-vectorize if enabled. Keep failures isolated so a
           // successful import doesn't get reported as a failed import.
           try {
-            const vmState = useVectorModelStore.getState();
+            const vmState = { hasVectorCapability: false };
             if (
               vmState.autoVectorizeOnImport &&
               vmState.vectorModelEnabled &&
@@ -1256,7 +1254,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                 txt: "text/plain",
               };
               const mimeType = mimeTypes[format] || "application/epub+zip";
-              queueAutoVectorize(book, base64, mimeType);
+              // AI feature removed
             } else if (vmState.autoVectorizeOnImport && vmState.vectorModelEnabled) {
               console.warn(
                 `[importBooks] Skip auto-vectorize for unsupported mobile import: ${fileName} (${fileSize} bytes, format=${format})`,

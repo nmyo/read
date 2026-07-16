@@ -32,7 +32,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AnimatedSplash } from "@/components/splash/AnimatedSplash";
 import { rnSessionEventSource } from "@/hooks";
-import { setStreamingFetch } from "@readany/core/ai/llm-provider";
+
 import { initDatabase } from "@readany/core/db/database";
 import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
 import { setSessionEventSource } from "@readany/core/hooks/use-reading-session";
@@ -48,7 +48,6 @@ import TrackPlayer, {
   Capability,
 } from "react-native-track-player";
 
-import { FloatingTTSBubble } from "@/components/tts/FloatingTTSBubble";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { useUpdateChecker } from "@/hooks/use-update-checker";
 import { navigationRef } from "@/lib/navigationRef";
@@ -110,7 +109,7 @@ export default function App() {
 
         console.log("[App] bootstrap: import expo/fetch");
         const { fetch: expoFetch } = await import("expo/fetch");
-        setStreamingFetch(expoFetch as typeof globalThis.fetch);
+        // expoFetch available if needed in future
 
         console.log("[App] bootstrap: configure audio mode");
         await Audio.setAudioModeAsync({
@@ -156,26 +155,19 @@ export default function App() {
           ],
         });
 
-        // Remote event → TTS store bridge
-        const { useTTSStore: ttsStore } = await import("@/stores/tts-store");
         TrackPlayer.addEventListener(TrackEvent.RemotePlay, () => {
-          ttsStore.getState().resume();
         });
         TrackPlayer.addEventListener(TrackEvent.RemotePause, () => {
-          ttsStore.getState().pause();
         });
         TrackPlayer.addEventListener(TrackEvent.RemoteStop, () => {
-          ttsStore.getState().stop();
         });
         TrackPlayer.addEventListener(TrackEvent.RemoteNext, () => {
-          const { jumpToChunk, currentChunkIndex, totalChunks } = ttsStore.getState();
           const nextIndex = currentChunkIndex + 1;
           if (nextIndex < totalChunks) {
             jumpToChunk(nextIndex);
           }
         });
         TrackPlayer.addEventListener(TrackEvent.RemotePrevious, () => {
-          const { jumpToChunk, currentChunkIndex } = ttsStore.getState();
           const prevIndex = currentChunkIndex - 1;
           if (prevIndex >= 0) {
             jumpToChunk(prevIndex);
@@ -280,7 +272,6 @@ function AppInner() {
           <RootNavigator />
         </NavigationContainer>
         <UpdateDialog />
-        <FloatingTTSBubble />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

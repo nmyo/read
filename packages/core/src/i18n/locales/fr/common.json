@@ -28,7 +28,6 @@
     "less": "Moins",
     "more": "Plus",
     "success": "Réussi !",
-    "failed": "Échoué",
     "testing": "Test en cours...",
     "minutes": "minutes",
     "hours": "heures",
@@ -50,7 +49,6 @@
     "library": "Bibliothèque",
     "chat": "Chat",
     "notes": "Notes",
-    "skills": "Compétences",
     "allBooks": "Tous les livres",
     "uncategorized": "Non classé",
     "addTag": "Nouveau tag",
@@ -64,7 +62,6 @@
   },
   "tabs": {
     "library": "Bibliothèque",
-    "ai": "IA",
     "notes": "Notes",
     "profile": "Moi"
   },

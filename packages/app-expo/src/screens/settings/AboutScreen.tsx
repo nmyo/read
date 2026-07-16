@@ -93,7 +93,7 @@ export default function AboutScreen() {
             <Text style={styles.appName}>ReadAny</Text>
             <Text style={styles.version}>v{version}</Text>
             <Text style={styles.desc}>
-              {t("about.desc", "一个跨平台的智能电子书阅读器，支持 AI 对话、TTS 朗读、多语言翻译")}
+              {t("about.desc", "一个跨平台的电子书阅读器")}
             </Text>
           </View>
 

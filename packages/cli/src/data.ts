@@ -44,13 +44,8 @@ import { rebuildEpubTocInDraft } from "@readany/core/epub/toc";
 import { validateEpubDraft } from "@readany/core/epub/validate";
 import { exportBookNotes } from "@readany/core/export/notes-export";
 import type { ExportFormat } from "@readany/core/export/annotation-exporter";
-import {
-  exportKnowledgeLibrary,
-  type KnowledgeExportFormat,
-} from "@readany/core/export/knowledge-export";
-import { searchKnowledge, type KnowledgeSearchResult } from "@readany/core/knowledge/search";
+
 import { createNodePlatformService } from "./platform/node-platform.js";
-import { configureRagSearchForCli } from "./rag-config.js";
 
 let initialized = false;
 let initializedHome: string | undefined;
@@ -510,37 +505,20 @@ export async function exportBookNotesWorkspace(options: {
 
 export async function exportKnowledgeWorkspace(options: {
   outputPath: string;
-  format?: KnowledgeExportFormat;
+  format?: string;
   overwrite?: boolean;
   includeBooks?: boolean;
   includeNotes?: boolean;
   includeHighlights?: boolean;
   limit?: number;
   env?: NodeJS.ProcessEnv;
-}): Promise<import("@readany/core/export/knowledge-export").KnowledgeExportResult> {
-  const {
-    outputPath,
-    format,
-    overwrite,
-    includeBooks,
-    includeNotes,
-    includeHighlights,
-    limit,
-    env = process.env,
-  } = options;
-  await ensureCoreInitialized(env);
-  return exportKnowledgeLibrary({
-    outputPath,
-    format,
-    overwrite,
-    includeBooks,
-    includeNotes,
-    includeHighlights,
-    limit,
-  });
+}): Promise<{ success: false; error: string }> {
+  return { success: false, error: "Knowledge export is not available." };
 }
 
-export async function searchKnowledgeWorkspace(options: {
+export type KnowledgeSearchResult = { results: unknown[]; error?: string };
+
+export async function searchKnowledgeWorkspace(_options: {
   query: string;
   bookId?: string;
   limit?: number;
@@ -551,28 +529,7 @@ export async function searchKnowledgeWorkspace(options: {
   includeHighlights?: boolean;
   env?: NodeJS.ProcessEnv;
 }): Promise<KnowledgeSearchResult> {
-  const {
-    query,
-    bookId,
-    limit,
-    contentLimit,
-    scanLimit,
-    includeBooks,
-    includeNotes,
-    includeHighlights,
-    env = process.env,
-  } = options;
-  await ensureCoreInitialized(env);
-  return searchKnowledge({
-    query,
-    bookId,
-    limit,
-    contentLimit,
-    scanLimit,
-    includeBooks,
-    includeNotes,
-    includeHighlights,
-  });
+  return { results: [], error: "Knowledge search is not available." };
 }
 
 export type ChapterListOptions = {
@@ -892,7 +849,7 @@ export async function searchRag(options: RagSearchOptions): Promise<RagSearchIte
   const { query, bookId, mode = "bm25", limit, contentLimit, env = process.env } = options;
 
   await ensureCoreInitialized(env);
-  await configureRagSearchForCli(mode, env);
+  // AI feature removed
   const { search } = await import("@readany/core/rag");
   const results = await search({
     query,

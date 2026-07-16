@@ -18,7 +18,6 @@ import { describe, expect, it } from "vitest";
 import { getAuditLogFilePath } from "./audit-log.js";
 import { parseCommand, runCommand } from "./commands.js";
 import { ensureCoreInitialized, resetCoreForTests } from "./data.js";
-import { createSkillContent } from "./skill.js";
 
 const encoder = new TextEncoder();
 

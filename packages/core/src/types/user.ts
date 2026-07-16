@@ -19,10 +19,4 @@ export interface UserProfile {
   createdAt: number;
 }
 
-// Translation types moved to types/translation.ts
-export type {
-  TranslationConfig,
-  TranslationProvider,
-  TranslationTargetLang,
-  TranslatorName,
-} from "./translation";
+

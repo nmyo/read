@@ -37,11 +37,8 @@ export type { FontState } from "./font-store";
 export { useSettingsStore } from "./settings-store";
 export type { SettingsState } from "./settings-store";
 
-export { useVectorModelStore } from "./vector-model-store";
-export type { BuiltinModelStatus, BuiltinModelState, VectorModelState } from "./vector-model-store";
 
-export { useTTSStore, setTTSPlayerFactories } from "./tts-store";
-export type { TTSPlayState, TTSState, TTSPlayerFactories } from "./tts-store";
+
 
 // DB stores (SQLite)
 export { useAnnotationStore } from "./annotation-store";

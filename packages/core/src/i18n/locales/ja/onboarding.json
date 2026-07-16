@@ -27,11 +27,6 @@
       "translateDesc": "シームレスな並列表示での読書",
       "start": "体験を始める"
     },
-    "ai": {
-      "title": "AI設定",
-      "desc": "AIプロバイダーを設定して、スマートな対話と要約を有効にします。",
-      "test": "接続テスト"
-    },
     "appearance": {
       "title": "外観と言語",
       "desc": "ReadAnyの表示言語とテーマを選択します。"
@@ -39,25 +34,6 @@
     "sync": {
       "title": "クラウド同期",
       "desc": "WebDAVで読書進捗をデバイス間で完璧に同期します。"
-    },
-    "translation": {
-      "title": "翻訳エンジン",
-      "desc": "シームレスなバイリンガル読書のための翻訳エンジンを設定します。",
-      "aiProvider": "AI翻訳",
-      "aiProviderDesc": "無料",
-      "deeplProviderName": "DeepL Pro",
-      "deeplDesc": "プレミアム",
-      "apiKeyPlaceholder": "DeepL APIキーを入力"
-    },
-    "embedding": {
-      "title": "スマート検索",
-      "desc": "ベクトルモデルを設定して強力なセマンティック検索を有効にします",
-      "localMode": "ローカル組み込みモード",
-      "localDesc": "デバイス上で完全にオフラインで実行",
-      "remoteMode": "リモートAPIモード",
-      "remoteDesc": "設定済みのサーバーサイド計算を使用",
-      "remoteInfo": "リモートAPI設定",
-      "remoteInfoDesc": "リモートモードは設定済みのAIプロバイダーの埋め込みAPIを使用します。前のステップでAIプロバイダーが設定されていることを確認してください。"
     },
     "complete": {
       "title": "準備完了！",
@@ -81,10 +57,6 @@
     "bookList": {
       "title": "あなたのライブラリ",
       "desc": "インポートしたすべての本がここに表示されます。本をクリックして読書を始めましょう。"
-    },
-    "vectorize": {
-      "title": "スマートベクトル化",
-      "desc": "強力なAI検索とチャットのためのセマンティックインデックスを構築します。"
     },
     "settings": {
       "title": "設定",

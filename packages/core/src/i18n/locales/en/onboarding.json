@@ -27,11 +27,6 @@
       "translateDesc": "Seamless side-by-side reading",
       "start": "Start Experience"
     },
-    "ai": {
-      "title": "AI Configuration",
-      "desc": "Set up your AI provider to enable smart dialogue and summarization.",
-      "test": "Test Connection"
-    },
     "appearance": {
       "title": "Appearance & Language",
       "desc": "Choose ReadAny's display language and theme preferences."
@@ -39,25 +34,6 @@
     "sync": {
       "title": "Cloud Sync",
       "desc": "Keep your reading progress perfectly synced across devices via WebDAV."
-    },
-    "translation": {
-      "title": "Translation Engine",
-      "desc": "Configure your preferred translation engine for seamless bilingual reading.",
-      "aiProvider": "AI Translation",
-      "aiProviderDesc": "Free",
-      "deeplProviderName": "DeepL Pro",
-      "deeplDesc": "Premium",
-      "apiKeyPlaceholder": "Enter your DeepL API key"
-    },
-    "embedding": {
-      "title": "Smart Retrieval",
-      "desc": "Configure vector model to enable powerful semantic search",
-      "localMode": "Local Built-in Mode",
-      "localDesc": "Runs completely offline on your device",
-      "remoteMode": "Remote API Mode",
-      "remoteDesc": "Uses configured server-side computation",
-      "remoteInfo": "Remote API Configuration",
-      "remoteInfoDesc": "Remote mode uses the embedding API of your configured AI provider. Please ensure you have configured an AI provider in the previous step."
     },
     "complete": {
       "title": "You're All Set!",
@@ -81,10 +57,6 @@
     "bookList": {
       "title": "Your Library",
       "desc": "All your imported books will appear here. Click any book to start reading."
-    },
-    "vectorize": {
-      "title": "Smart Vectorization",
-      "desc": "Build a semantic index for powerful AI search and chat."
     },
     "settings": {
       "title": "Settings",

@@ -31,30 +31,6 @@
       "title": "外观与语言",
       "desc": "选择 ReadAny 的显示语言和主题偏好。"
     },
-    "ai": {
-      "title": "AI 配置",
-      "desc": "设置你的 AI 服务商以启用智能对话和总结功能。",
-      "test": "测试连接"
-    },
-    "embedding": {
-      "title": "智能检索",
-      "desc": "配置向量模型，启用强大的语义搜索能力",
-      "remoteMode": "远程 API 模式",
-      "remoteDesc": "使用已配置的服务端计算",
-      "remoteInfo": "远程 API 配置",
-      "remoteInfoDesc": "远程模式使用你配置的 AI 提供商的嵌入 API。请确保在上一步已配置好 AI 提供商。",
-      "localMode": "本地内置模式",
-      "localDesc": "在你的设备上完全离线运行"
-    },
-    "translation": {
-      "title": "翻译引擎",
-      "desc": "配置你偏好的翻译引擎，实现无缝中外双语对照阅读。",
-      "aiProvider": "AI 翻译",
-      "aiProviderDesc": "免费",
-      "deeplProviderName": "DeepL Pro",
-      "deeplDesc": "高级",
-      "apiKeyPlaceholder": "输入你的 DeepL API 密钥"
-    },
     "sync": {
       "title": "云端同步",
       "desc": "通过 WebDAV 让你的阅读进度在多个设备间完美同步。"
@@ -81,10 +57,6 @@
     "bookList": {
       "title": "你的书库",
       "desc": "所有导入的书籍都会显示在这里。点击任意书籍开始阅读。"
-    },
-    "vectorize": {
-      "title": "智能向量化",
-      "desc": "构建语义索引，实现强大的 AI 搜索和对话。"
     },
     "settings": {
       "title": "设置",

@@ -20,14 +20,12 @@ import {
 import { SyncButton } from "@/components/ui/SyncButton";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { clearMobileRuntimeCache, formatCacheSize } from "@/lib/platform/mobile-cache";
-import { stopTTSPreview } from "@/lib/platform/tts-preview";
 import {
   mergeCurrentSessionIntoDailyStats,
   mergeCurrentSessionIntoOverallStats,
 } from "@/lib/stats/live-reading-stats";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
 import { formatCharacterCount, formatTimeLocalized } from "@/screens/stats/stats-utils";
-import { useReadingSessionStore, useTTSStore } from "@/stores";
 import {
   type ThemeColors,
   fontSize,
@@ -46,7 +44,6 @@ import Constants from "expo-constants";
 /**
  * ProfileScreen — matching Tauri mobile ProfilePage exactly.
  * Features: reading stats cards, heatmap, settings menu (general/skills/about),
- * complete menu items including Skills and VectorModel.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -75,11 +72,7 @@ type ProfileMenuRoute = Extract<
   | "AppearanceSettings"
   | "FontSettings"
   | "SyncSettings"
-  | "AISettings"
-  | "TTSSettings"
-  | "TranslationSettings"
   | "Skills"
-  | "VectorModelSettings"
   | "Feedback"
   | "About"
 >;
@@ -328,7 +321,6 @@ export function ProfileScreen() {
   const [clearingCache, setClearingCache] = useState(false);
   const saveCurrentSession = useReadingSessionStore((s) => s.saveCurrentSession);
   const currentSession = useReadingSessionStore((s) => s.currentSession);
-  const stopTTS = useTTSStore((s) => s.stop);
 
   const loadStats = useCallback(async () => {
     try {
@@ -381,7 +373,6 @@ export function ProfileScreen() {
       t("profile.clearCacheTitle", "清除缓存"),
       t(
         "profile.clearCacheConfirm",
-        "将清除临时导入文件、TTS 音频缓存和其他运行缓存。书籍、笔记、设置和同步数据不会被删除。",
       ),
       [
         { text: t("common.cancel", "取消"), style: "cancel" },
@@ -391,8 +382,6 @@ export function ProfileScreen() {
           onPress: async () => {
             setClearingCache(true);
             try {
-              stopTTS();
-              stopTTSPreview();
               const result = await clearMobileRuntimeCache();
               Alert.alert(
                 t("profile.clearCacheDoneTitle", "缓存已清除"),
@@ -416,7 +405,6 @@ export function ProfileScreen() {
         },
       ],
     );
-  }, [stopTTS, t]);
 
   // Settings menu — matching Tauri ProfilePage exactly
   const menuSections = useMemo<{ title: string; items: ProfileMenuItem[] }[]>(
@@ -456,23 +444,11 @@ export function ProfileScreen() {
           {
             icon: DatabaseIcon,
             label: t("settings.ai_title", "AI 模型"),
-            route: "AISettings" as const,
-          },
-          { icon: Volume2Icon, label: t("tts.title", "语音朗读"), route: "TTSSettings" as const },
-          {
-            icon: LanguagesIcon,
+                        icon: LanguagesIcon,
             label: t("settings.translationTab", "翻译"),
-            route: "TranslationSettings" as const,
-          },
-          { icon: PuzzleIcon, label: t("skills.title", "技能"), route: "Skills" as const },
-          {
-            icon: CpuIcon,
+                        icon: CpuIcon,
             label: t("settings.vm_title", "向量模型"),
-            route: "VectorModelSettings" as const,
-          },
-        ],
-      },
-      {
+                  {
         title: t("settings.other", "更多"),
         items: [
           {

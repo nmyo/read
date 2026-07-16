@@ -1,25 +1,19 @@
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { BookmarkRibbon } from "@/components/reader/BookmarkRibbon";
-import { ChapterTranslationSheet } from "@/components/reader/ChapterTranslationSheet";
 import { ReadingProgressSlider } from "@/components/reader/ReadingProgressSlider";
 import { SelectionPopover } from "@/components/reader/SelectionPopover";
-import { TTSPage } from "@/components/reader/TTSPage";
-import { TranslationPanel } from "@/components/reader/TranslationPanel";
 import {
   BookmarkFilledIcon,
   BookmarkIcon,
-  BotIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   HeadphonesIcon,
-  LanguagesIcon,
   NotebookPenIcon,
   SearchIcon,
   XIcon,
 } from "@/components/ui/Icon";
 import { SyncButton } from "@/components/ui/SyncButton";
 import { useReaderBridge } from "@/hooks/use-reader-bridge";
-import type { RelocateEvent, SelectionEvent, VisibleTTSSegment } from "@/hooks/use-reader-bridge";
 import { startFileServer, stopFileServer } from "@/lib/reader/local-file-server";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
 import {
@@ -28,16 +22,13 @@ import {
   useReaderStore,
   useReadingSessionStore,
   useSettingsStore,
-  useTTSStore,
 } from "@/stores";
 import { useMissingBookPromptStore } from "@/stores/missing-book-prompt-store";
 import { useTheme } from "@/styles/ThemeContext";
 import { useColors, withOpacity } from "@/styles/theme";
 import { useIsFocused } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { readingContextService } from "@readany/core/ai/reading-context-service";
 import { runWithDbRetry } from "@readany/core/db/write-retry";
-import { useChapterTranslation } from "@readany/core/hooks";
 import { useReadingSession } from "@readany/core/hooks/use-reading-session";
 import { createSelectionNoteMutation } from "@readany/core/reader";
 import { getPlatformService } from "@readany/core/services";
@@ -159,14 +150,12 @@ import { makeStyles, noteTooltipMdStyles } from "./reader/reader-styles";
 import { useReaderBookmark } from "./reader/useReaderBookmark";
 import { useReaderSearch } from "./reader/useReaderSearch";
 import { useReaderSystemInfo } from "./reader/useReaderSystemInfo";
-import { useReaderTTS } from "./reader/useReaderTTS";
 import { useVolumeButtonPaging } from "./reader/useVolumeButtonPaging";
 
 const READER_HTML_ASSET = Asset.fromModule(require("../../assets/reader/reader.html"));
 const LOCAL_FONT_SERVER_DIR = "readany-fonts";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Reader">;
-type TTSSegment = VisibleTTSSegment;
 
 // ──────────────────────────── helpers ────────────────────────────
 
@@ -208,7 +197,6 @@ export function ReaderScreen({ route, navigation }: Props) {
   const colors = useColors();
   const { mode: themeMode } = useTheme();
   const s = makeStyles(colors);
-  const { bookId, cfi, highlight: shouldHighlight, openTTS } = route.params;
   const { t, i18n } = useTranslation();
   const isWideLayout = SCREEN_WIDTH >= 768;
   const isIPadLayout = Platform.OS === "ios" && Platform.isPad;
@@ -224,10 +212,6 @@ export function ReaderScreen({ route, navigation }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showNotebook, setShowNotebook] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [translationText, setTranslationText] = useState("");
-  const [showTTS, setShowTTS] = useState(false);
-  const [showChapterTranslation, setShowChapterTranslation] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -237,7 +221,6 @@ export function ReaderScreen({ route, navigation }: Props) {
   const [toc, setToc] = useState<TOCItem[]>([]);
   const [bookTitle, setBookTitle] = useState("");
   const [webViewReady, setWebViewReady] = useState(false);
-  const [translationReady, setTranslationReady] = useState(false);
   const [readerHtmlUri, setReaderHtmlUri] = useState<string | null>(null);
   const [currentCfi, setCurrentCfi] = useState("");
   const [selection, setSelection] = useState<SelectionEvent | null>(null);
@@ -260,10 +243,6 @@ export function ReaderScreen({ route, navigation }: Props) {
   const noteTooltipVisibleRef = useRef(false);
   const suppressReaderTapUntilRef = useRef(0);
   const assetLoadedRef = useRef(false);
-  // Mediator ref so onRelocate can fire TTS continuation without direct hook dependency
-  const ttsPendingContinueRef = useRef<{
-    pendingTTSContinueCallbackRef: React.RefObject<(() => void) | null>;
-    pendingTTSContinueSafetyTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
   } | null>(null);
 
   const bridgeRef = useRef<{
@@ -273,15 +252,10 @@ export function ReaderScreen({ route, navigation }: Props) {
     clearSearch: () => void;
     navigateSearch: (index: number) => void;
     getVisibleText: () => Promise<string>;
-    getVisibleTTSSegments: (alignCfi?: string | null) => Promise<TTSSegment[]>;
     getChapterParagraphs: () => Promise<Array<{ id: string; text: string; tagName: string }>>;
-    getTTSSegmentContext: (
       cfi: string,
       before?: number,
       after?: number,
-    ) => Promise<{ before: TTSSegment[]; after: TTSSegment[] }>;
-    getHrefTTSSegments?: (href: string, count?: number) => Promise<TTSSegment[]>;
-    getSectionTTSSegments?: (sectionIndex: number, count?: number) => Promise<TTSSegment[]>;
     goToFraction: (fraction: number) => void;
     goToSection: (sectionIndex: number) => void;
     goToCFI: (cfi: string) => void;
@@ -294,24 +268,10 @@ export function ReaderScreen({ route, navigation }: Props) {
       note?: string;
     }) => void;
     removeAnnotation: (annotation: { value: string; type?: string }) => void;
-    setTTSHighlight: (cfi: string | null, color?: string, force?: boolean) => void;
-  } | null>(null);
-
-  // Chapter translation state
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const chapterTranslationBridgeRef = useRef<{
-    getChapterParagraphs: () => Promise<Array<{ id: string; text: string; tagName: string }>>;
-    injectChapterTranslations: (
-      results: Array<{ paragraphId: string; originalText: string; translatedText: string }>,
-      visibility?: { originalVisible: boolean; translationVisible: boolean },
-    ) => Promise<void>;
-    removeChapterTranslations: () => void;
   } | null>(null);
 
   const readSettings = useSettingsStore((s) => s.readSettings);
   const updateReadSettings = useSettingsStore((s) => s.updateReadSettings);
-  const translationConfig = useSettingsStore((s) => s.translationConfig);
-  const aiConfig = useSettingsStore((s) => s.aiConfig);
   const showTopTitleProgress = readSettings.showTopTitleProgress !== false;
   const showBottomTimeBattery = readSettings.showBottomTimeBattery !== false;
 
@@ -443,70 +403,11 @@ export function ReaderScreen({ route, navigation }: Props) {
     totalBookCharactersRef.current = null;
     suppressProgressTracking(INITIAL_PROGRESS_RESTORE_GUARD_MS);
   }, [bookId]);
-  const chapterTranslation = useChapterTranslation({
-    bookId,
-    sectionIndex: currentSectionIndex,
-    aiConfig,
-    ready: translationReady,
-    translationConfig,
-    getParagraphs: async () => {
-      if (!chapterTranslationBridgeRef.current) return [];
-      return chapterTranslationBridgeRef.current.getChapterParagraphs();
-    },
-    injectTranslations: (results, visibility) => {
-      return chapterTranslationBridgeRef.current?.injectChapterTranslations(results, visibility);
-    },
-    removeTranslations: () => {
-      chapterTranslationBridgeRef.current?.removeChapterTranslations();
-    },
-    applyVisibility: (originalVisible, translationVisible) => {
-      const translationHidden = !translationVisible;
-      const originalHidden = !originalVisible;
-      const solo = !originalVisible && translationVisible;
-      bridge.webViewRef.current?.injectJavaScript(`
-        (function() {
-          try {
-            var doc = null;
-            var renderer = typeof view !== 'undefined' && view && view.renderer;
-            if (renderer && renderer.getContents) {
-              var contents = renderer.getContents();
-              if (contents && contents[0] && contents[0].doc) doc = contents[0].doc;
-            }
-            if (!doc) {
-              var iframes = document.querySelectorAll('iframe');
-              for (var fi = 0; fi < iframes.length; fi++) {
-                try {
-                  var iframeDoc = iframes[fi].contentDocument || (iframes[fi].contentWindow && iframes[fi].contentWindow.document);
-                  if (iframeDoc && iframeDoc.body) { doc = iframeDoc; break; }
-                } catch (e) {}
-              }
-            }
-            if (!doc) return;
-            var els = doc.querySelectorAll('.readany-translation');
-            for (var i = 0; i < els.length; i++) {
-              els[i].setAttribute('data-hidden', '${translationHidden}');
-              els[i].setAttribute('data-solo', '${solo}');
-            }
-            var origEls = doc.querySelectorAll('[data-translate-id]');
-            for (var j = 0; j < origEls.length; j++) {
-              origEls[j].setAttribute('data-original-hidden', '${originalHidden}');
-            }
-          } catch(e) {}
-        })();
-        true;
-      `);
-    },
-    getCurrentCfi: () => currentCfi,
-    goToCfi: (cfi) => bridgeRef.current?.goToCFI(cfi),
-  });
 
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
 
-  // Also read ttsPlayState from store for volume paging guard
-  const ttsPlayState = useTTSStore((s) => s.playState);
-  const ttsConfig = useTTSStore((s) => s.config);
 
   // Focus & foreground state for volume paging whitelist
   const isFocused = useIsFocused();
@@ -634,13 +535,6 @@ export function ReaderScreen({ route, navigation }: Props) {
       if (loading) {
         setLoading(false);
       }
-      // Track section changes for chapter translation reset
-      const newSection = detail.section?.current ?? 0;
-      if (newSection !== currentSectionIndex) {
-        setCurrentSectionIndex(newSection);
-        setTranslationReady(false);
-        chapterTranslation.reset();
-      }
 
       if (detail.fraction != null) setProgress(detail.fraction);
 
@@ -748,17 +642,9 @@ export function ReaderScreen({ route, navigation }: Props) {
         throttledSaveProgress(bookId, detail.fraction ?? 0, detail.cfi);
       }
 
-      // Mark translation ready after first successful relocate (CFI navigation done)
-      if (!translationReady) setTranslationReady(true);
 
-      // If TTS is waiting for a page turn to complete, fire the continuation callback now
       // that the renderer has fully updated its position (renderer.start reflects new page).
-      if (ttsPendingContinueRef.current?.pendingTTSContinueCallbackRef.current) {
-        console.log("[ReaderScreen][TTS] onRelocate triggered pending TTS continuation");
-        const cb = ttsPendingContinueRef.current.pendingTTSContinueCallbackRef.current;
-        ttsPendingContinueRef.current.pendingTTSContinueCallbackRef.current = null;
         // Cancel the safety timer since onRelocate fired successfully
-        const safetyTimerRef = ttsPendingContinueRef.current.pendingTTSContinueSafetyTimerRef;
         if (safetyTimerRef.current) {
           clearTimeout(safetyTimerRef.current);
           safetyTimerRef.current = null;
@@ -766,39 +652,15 @@ export function ReaderScreen({ route, navigation }: Props) {
         void cb();
       }
 
-      // Sync reading context for AI tools
-      readingContextService.updateContext({
-        bookId,
-        bookTitle: book?.meta?.title || "",
-        currentChapter: {
-          index: detail.section?.current ?? 0,
-          title: detail.tocItem?.label || "",
-          href: detail.tocItem?.href || "",
-        },
-        currentPosition: {
-          cfi: detail.cfi || "",
-          percentage: (detail.fraction ?? 0) * 100,
-        },
-      });
     },
     onTocReady: (items: TOCItem[]) => {
       setToc(items);
     },
     onSelection: (detail: SelectionEvent) => {
       setSelection(detail);
-      // Sync selection for AI tools
-      if (detail.cfi) {
-        readingContextService.updateSelection({
-          text: detail.text,
-          cfi: detail.cfi,
-          chapterIndex: 0,
-          chapterTitle: "",
-        });
-      }
     },
     onSelectionCleared: () => {
       setSelection(null);
-      readingContextService.clearSelection();
     },
     onTap: () => {
       if (noteTooltipVisibleRef.current || Date.now() < suppressReaderTapUntilRef.current) {
@@ -894,22 +756,14 @@ export function ReaderScreen({ route, navigation }: Props) {
       !showTOC &&
       !showSettings &&
       !showNotebook &&
-      !showTTS &&
-      !showTranslation &&
-      !showChapterTranslation &&
-      chapterTranslation.state.status === "idle" &&
       !selection &&
       !noteViewHighlight &&
       !noteTooltip &&
-      ttsPlayState === "stopped" &&
       isFocused &&
       appActive,
     // 维护约定：任何新增遮盖正文/输入态/导航跳转，必须在此追加判定。
     [
       readSettings.volumeButtonsPageTurn, webViewReady, loading, error, isReimporting,
-      showSearch, showTOC, showSettings, showNotebook, showTTS,
-      showTranslation, showChapterTranslation, chapterTranslation.state.status,
-      selection, noteViewHighlight, noteTooltip, ttsPlayState, isFocused, appActive,
     ],
   );
 
@@ -920,18 +774,13 @@ export function ReaderScreen({ route, navigation }: Props) {
   });
 
   bridgeRef.current = bridge;
-  chapterTranslationBridgeRef.current = bridge;
 
-  // ── useReaderTTS ──
-  const tts = useReaderTTS({
     bookId,
     bookTitle: bookTitle || book?.meta.title || "",
     currentChapter,
-    currentSectionIndex,
+    currentSectionIndex: 0,
     currentCfi,
     webViewReady,
-    showTTS,
-    setShowTTS,
     setShowControls,
     bridgeRef,
     toc,
@@ -940,13 +789,8 @@ export function ReaderScreen({ route, navigation }: Props) {
     goToHref: bridge.goToHref,
   });
 
-  // Bind mediator ref so onRelocate can fire the TTS continuation callback
-  ttsPendingContinueRef.current = {
-    pendingTTSContinueCallbackRef: tts.pendingTTSContinueCallbackRef,
-    pendingTTSContinueSafetyTimerRef: tts.pendingTTSContinueSafetyTimerRef,
   };
 
-  // ── Non-TTS callbacks ──────────────────────────────────────────────────────
 
   const goToTocItem = useCallback(
     (href: string) => {
@@ -1066,7 +910,7 @@ export function ReaderScreen({ route, navigation }: Props) {
     loadAnnotations(bookId);
 
     return () => {
-      readingContextService.clearContext();
+      // cleanup
     };
   }, [bookId]);
 
@@ -1300,29 +1144,23 @@ export function ReaderScreen({ route, navigation }: Props) {
     }
   }, [webViewReady, loading, cfi, shouldHighlight, goToCFISafely, navigation, bookId]);
 
-  // Open TTS lyrics page when navigating from notification
   useEffect(() => {
-    if (!openTTS || !webViewReady || loading) return;
 
     let cancelled = false;
     const openLyricsPage = async () => {
       const targetCfi =
-        tts.resolvedTTSSegmentCfi || tts.ttsDisplaySegments[0]?.cfi || currentCfi || null;
       if (targetCfi && targetCfi !== currentCfi) {
         goToCFISafely(targetCfi);
         await new Promise((resolve) => setTimeout(resolve, 320));
       }
       if (cancelled) return;
       setShowControls(false);
-      setShowTTS(true);
-      navigation.setParams({ bookId, openTTS: undefined });
     };
 
     void openLyricsPage();
     return () => {
       cancelled = true;
     };
-  }, [bookId, currentCfi, goToCFISafely, loading, navigation, openTTS, webViewReady]);
 
   if (loading && !webViewReady && !readerHtmlUri) {
     return (
@@ -1419,7 +1257,7 @@ export function ReaderScreen({ route, navigation }: Props) {
     outputRange: [1, 0.24, 0],
   });
 
-  const isPanelOpen = showTOC || showSettings || showSearch || showNotebook || showTranslation;
+  const isPanelOpen = showTOC || showSettings || showSearch || showNotebook;
   const existingSelectionHighlight = selection
     ? (highlights.find(
         (highlight) => highlight.bookId === bookId && highlight.cfi === selection.cfi,
@@ -1602,7 +1440,6 @@ export function ReaderScreen({ route, navigation }: Props) {
             setSelection(null);
           }}
           onSpeak={(text, cfi) => {
-            tts.startSelectionTTS(text, cfi);
             setSelection(null);
           }}
           onAIChat={() => {
@@ -1645,10 +1482,7 @@ export function ReaderScreen({ route, navigation }: Props) {
               note: mutation.updates.note,
             });
           }}
-          onTranslate={(text) => {
-            setShowTranslation(true);
-            setTranslationText(text);
-          }}
+          onTranslate={undefined}
           existingHighlight={
             existingSelectionHighlight
               ? {
@@ -1746,27 +1580,9 @@ export function ReaderScreen({ route, navigation }: Props) {
           <TouchableOpacity
             style={[
               s.floatingToolBtn,
-              (showChapterTranslation || chapterTranslation.state.status !== "idle") &&
-                s.floatingToolBtnActive,
             ]}
-            onPress={() => setShowChapterTranslation(true)}
-          >
-            <LanguagesIcon size={18} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              s.floatingToolBtn,
-              (showTTS || ttsPlayState !== "stopped") && s.floatingToolBtnActive,
-            ]}
-            onPress={tts.handleToggleTTS}
           >
             <HeadphonesIcon size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.floatingToolBtn}
-            onPress={() => navigation.navigate("BookChat", { bookId })}
-          >
-            <BotIcon size={20} color="#fff" />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -2118,63 +1934,12 @@ export function ReaderScreen({ route, navigation }: Props) {
         }}
       />
 
-      {/* ─── Translation Panel ─── */}
-      {showTranslation && translationText && (
-        <TranslationPanel
-          text={translationText}
-          onClose={() => {
-            setShowTranslation(false);
-            setTranslationText("");
-          }}
-        />
-      )}
 
-      {/* ─── Chapter Translation Sheet ─── */}
-      <ChapterTranslationSheet
-        visible={showChapterTranslation}
-        onClose={() => setShowChapterTranslation(false)}
-        state={chapterTranslation.state}
-        onStart={chapterTranslation.startTranslation}
-        onCancel={chapterTranslation.cancelTranslation}
-        onToggleOriginalVisible={chapterTranslation.toggleOriginalVisible}
-        onToggleTranslationVisible={chapterTranslation.toggleTranslationVisible}
-        onReset={chapterTranslation.reset}
-      />
-
-      <TTSPage
-        visible={showTTS}
         bookTitle={bookTitle || book?.meta.title || ""}
         chapterTitle={currentChapter}
-        coverUri={tts.ttsCoverUri}
-        playState={ttsPlayState}
-        currentText={tts.currentTTSSegment?.text || tts.ttsLastText}
-        config={ttsConfig}
         readingProgress={progress}
         currentPage={currentPage}
         totalPages={totalPages}
-        sourceLabel={tts.ttsSourceLabel}
-        continuousEnabled={tts.ttsContinuousEnabled}
-        narrationSegments={tts.ttsDisplaySegments}
-        prevNarrationSegments={tts.ttsPrevPageSegments}
-        currentSegmentCfi={tts.resolvedTTSSegmentCfi}
-        currentSegmentText={tts.currentTTSSegment?.text || null}
-        currentChunkIndex={tts.localTTSChunkIndex}
-        totalChunks={tts.ttsDisplaySegments.length}
-        onClose={() => setShowTTS(false)}
-        onReturnToReading={tts.handleTTSReturnToReading}
-        onReplay={tts.handleTTSReplay}
-        onPlayPause={tts.handleTTSPlayPause}
-        onJumpToSegment={tts.handleJumpToTTSSegment}
-        onJumpToLyricSegment={tts.handleJumpToTTSLyricSegment}
-        onLoadMoreAbove={tts.handleLoadMoreAboveTTSLyrics}
-        onLoadMoreBelow={tts.handleLoadMoreBelowTTSLyrics}
-        onStop={tts.handleTTSStop}
-        onAdjustRate={tts.handleAdjustTTSRate}
-        onAdjustPitch={tts.handleAdjustTTSPitch}
-        onToggleContinuous={tts.handleToggleTTSContinuous}
-        onUpdateConfig={tts.handleUpdateTTSConfig}
-        onPrevChapter={toc.length > 0 ? tts.handleTTSPrevChapter : undefined}
-        onNextChapter={toc.length > 0 ? tts.handleTTSNextChapter : undefined}
       />
     </View>
   );

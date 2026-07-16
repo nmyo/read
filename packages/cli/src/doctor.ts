@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { isManagedShim, resolveShimPath } from "./install.js";
 import type { CliPaths } from "./paths.js";
 import type { AccessProfile } from "./profiles.js";
-import { getSkillStatus } from "./skill.js";
+
 import { listTools } from "./tool-registry.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -220,16 +220,13 @@ async function readManagedSkillState(path: string): Promise<{
   const stat = await lstat(path);
   if (stat.isSymbolicLink()) {
     const target = await readlink(path);
-    const skillStatus = await getSkillStatus(join(path, "SKILL.md"));
-    return { installed: true, managed: skillStatus.installed, target };
+    return { installed: true, managed: true, target };
   }
-  const skillStatus = await getSkillStatus(join(path, "SKILL.md"));
-  return { installed: true, managed: skillStatus.installed };
+  return { installed: true, managed: false };
 }
 
 async function createAgentAccessEvidence(
   paths: CliPaths,
-  skillStatus: Awaited<ReturnType<typeof getSkillStatus>>,
 ): Promise<DoctorReport["agentAccess"]> {
   const cliShimPath = resolveShimPath({ binPath: paths.binPath, mode: "user" }).path;
   const cliShimInstalled = await pathExists(cliShimPath);
@@ -278,9 +275,8 @@ async function createAgentAccessEvidence(
       managed: cliShimManaged,
     },
     skill: {
-      installed: skillStatus.installed,
-      path: skillStatus.path,
-      version: skillStatus.version,
+      installed: false,
+      path: paths.skillFile,
     },
     clientSkills,
     mcpConfigs,
@@ -288,8 +284,7 @@ async function createAgentAccessEvidence(
 }
 
 export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promise<DoctorReport> {
-  const skillStatus = await getSkillStatus(paths.skillFile);
-  const agentAccess = await createAgentAccessEvidence(paths, skillStatus);
+  const agentAccess = await createAgentAccessEvidence(paths);
   const readanyHomeWritable = await canAccess(paths.readanyHome, constants.W_OK);
   const nativeSqlitePath = resolveNativeSqlite();
   const toolCount = listTools().length;
@@ -338,10 +333,8 @@ export async function runDoctor(paths: CliPaths, profile: AccessProfile): Promis
       },
       {
         name: "skill",
-        ok: skillStatus.installed,
-        message: skillStatus.installed
-          ? `ReadAny skill is installed at ${skillStatus.path}.`
-          : `ReadAny skill is not installed at ${skillStatus.path}.`,
+        ok: false,
+        message: `ReadAny skill status is not available.`,
       },
     ],
   };

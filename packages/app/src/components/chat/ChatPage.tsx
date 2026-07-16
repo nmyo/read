@@ -2,8 +2,8 @@
  * ChatPage — standalone full-page chat for general conversations.
  */
 import { ConfigGuideDialog, type ConfigGuideType } from "@/components/shared/ConfigGuideDialog";
-import { useStreamingChat } from "@/hooks/use-streaming-chat";
 import { getBook as getBookRecord } from "@/lib/db/database";
+import { useStreamingChat } from "@/hooks/use-streaming-chat";
 import { openDesktopBook } from "@/lib/library/open-book";
 import { useChatReaderStore } from "@/stores/chat-reader-store";
 import { useChatStore } from "@/stores/chat-store";

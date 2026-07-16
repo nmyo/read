@@ -23,12 +23,7 @@ export type SettingsTab =
   | "general"
   | "reading"
   | "fonts"
-  | "ai"
-  | "vectorModel"
-  | "tts"
-  | "translation"
   | "sync"
-  | "externalAi"
   | "feedback"
   | "about";
 

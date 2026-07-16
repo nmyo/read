@@ -45,14 +45,6 @@ export interface FoliateView extends HTMLElement {
   search(opts: any): AsyncGenerator;
   clearSearch(): void;
 
-  // TTS
-  initTTS(
-    granularity?: string,
-    highlight?: (range: Range) => void,
-    filterFunc?: (node: Node) => number,
-  ): Promise<void>;
-  // biome-ignore lint: foliate-js TTS object
-  tts: any;
 }
 
 /**

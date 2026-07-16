@@ -25,9 +25,8 @@ import { ReaderView, evictBlobCache } from "@/components/reader/ReaderView";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { MissingBookPromptDialog } from "@/components/shared/MissingBookPromptDialog";
 import { ReadingStatsPanel } from "@/components/stats/ReadingStatsPanel";
-import { FloatingTTSBubble } from "@/components/tts/FloatingTTSBubble";
 import { toggleWindowFullscreen } from "@/lib/window-fullscreen";
-import SkillsPage from "@/pages/Skills";
+
 import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
@@ -44,7 +43,6 @@ const HOME_VIEWS: { id: string; Component: React.ComponentType }[] = [
   { id: "home", Component: HomePage },
   { id: "chat", Component: ChatPageComponent },
   { id: "notes", Component: NotesPage },
-  { id: "skills", Component: SkillsPage },
   { id: "stats", Component: ReadingStatsPanel },
 ];
 
@@ -411,7 +409,6 @@ export function AppLayout() {
       <MissingBookPromptDialog />
       <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
-      <FloatingTTSBubble />
     </div>
   );
 }

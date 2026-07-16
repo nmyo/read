@@ -1,14 +1,39 @@
 import { create } from "zustand";
 import type { AIConfig, AIEndpoint, ReadSettings } from "../types";
-import type { TranslationConfig, TranslationTargetLang } from "../types/translation";
 import {
   buildProviderModelsUrl,
   providerSupportsExactRequestUrl,
   providerRequiresApiKey,
 } from "../utils";
-import { logAIEndpointDebug, summarizeDebugText } from "../ai/request-debug";
-import { getEndpointFetch } from "../ai/llm-provider";
 import { withPersist } from "./persist";
+
+/** Stub: inline types formerly from types/translation.ts */
+interface TranslationProvider {
+  id: string;
+  name: string;
+  apiKey?: string;
+  baseUrl?: string;
+  endpointId?: string;
+  model?: string;
+}
+type TranslationTargetLang = string;
+interface TranslationConfig {
+  provider: TranslationProvider;
+  targetLang: TranslationTargetLang;
+}
+
+/** Stub: inline helpers formerly from ../ai/request-debug */
+function logAIEndpointDebug(_level: string, _endpoint: AIEndpoint, _data: Record<string, unknown>) {
+  // no-op — AI debug logging removed from core
+}
+function summarizeDebugText(text: string): string {
+  return text.slice(0, 200);
+}
+
+/** Stub: inline helper formerly from ../ai/llm-provider */
+function getEndpointFetch(_endpoint: AIEndpoint): typeof fetch {
+  return fetch;
+}
 
 export interface SettingsState {
   readSettings: ReadSettings;

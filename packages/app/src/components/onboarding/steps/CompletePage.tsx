@@ -35,7 +35,7 @@ export function CompletePage({ onNext, onPrev, step, totalSteps }: any) {
           <p className="text-muted-foreground leading-relaxed">
             {t(
               "onboarding.complete.desc",
-              "Everything is configured. You can now start adding books, discussing them with AI, and translating texts seamlessly.",
+              "Everything is configured. You can now start adding books, highlighting passages, and taking notes.",
             )}
           </p>
         </div>

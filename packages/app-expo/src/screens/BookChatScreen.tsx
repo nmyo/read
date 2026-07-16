@@ -25,7 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useStreamingChat } from "@/hooks";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
-import { resolveActiveAIConfig } from "@/lib/ai/resolve-active-ai-config";
+
 import { useLibraryStore } from "@/stores";
 import { useChatStore } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -244,23 +244,7 @@ export function BookChatScreen({ route, navigation }: Props) {
   const handleSend = useCallback(
     async (text: string, deepThinking: boolean, spoilerFree: boolean, quotes?: AttachedQuote[]) => {
       const state = useSettingsStore.getState();
-      const resolvedAIConfig = await resolveActiveAIConfig(state);
-
-      if (!resolvedAIConfig) {
-        Alert.alert(
-          t("chat.configRequired", "需要配置 AI"),
-          t("chat.configRequiredMessage", "请先在设置中配置 AI 端点和模型"),
-          [
-            { text: t("common.cancel", "取消"), style: "cancel" },
-            {
-              text: t("common.settings", "去设置"),
-              onPress: () => navigation.navigate("AISettings"),
-            },
-          ],
-        );
-        return;
-      }
-      await sendMessage(text, bookId, deepThinking, spoilerFree, quotes, resolvedAIConfig);
+      await sendMessage(text, bookId, deepThinking, spoilerFree, quotes);
     },
     [bookId, navigation, sendMessage, t],
   );
@@ -470,7 +454,7 @@ export function BookChatScreen({ route, navigation }: Props) {
             </Text>
 
             <View style={s.headerRight}>
-              <ModelSelector onNavigateToSettings={() => navigation.navigate("AISettings")} />
+              <ModelSelector onNavigateToSettings={() => {}} />
               {allMessages.length > 0 && (
                 <>
                   <TouchableOpacity

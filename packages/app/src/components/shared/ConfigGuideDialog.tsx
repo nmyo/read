@@ -29,13 +29,13 @@ const CONFIG: Record<
   ai: {
     titleKey: "chat.notConfigured",
     descKey: "chat.notConfiguredDesc",
-    settingsTab: "ai",
+    settingsTab: "general",
     actionKey: "chat.goSettings",
   },
   vectorModel: {
     titleKey: "vectorize.notConfigured",
     descKey: "vectorize.notConfiguredDesc",
-    settingsTab: "vectorModel",
+    settingsTab: "general",
     actionKey: "vectorize.goSettings",
   },
 };

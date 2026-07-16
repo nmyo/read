@@ -27,11 +27,6 @@
       "translateDesc": "Lectura lado a lado sin interrupciones",
       "start": "Comenzar experiencia"
     },
-    "ai": {
-      "title": "Configuración de IA",
-      "desc": "Configura tu proveedor de IA para habilitar diálogo inteligente y resúmenes.",
-      "test": "Probar conexión"
-    },
     "appearance": {
       "title": "Apariencia e idioma",
       "desc": "Elige el idioma y las preferencias de tema de ReadAny."
@@ -39,25 +34,6 @@
     "sync": {
       "title": "Sincronización en la nube",
       "desc": "Mantén tu progreso de lectura perfectamente sincronizado entre dispositivos mediante WebDAV."
-    },
-    "translation": {
-      "title": "Motor de traducción",
-      "desc": "Configura tu motor de traducción preferido para una lectura bilingüe fluida.",
-      "aiProvider": "Traducción con IA",
-      "aiProviderDesc": "Gratis",
-      "deeplProviderName": "DeepL Pro",
-      "deeplDesc": "Premium",
-      "apiKeyPlaceholder": "Ingresa tu clave API de DeepL"
-    },
-    "embedding": {
-      "title": "Recuperación inteligente",
-      "desc": "Configura el modelo vectorial para habilitar una potente búsqueda semántica",
-      "localMode": "Modo local integrado",
-      "localDesc": "Se ejecuta completamente sin conexión en tu dispositivo",
-      "remoteMode": "Modo API remoto",
-      "remoteDesc": "Usa computación del lado del servidor configurado",
-      "remoteInfo": "Configuración de API remota",
-      "remoteInfoDesc": "El modo remoto usa la API de embeddings de tu proveedor de IA configurado. Asegúrate de haber configurado un proveedor de IA en el paso anterior."
     },
     "complete": {
       "title": "¡Todo listo!",
@@ -81,10 +57,6 @@
     "bookList": {
       "title": "Tu biblioteca",
       "desc": "Todos tus libros importados aparecerán aquí. Haz clic en cualquier libro para comenzar a leer."
-    },
-    "vectorize": {
-      "title": "Vectorización inteligente",
-      "desc": "Construye un índice semántico para búsqueda y chat con IA potente."
     },
     "settings": {
       "title": "Configuración",

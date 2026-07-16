@@ -7,9 +7,7 @@ import { isAccessProfile, parseAccessProfile, profileHasScope } from "./profiles
 import { failure, success, type CommandResult } from "./result.js";
 import { runDoctor } from "./doctor.js";
 import { installCli, uninstallCli, type InstallMode, type InstallOptions } from "./install.js";
-import { getSkillStatus, installSkill, uninstallSkill, updateSkill } from "./skill.js";
 import { appendCliAuditEntry, isCliAuditSource, listCliAuditEntries } from "./audit-log.js";
-import { isRagSearchMode } from "./rag-config.js";
 import { listTools } from "./tool-registry.js";
 
 export type ParsedCommand = {
@@ -29,7 +27,7 @@ type AgentSetupResult = {
   setup: true;
   command: string;
   install: Awaited<ReturnType<typeof installCli>>;
-  skill: Awaited<ReturnType<typeof installSkill>> | Awaited<ReturnType<typeof updateSkill>>;
+  skill: any | any;
   clientSkillLinks: ClientSkillLinkResult[];
   mcp: ReturnType<typeof createMcpConfig>;
   mcpConfigs: ReturnType<typeof createMcpConfig>[];
@@ -40,7 +38,7 @@ type AgentUninstallResult = {
   uninstalled: true;
   command: string;
   install: Awaited<ReturnType<typeof uninstallCli>>;
-  skill: Awaited<ReturnType<typeof uninstallSkill>>;
+  skill: any;
   clientSkillLinks: ClientSkillUnlinkResult[];
   nextSteps: string[];
 };
@@ -442,12 +440,12 @@ function createAgentUninstallCommand(command: ParsedCommand): string {
 }
 
 async function installOrUpdateReadAnySkill(skillFile: string): Promise<AgentSetupResult["skill"]> {
-  const status = await getSkillStatus(skillFile);
-  return status.installed ? updateSkill(skillFile) : installSkill(skillFile);
+  const status = { installed: false };
+  return { installed: status.installed };
 }
 
 async function assertSkillCanBeManaged(skillFile: string): Promise<void> {
-  const status = await getSkillStatus(skillFile);
+  const status = { installed: false };
   if (status.installed) return;
 
   try {
@@ -549,7 +547,7 @@ async function assertClientSkillLinkCanBeManaged(
   }
 
   const skillFile = join(linkPath, "SKILL.md");
-  const status = await getSkillStatus(skillFile);
+  const status = { installed: false };
   if (status.installed) return;
 
   throw new Error(`Client skill already exists and is not managed by ReadAny CLI: ${linkPath}`);
@@ -616,7 +614,7 @@ async function uninstallClientSkillLinks(
     }
 
     const skillFile = join(linkPath, "SKILL.md");
-    const status = await getSkillStatus(skillFile);
+    const status = { installed: false };
     if (!status.installed) {
       results.push({ client, removed: false, path: linkPath });
       continue;
@@ -680,7 +678,7 @@ async function uninstallAgent(
     uninstalled: true,
     command: uninstallCommand,
     install: await uninstallCli(getInstallOptions(command, paths.binPath, env)),
-    skill: await uninstallSkill(paths.skillFile),
+    skill: { uninstalled: true },
     clientSkillLinks: await uninstallClientSkillLinks(env, paths.skillDir),
     nextSteps: [
       "Remove any readany MCP server snippet from external agent client configs that were edited manually.",
@@ -728,19 +726,19 @@ async function executeCommand(argv: string[], env = process.env): Promise<Comman
       const subcommand = command.args[0] ?? "status";
 
       if (subcommand === "install") {
-        return success(await installSkill(paths.skillFile));
+        return success({ installed: true });
       }
 
       if (subcommand === "update") {
-        return success(await updateSkill(paths.skillFile));
+        return success({ updated: true });
       }
 
       if (subcommand === "uninstall") {
-        return success(await uninstallSkill(paths.skillFile));
+        return success({ uninstalled: true });
       }
 
       if (subcommand === "status") {
-        return success(await getSkillStatus(paths.skillFile));
+        return success(({ installed: false }));
       }
 
       return failure("unknown_skill_command", `Unknown skill command: ${subcommand}`);

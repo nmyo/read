@@ -5,9 +5,7 @@ import type { CitationPart } from "@readany/core/types/message";
  * MarkdownRenderer — renders AI markdown responses with:
  * - GitHub Flavored Markdown (tables, strikethrough, task lists, autolinks)
  * - Syntax-highlighted code blocks via rehype-highlight
- * - Mermaid diagrams via beautiful-mermaid (synchronous SVG rendering)
  */
-import { renderMermaidSVG } from "beautiful-mermaid";
 import * as d3 from "d3";
 import { ArrowUpRight, Check, Copy, Download, Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import React, {
@@ -41,46 +39,11 @@ const MermaidBlock = memo(function MermaidBlock({ code }: { code: string }) {
   const fullscreenZoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const svg = useMemo(() => {
-    try {
-      const rendered = renderMermaidSVG(code, {
-        bg: "var(--background)",
-        fg: "var(--foreground)",
-        transparent: true,
-      });
-      return rendered?.replace(
-        /(<svg[^>]*>)/,
-        `$1<style>
-          text, .label, .nodeLabel, .edgeLabel, .cluster-label, .labelText, .titleText {
-            fill: var(--foreground) !important;
-          }
-          .edgePath .path, .edge-thickness-normal, .edge-pattern-solid {
-            stroke: var(--foreground) !important;
-          }
-          .arrowheadPath, marker polygon, .arrow {
-            fill: var(--foreground) !important;
-            stroke: var(--foreground) !important;
-          }
-          line, path:not(.node):not(.cluster) {
-            stroke: var(--foreground) !important;
-          }
-        </style>`,
-      );
-    } catch (err) {
-      return null;
-    }
+    return null; // Mermaid rendering removed
   }, [code]);
 
-  const error = useMemo(() => {
-    try {
-      renderMermaidSVG(code, {
-        bg: "var(--background)",
-        fg: "var(--foreground)",
-        transparent: true,
-      });
-      return null;
-    } catch (err) {
-      return err instanceof Error ? err : new Error(String(err));
-    }
+  const error = useMemo((): Error | null => {
+    return null; // Mermaid rendering removed
   }, [code]);
 
   const setupZoom = useCallback(
@@ -403,7 +366,6 @@ const StaticCode = memo(function StaticCode({
 
   // Mermaid diagram
   if (lang === "mermaid") {
-    // mermaid mindmap syntax is not supported by beautiful-mermaid,
     // render as a styled code block instead of crashing
     if (text.trim().startsWith("mindmap")) {
       return (

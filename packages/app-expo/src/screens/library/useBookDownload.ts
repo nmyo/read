@@ -81,8 +81,7 @@ export function useBookDownload({ loadBooks, onSuccess }: UseBookDownloadOptions
         }
 
         console.log(`[useBookDownload] Book ${book.id} downloaded successfully`);
-        const { useVectorModelStore } = await import("@/stores/vector-model-store");
-        const vmState = useVectorModelStore.getState();
+        const vmState = { hasVectorCapability: false };
         if (
           vmState.autoVectorizeOnImport &&
           vmState.vectorModelEnabled &&

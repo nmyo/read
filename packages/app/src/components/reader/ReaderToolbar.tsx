@@ -6,12 +6,10 @@ import { useAnnotationStore } from "@/stores/annotation-store";
 import { useAppStore } from "@/stores/app-store";
 import { useNotebookStore } from "@/stores/notebook-store";
 import { useReaderStore } from "@/stores/reader-store";
-import type { ChapterTranslationState } from "@readany/core/hooks";
 import { generateId } from "@readany/core/utils";
 import {
   ArrowLeft,
   Bookmark,
-  Headphones,
   List,
   Maximize,
   MessageSquare,
@@ -26,7 +24,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ChapterTranslationMenu } from "./ChapterTranslationBar";
 import type { TOCItem } from "./FoliateViewer";
 
 interface ReaderToolbarProps {
@@ -40,15 +37,7 @@ interface ReaderToolbarProps {
   onToggleToc?: () => void;
   onToggleSettings?: () => void;
   onToggleChat?: () => void;
-  onToggleTTS?: () => void;
-  chapterTranslationState: ChapterTranslationState;
-  onChapterTranslationStart: (targetLang?: string) => void;
-  onChapterTranslationCancel: () => void;
-  onToggleOriginalVisible: () => void;
-  onToggleTranslationVisible: () => void;
-  onChapterTranslationReset: () => void;
   isChatOpen?: boolean;
-  isTTSActive?: boolean;
   isFixedLayout?: boolean;
   fixedLayoutZoom?: number;
   fixedLayoutZoomMin?: number;
@@ -73,15 +62,7 @@ export function ReaderToolbar({
   onToggleToc,
   onToggleSettings,
   onToggleChat,
-  onToggleTTS,
-  chapterTranslationState,
-  onChapterTranslationStart,
-  onChapterTranslationCancel,
-  onToggleOriginalVisible,
-  onToggleTranslationVisible,
-  onChapterTranslationReset,
   isChatOpen,
-  isTTSActive,
   isFixedLayout = false,
   fixedLayoutZoom = 1,
   fixedLayoutZoomMin = 0.5,
@@ -218,16 +199,7 @@ export function ReaderToolbar({
         </span>
       </div>
 
-      {/* Right: translate + TTS + search + AI chat + settings */}
       <div className="flex items-center gap-0.5">
-        <ChapterTranslationMenu
-          state={chapterTranslationState}
-          onStart={onChapterTranslationStart}
-          onCancel={onChapterTranslationCancel}
-          onToggleOriginalVisible={onToggleOriginalVisible}
-          onToggleTranslationVisible={onToggleTranslationVisible}
-          onReset={onChapterTranslationReset}
-        />
         <SyncButton iconSize={14} className="h-7 w-7" />
         {isFixedLayout && (
           <div
@@ -272,15 +244,6 @@ export function ReaderToolbar({
             </Button>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-7 w-7 ${isTTSActive ? "bg-primary/10 text-primary" : ""}`}
-          onClick={onToggleTTS}
-          title={t("tts.title")}
-        >
-          <Headphones className="h-3.5 w-3.5" />
-        </Button>
         <Button
           variant="ghost"
           size="icon"

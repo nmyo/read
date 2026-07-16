@@ -3,16 +3,12 @@ import { useFoliateEvents } from "@/hooks/reader/useFoliateEvents";
 import type { FoliateView } from "@/hooks/reader/useFoliateView";
 import { wrappedFoliateView } from "@/hooks/reader/useFoliateView";
 import { usePagination } from "@/hooks/reader/usePagination";
-import { readingContextService } from "@/lib/ai/reading-context-service";
 import type { BookDoc, BookFormat } from "@/lib/reader/document-loader";
 import { getDirection, isFixedLayoutBook } from "@/lib/reader/document-loader";
 import { getFontTheme } from "@/lib/reader/font-themes";
 import { registerIframeEventHandlers } from "@/lib/reader/iframe-event-handlers";
-import type {
-  ChapterParagraph,
-  ChapterTranslationResult,
-} from "@readany/core/translation/chapter-translator";
-import { cleanText, isTTSFootnoteMarker, shouldSkipTTSNode } from "@readany/core/tts";
+type ChapterParagraph = { id: string; text: string; tagName: string };
+type ChapterTranslationResult = { paragraphs: ChapterParagraph[]; translatedText?: string; paragraphId?: string };
 import type { ViewSettings } from "@readany/core/types";
 import { Overlayer } from "foliate-js/overlayer.js";
 import { marked } from "marked";
@@ -217,20 +213,25 @@ function getSelectionAdvanceIntent(
 
 const REMOTE_FONT_LINK_ATTR = "data-readany-remote-font-link";
 
+function cleanText(s: string) { return s; }
+
 function normalizeTTSSegmentText(text?: string | null) {
   return cleanText(String(text || ""));
 }
 
 function acceptTTSNode(node: Node) {
   if (!node.nodeValue?.trim()) return NodeFilter.FILTER_SKIP;
-  if (isTTSFootnoteMarker(node.nodeValue)) return NodeFilter.FILTER_REJECT;
-  const parent = (node as Text).parentElement;
-  return shouldSkipTTSNode(parent) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+  return NodeFilter.FILTER_ACCEPT;
 }
 
 function getTTSSegmentIdentity(cfi?: string | null, text?: string | null) {
   return `${cfi || ""}::${normalizeTTSSegmentText(text)}`;
 }
+
+const readingContextService = {
+  updateContext: (..._args: any[]) => {},
+  updateSelection: (..._args: any[]) => {},
+};
 
 type PaginatedVisibleRange = {
   left: number;
@@ -825,7 +826,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
       const current = getPrimaryContent();
       if (!view || !current?.doc) return null;
 
-      await view.initTTS("sentence", (range) => {
+      await (view as any).initTTS("sentence", (range: Range) => {
         const contents = getRendererContents(view);
         const sourceDoc =
           range.commonAncestorContainer.nodeType === Node.DOCUMENT_NODE
@@ -888,7 +889,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
         return cfi;
       });
 
-      return view.tts ?? null;
+      return (view as any).tts ?? null;
     }, []);
 
     const getVisibleTTSSegments = useCallback(
@@ -1059,7 +1060,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
 
           let visibleBlocks = Array.from(doc.querySelectorAll(blockSelector)).filter((block) => {
             if (!block.textContent?.trim()) return false;
-            if (shouldSkipTTSNode(block)) return false;
+            // TTS removed
             return isRectVisibleInReader(block.getBoundingClientRect(), doc);
           });
 
@@ -1069,7 +1070,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             visibleBlocks = Array.from(doc.querySelectorAll("div, section, article, span")).filter(
               (el) => {
                 if (!el.textContent?.trim()) return false;
-                if (shouldSkipTTSNode(el)) return false;
+                // TTS removed
                 // Only leaf-level elements with direct text content
                 if (el.querySelector("div, section, article, p")) return false;
                 return isRectVisibleInReader(el.getBoundingClientRect(), doc);
@@ -1176,7 +1177,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           }
         }
 
-        const tts = view.tts as null | {
+        const tts = (view as any).tts as null | {
           alignCfi?: (cfi: string) => { text?: string; cfi?: string } | null;
           currentDetail?: () => { text?: string; cfi?: string } | null;
           collectDetails?: (
@@ -1684,7 +1685,7 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
 
               const div = doc.createElement("div");
               div.className = "readany-translation";
-              div.setAttribute("data-para-id", result.paragraphId);
+              div.setAttribute("data-para-id", result.paragraphId ?? "");
               div.setAttribute("data-hidden", String(!visibility.translationVisible));
               div.setAttribute(
                 "data-solo",

@@ -2,17 +2,13 @@ import { type SettingsTab, useAppStore } from "@/stores/app-store";
 import { cn } from "@readany/core/utils";
 import {
   BookOpen,
-  Brain,
-  Bot,
   Info,
   Keyboard,
-  Languages,
   type LucideIcon,
   Moon,
   Search,
   Settings,
   Sun,
-  Volume2,
 } from "lucide-react";
 /**
  * CommandPalette — Cmd+Shift+P command palette for quick access to settings and actions.
@@ -179,46 +175,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         category: "settings",
         icon: BookOpen,
         action: () => openSettingsTab("reading"),
-      },
-      {
-        id: "settings.ai",
-        label: t("settings.ai_title"),
-        keywords: ["ai", "model", "endpoint", "openai", "claude"],
-        category: "settings",
-        icon: Brain,
-        action: () => openSettingsTab("ai"),
-      },
-      {
-        id: "settings.vectorModel",
-        label: t("settings.vm_title"),
-        keywords: ["vector", "embedding", "semantic", "search"],
-        category: "settings",
-        icon: Search,
-        action: () => openSettingsTab("vectorModel"),
-      },
-      {
-        id: "settings.tts",
-        label: t("tts.settingsTitle"),
-        keywords: ["tts", "speech", "voice", "read aloud", "edge"],
-        category: "settings",
-        icon: Volume2,
-        action: () => openSettingsTab("tts"),
-      },
-      {
-        id: "settings.translation",
-        label: t("settings.translation_title"),
-        keywords: ["translation", "translate", "language"],
-        category: "settings",
-        icon: Languages,
-        action: () => openSettingsTab("translation"),
-      },
-      {
-        id: "settings.externalAi",
-        label: t("settings.externalAi"),
-        keywords: ["external", "ai", "agent", "mcp", "cli", "skill"],
-        category: "settings",
-        icon: Bot,
-        action: () => openSettingsTab("externalAi"),
       },
       {
         id: "settings.about",

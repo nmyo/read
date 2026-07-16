@@ -28,7 +28,6 @@
     "less": "少なく",
     "more": "もっと見る",
     "success": "成功！",
-    "failed": "失敗",
     "testing": "テスト中...",
     "minutes": "分",
     "hours": "時間",
@@ -50,7 +49,6 @@
     "library": "ライブラリ",
     "chat": "チャット",
     "notes": "ノート",
-    "skills": "スキル",
     "allBooks": "すべての本",
     "uncategorized": "未分類",
     "addTag": "新しいタグ",
@@ -64,7 +62,6 @@
   },
   "tabs": {
     "library": "ライブラリ",
-    "ai": "AI",
     "notes": "ノート",
     "profile": "マイページ"
   },

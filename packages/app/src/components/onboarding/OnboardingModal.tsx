@@ -1,12 +1,9 @@
 import { DesktopWindowControls } from "@/components/layout/DesktopWindowControls";
 import { useSettingsStore } from "@readany/core/stores/settings-store";
 import { useEffect, useRef, useState } from "react";
-import { AIPage } from "./steps/AIPage";
 import { AppearancePage } from "./steps/AppearancePage";
 import { CompletePage } from "./steps/CompletePage";
-import { EmbeddingPage } from "./steps/EmbeddingPage";
 import { SyncPage } from "./steps/SyncPage";
-import { TranslationPage } from "./steps/TranslationPage";
 import { WelcomePage } from "./steps/WelcomePage";
 
 // Moved getIllustrationForStep logic into OnboardingLayout directly
@@ -14,9 +11,6 @@ import { WelcomePage } from "./steps/WelcomePage";
 const STEPS = [
   WelcomePage,
   AppearancePage,
-  AIPage,
-  EmbeddingPage,
-  TranslationPage,
   SyncPage,
   CompletePage,
 ];
