@@ -115,8 +115,8 @@ export const i18nReady = i18n
       fr: { translation: fr },
       es: { translation: es },
     },
-    lng: "en",
-    fallbackLng: "en",
+    lng: "zh",
+    fallbackLng: "zh",
     interpolation: {
       escapeValue: false,
     },
@@ -127,46 +127,9 @@ export const i18nReady = i18n
  * Call this once at app startup AFTER `setPlatformService()`.
  */
 export async function initI18nLanguage(): Promise<void> {
-  try {
-    const { getPlatformService } = await import("../services/platform");
-    const platform = getPlatformService();
-
-    // 1. Check if user has already chosen a language
-    const savedLang = await platform.kvGetItem("readany-lang");
-
-    if (savedLang && savedLang !== i18n.language) {
-      try {
-        await i18n.changeLanguage(savedLang);
-      } catch {
-        i18n.language = savedLang;
-      }
-      return;
-    }
-
-    // 2. If no saved language, try to get system locale as default
-    if (!savedLang && platform.getLocale) {
-      try {
-        const systemLocale = await platform.getLocale();
-        if (systemLocale) {
-          const lc = systemLocale.toLowerCase();
-          const lang = lc.startsWith("zh-tw") || lc.startsWith("zh-hk") || lc.startsWith("zh-hant") ? "zh-TW"
-            : lc.startsWith("zh") ? "zh"
-            : lc.startsWith("ja") ? "ja"
-            : lc.startsWith("ko") ? "ko"
-            : lc.startsWith("fr") ? "fr"
-            : lc.startsWith("es") ? "es"
-            : "en";
-          if (lang !== i18n.language) {
-            await i18n.changeLanguage(lang);
-            await platform.kvSetItem("readany-lang", lang);
-          }
-        }
-      } catch {
-        // getLocale not supported or failed, keep default (en)
-      }
-    }
-  } catch {
-    // Platform not ready or storage error — keep default
+  // Language is locked to Simplified Chinese
+  if (i18n.language !== "zh") {
+    await i18n.changeLanguage("zh");
   }
 }
 

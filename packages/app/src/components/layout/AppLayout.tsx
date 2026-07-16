@@ -17,7 +17,6 @@
  */
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { HomePage } from "@/components/home/HomePage";
-import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { ReaderView, evictBlobCache } from "@/components/reader/ReaderView";
 import { MissingBookPromptDialog } from "@/components/shared/MissingBookPromptDialog";
 
@@ -25,7 +24,6 @@ import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useFontStore } from "@readany/core/stores";
-import { useSettingsStore } from "@readany/core/stores/settings-store";
 import { BookOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -49,7 +47,6 @@ export function AppLayout() {
   const initTab = useReaderStore((s) => s.initTab);
   const readerStoreTabs = useReaderStore((s) => s.tabs);
   const books = useLibraryStore((s) => s.books);
-  const { hasCompletedOnboarding: _hasCompletedOnboarding, _hasHydrated } = useSettingsStore();
   const { t } = useTranslation();
 
   // Inject @font-face / <link> for all custom fonts into the main app document
@@ -313,7 +310,6 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-muted">
-      {_hasHydrated && <OnboardingModal />}
       <div
         data-tab-bar
         onMouseEnter={handleTabBarMouseEnter}
