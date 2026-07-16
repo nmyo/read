@@ -12,6 +12,7 @@ import { onLibraryChanged } from "@readany/core/events/library-events";
 import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
 import { setPlatformService } from "@readany/core/services";
 import { TauriPlatformService } from "./lib/platform/tauri-platform-service";
+import { WebPlatformService } from "./lib/platform/web-platform-service";
 import { syncLegacyDesktopLibraryRootConfig } from "./lib/storage/desktop-library-root";
 import { useLibraryStore } from "./stores/library-store";
 import { flushAllWrites } from "./stores/persist";
@@ -22,12 +23,19 @@ const FEEDBACK_WORKER_FALLBACK = "https://feedback.readany.top";
 const feedbackWorkerUrl = import.meta.env.VITE_FEEDBACK_WORKER_URL?.trim() || FEEDBACK_WORKER_FALLBACK;
 setFeedbackWorkerUrl(feedbackWorkerUrl);
 
-// Register platform service before any database/core operations
-const tauriPlatform = new TauriPlatformService();
-tauriPlatform.initSync().catch(console.error);
-setPlatformService(tauriPlatform);
+// Detect environment: Tauri desktop or web browser
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const desktopDataRootReady = syncLegacyDesktopLibraryRootConfig().catch(console.error);
+if (isTauri) {
+  const tauriPlatform = new TauriPlatformService();
+  tauriPlatform.initSync().catch(console.error);
+  setPlatformService(tauriPlatform);
+} else {
+  console.log("[ReadAny] Running in web mode");
+  setPlatformService(new WebPlatformService());
+}
+
+const desktopDataRootReady = isTauri ? syncLegacyDesktopLibraryRootConfig().catch(console.error) : Promise.resolve();
 
 // Ensure i18n is fully initialized before rendering
 i18nReady.then(() => {

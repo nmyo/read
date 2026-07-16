@@ -24,7 +24,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "version:check": "node scripts/bump-version.js --check",
-    "version:set": "node scripts/bump-version.js"
+    "version:set": "node scripts/bump-version.js",
+    "web:dev": "concurrently \"pnpm --filter @readany/server dev\" \"pnpm --filter app dev\"",
+    "web:build": "pnpm --filter app build",
+    "web:start": "pnpm --filter @readany/server start"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0"
