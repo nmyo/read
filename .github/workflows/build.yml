@@ -1,4 +1,4 @@
-name: Build Tauri App
+name: Build
 
 on:
   push:
@@ -6,7 +6,53 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
+  build-web:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        run: pnpm web:build
+
+      - name: Build server
+        run: pnpm --filter @readany/server build
+
+      - name: Package web deployment
+        run: |
+          mkdir -p web-dist
+          cp -r packages/app/dist web-dist/frontend
+          cp -r packages/server/dist web-dist/server
+          cp packages/server/package.json web-dist/
+          # Create a minimal start script
+          cat > web-dist/start.sh << 'EOF'
+          #!/bin/bash
+          export READANY_DATA_DIR=${READANY_DATA_DIR:-./data}
+          export READANY_STORAGE_DIR=${READANY_STORAGE_DIR:-./storage}
+          export READANY_DIST_DIR=${READANY_DIST_DIR:-./frontend}
+          export PORT=${PORT:-3000}
+          node server/index.js
+          EOF
+          chmod +x web-dist/start.sh
+          tar czf readany-web.tar.gz -C web-dist .
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: readany-web
+          path: readany-web.tar.gz
+
+  build-tauri:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
