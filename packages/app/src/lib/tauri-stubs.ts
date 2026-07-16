@@ -73,12 +73,17 @@ export function exit(_code?: number) { return Promise.resolve(); }
 
 // @tauri-apps/plugin-sql
 // Use any for maximum compatibility with desktop-only code
-const dbStub: any = {
+interface DbStub {
+  execute(sql: string, params?: unknown[]): Promise<void>;
+  select<T = any>(sql: string, params?: unknown[]): Promise<T[]>;
+  close(): Promise<void>;
+}
+const dbStub: DbStub = {
   execute: (..._args: any[]) => Promise.reject(new Error("Not available in web mode")),
   select: <T = any>(..._args: any[]) => Promise.reject<T[]>(new Error("Not available in web mode")),
   close: () => Promise.resolve(),
 };
-const Database = { load: (..._args: any[]) => Promise.resolve(dbStub) };
+const Database = { load: (..._args: any[]): Promise<DbStub> => Promise.resolve(dbStub) };
 export default Database;
 
 // @tauri-apps/plugin-updater
