@@ -325,11 +325,11 @@ export function AppLayout() {
         <TabBar />
       </div>
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {!isReaderActive && !isWorkspaceActive && <div className="h-8 shrink-0" />}
+        {!isReaderActive && <div className="h-8 shrink-0" />}
         {/* === Home layer (sidebar + content card) === */}
         <div
           className="flex min-h-0 flex-1 w-full overflow-hidden"
-          style={{ display: !isReaderActive && !isWorkspaceActive ? "flex" : "none" }}
+          style={{ display: !isReaderActive ? "flex" : "none" }}
         >
           <HomeSidebar />
           <div className="min-h-0 flex-1 overflow-hidden pr-1 pb-1">
@@ -375,18 +375,8 @@ export function AppLayout() {
           );
         })}
 
-        {draftTabs.map((tab) => (
-          <div
-            key={tab.id}
-            className="absolute inset-0 overflow-hidden pt-8"
-            style={{ display: activeTabId === tab.id ? "block" : "none" }}
-          >
-            <EpubDraftWorkspace draftId={tab.draftId!} />
-          </div>
-        ))}
       </main>
       <MissingBookPromptDialog />
-      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
     </div>
   );

@@ -66,7 +66,7 @@ export function HomeSidebar() {
   const activeTab = useAppStore((s) => s.tabs.find((t) => t.id === activeTabId));
   const activeType = activeTab?.type ?? "home";
 
-  const handleNavClick = (tabType?: string) => {
+  const handleNavClick = (_tabType?: string) => {
     setActiveTab("home");
   };
 
