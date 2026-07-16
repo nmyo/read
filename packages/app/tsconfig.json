@@ -20,8 +20,23 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
+        "paths": {
+      "@/*": ["./src/*"],
+      "@tauri-apps/api": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/api/app": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/api/core": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/api/path": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/api/window": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/api/webview": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-fs": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-http": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-opener": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-process": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-sql": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-updater": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-websocket": ["./src/lib/tauri-stubs.ts"],
+      "@tauri-apps/plugin-window-state": ["./src/lib/tauri-stubs.ts"]
     }
   },
   "include": ["src"],
