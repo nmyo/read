@@ -82,7 +82,6 @@ export function HomePage() {
   const [detailsBookId, setDetailsBookId] = useState<string | null>(null);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const lastDropTime = useRef(0);
   const tRef = useRef(t);
   tRef.current = t;
@@ -135,78 +134,6 @@ export function HomePage() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps — refs keep values fresh
 
-  // HTML5 fallback for browser dev mode (Tauri provides paths via its own event)
-  const handleFileDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
-      const files = e.dataTransfer.files;
-      const paths: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i] as File & { path?: string };
-        if (f.path) {
-          const ext = f.name.split(".").pop()?.toLowerCase() || "";
-          if (SUPPORTED_EXTS.has(ext)) {
-            paths.push(f.path);
-          }
-        }
-      }
-      if (paths.length > 0) {
-      );
-
-  const filtered = useMemo(() => {
-    let result = books.filter((b) => {
-      if (activeTag === "__uncategorized__") {
-        if (b.tags.length > 0) return false;
-      } else if (activeTag && !b.tags.includes(activeTag)) {
-        return false;
-      }
-      if (activeGroupId && b.groupId !== activeGroupId) {
-        return false;
-      }
-      if (filter.search) {
-        const q = filter.search.toLowerCase();
-        return b.meta.title.toLowerCase().includes(q) || b.meta.author?.toLowerCase().includes(q);
-      }
-      return true;
-    });
-    const { sortField, sortOrder } = filter;
-    result = [...result].sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case "title":
-          cmp = a.meta.title.localeCompare(b.meta.title);
-          break;
-        case "author":
-          cmp = (a.meta.author || "").localeCompare(b.meta.author || "");
-          break;
-        case "addedAt":
-          cmp = (a.addedAt || 0) - (b.addedAt || 0);
-          break;
-        case "lastOpenedAt":
-          cmp = (a.lastOpenedAt || 0) - (b.lastOpenedAt || 0);
-          break;
-        case "progress":
-          cmp = a.progress - b.progress;
-          break;
-      }
-      return sortOrder === "desc" ? -cmp : cmp;
-    });
-    return result;
-  }, [books, filter, activeTag, activeGroupId]);
-
-  const activeGroup = useMemo(
-    () => groups.find((group) => group.id === activeGroupId) ?? null,
-    [groups, activeGroupId],
-  );
-  const detailsBook = useMemo(
-    () => books.find((book) => book.id === detailsBookId) ?? null,
-    [books, detailsBookId],
-  );
-
-  const handleShowDetails = useCallback((book: Book) => {
-    setDetailsBookId(book.id);
-  }, []);
 
   const hasSearch = filter.search.trim().length > 0;
 
