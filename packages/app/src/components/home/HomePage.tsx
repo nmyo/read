@@ -80,6 +80,8 @@ export function HomePage() {
   const [showBatchGroupPicker, setShowBatchGroupPicker] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [detailsBookId, setDetailsBookId] = useState<string | null>(null);
+  const detailsBook = detailsBookId ? books.find(b => b.id === detailsBookId) ?? null : null;
+  const handleShowDetails = useCallback((bookId: string) => setDetailsBookId(bookId), []);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
   const lastDropTime = useRef(0);
@@ -425,7 +427,7 @@ export function HomePage() {
         ) : (
           <>
             <div className="flex items-center gap-2">
-              {activeGroup && (
+              {activeGroupId && (
                 <button
                   type="button"
                   className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -442,7 +444,7 @@ export function HomePage() {
                     ? t("sidebar.uncategorized")
                     : activeTag || t("home.library")}
               </h1>
-              {activeGroup && (
+              {activeGroupId && (
                 <div className="relative">
                   <button
                     type="button"
