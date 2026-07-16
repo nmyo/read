@@ -75,7 +75,7 @@ export function exit(_code?: number) { return Promise.resolve(); }
 // Use any for maximum compatibility with desktop-only code
 const dbStub: any = {
   execute: (..._args: any[]) => Promise.reject(new Error("Not available in web mode")),
-  select: (..._args: any[]) => Promise.reject(new Error("Not available in web mode")),
+  select: <T = any>(..._args: any[]) => Promise.reject<T[]>(new Error("Not available in web mode")),
   close: () => Promise.resolve(),
 };
 const Database = { load: (..._args: any[]) => Promise.resolve(dbStub) };
