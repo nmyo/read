@@ -6,6 +6,7 @@
 // @tauri-apps/api/app
 export function getVersion() { return Promise.resolve("web"); }
 export function getName() { return Promise.resolve("ReadAny"); }
+export function stat(_path: string) { return Promise.resolve({ size: 0, mtime: null, isDirectory: false, isFile: true }); }
 
 // @tauri-apps/api/core (invoke)
 export function invoke<T = unknown>(_cmd: string, _args?: Record<string, unknown>): Promise<T> {
@@ -19,6 +20,7 @@ export function tempDir() { return Promise.resolve("/tmp"); }
 export function appDataDir() { return Promise.resolve("/data"); }
 
 // @tauri-apps/api/window
+export type Window = ReturnType<typeof getCurrentWindow>;
 export function getCurrentWindow() {
   return {
     isMaximized: () => Promise.resolve(false),
@@ -31,14 +33,14 @@ export function getCurrentWindow() {
     close: () => Promise.resolve(),
     startDragging: () => Promise.resolve(),
     onCloseRequested: (cb: () => void) => { cb(); },
-    listen: () => Promise.resolve(() => {}),
+    listen: (_event: string, _handler?: Function) => Promise.resolve(() => {}),
   };
 }
 
 // @tauri-apps/api/webview
 export function getCurrentWebview() {
   return {
-    listen: () => Promise.resolve(() => {}),
+    listen: (_event: string, _handler?: Function) => Promise.resolve(() => {}),
   };
 }
 
@@ -56,6 +58,8 @@ export function readTextFile(_path: string) { return Promise.reject(new Error("N
 export function mkdir(_path: string, _opts?: unknown) { return Promise.resolve(); }
 export function exists(_path: string) { return Promise.resolve(false); }
 export function remove(_path: string) { return Promise.resolve(); }
+export function copyFile(_src: string, _dest: string) { return Promise.resolve(); }
+export function readDir(_path: string) { return Promise.resolve([] as Array<{ name: string; isFile: boolean; isDirectory: boolean }>); }
 
 // @tauri-apps/plugin-process
 export function relaunch() { return Promise.resolve(); }
@@ -71,7 +75,15 @@ const Database = { load: () => Promise.resolve(dbStub) };
 export default Database;
 
 // @tauri-apps/plugin-updater
-export function check() { return Promise.resolve(null); }
+export function check() {
+  return Promise.resolve({
+    version: "0.0.0",
+    date: "",
+    body: "",
+    download: () => Promise.resolve(),
+    downloadAndInstall: (_event?: unknown) => Promise.resolve(),
+  });
+}
 
 // @tauri-apps/plugin-http
 export function fetch() { return Promise.reject(new Error("Use native fetch in web mode")); }
@@ -82,6 +94,11 @@ export class WebSocketPlugin {
 }
 
 // @tauri-apps/plugin-window-state
-export enum StateFlags { ALL = 0 }
+export enum StateFlags {
+  SIZE = 1,
+  POSITION = 2,
+  MAXIMIZED = 4,
+  ALL = SIZE | POSITION | MAXIMIZED,
+}
 export function saveWindowState(_flags?: StateFlags) { return Promise.resolve(); }
 export function restoreStateCurrent(_flags?: StateFlags) { return Promise.resolve(); }
