@@ -6,10 +6,8 @@ import { defineConfig } from "vite";
 const pdfjsDist = path.resolve(__dirname, "../../node_modules/pdfjs-dist");
 const tauriStubs = path.resolve(__dirname, "./src/lib/tauri-stubs.ts");
 
-// Redirect all Tauri imports to web stubs
-const tauriAliases: Record<string, string> = {};
-for (const pkg of [
-  "@tauri-apps/api",
+// Use array format with exact matching to avoid prefix conflicts
+const tauriAliases = [
   "@tauri-apps/api/app",
   "@tauri-apps/api/core",
   "@tauri-apps/api/path",
@@ -24,9 +22,7 @@ for (const pkg of [
   "@tauri-apps/plugin-updater",
   "@tauri-apps/plugin-websocket",
   "@tauri-apps/plugin-window-state",
-]) {
-  tauriAliases[pkg] = tauriStubs;
-}
+].map((find) => ({ find, replace: tauriStubs }));
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -35,13 +31,13 @@ export default defineConfig(async () => ({
     format: "es",
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "pdfjs-dist/build/pdf.worker.mjs": path.join(pdfjsDist, "build/pdf.worker.mjs"),
-      "pdfjs-dist": pdfjsDist,
-      "@pdfjs": path.resolve(__dirname, "../../foliate-js/vendor/pdfjs"),
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      { find: "pdfjs-dist/build/pdf.worker.mjs", replacement: path.join(pdfjsDist, "build/pdf.worker.mjs") },
+      { find: "pdfjs-dist", replacement: pdfjsDist },
+      { find: "@pdfjs", replacement: path.resolve(__dirname, "../../foliate-js/vendor/pdfjs") },
       ...tauriAliases,
-    },
+    ],
     dedupe: ["i18next", "react-i18next", "react", "react-dom"],
   },
   optimizeDeps: {
