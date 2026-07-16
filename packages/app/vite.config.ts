@@ -22,7 +22,7 @@ const tauriAliases = [
   "@tauri-apps/plugin-updater",
   "@tauri-apps/plugin-websocket",
   "@tauri-apps/plugin-window-state",
-].map((find) => ({ find, replace: tauriStubs }));
+].map((find) => ({ find, replacement: tauriStubs }));
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
