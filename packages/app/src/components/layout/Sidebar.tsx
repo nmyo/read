@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user/UserMenu";
 
 interface NavItem {
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function HomeSidebar() {
+  const { t } = useTranslation();
   const { activeTabId, setActiveTab } = useAppStore();
   const {
     filter,
@@ -64,7 +66,7 @@ export function HomeSidebar() {
   const activeTab = useAppStore((s) => s.tabs.find((t) => t.id === activeTabId));
   const activeType = activeTab?.type ?? "home";
 
-  const handleNavClick = () => {
+  const handleNavClick = (tabType?: string) => {
     setActiveTab("home");
   };
 
