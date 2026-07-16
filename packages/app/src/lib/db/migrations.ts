@@ -85,7 +85,7 @@ export async function getSchemaVersion(): Promise<number> {
   try {
     const Database = (await import("@tauri-apps/plugin-sql")).default;
     const db = await Database.load(`sqlite:${await getDesktopDatabasePath("readany.db")}`);
-    const rows = await db.select<Array<{ max_version: number | null }>>(
+    const rows = await db.select<{ max_version: number | null }>(
       "SELECT MAX(version) as max_version FROM schema_migrations",
     );
     return rows[0]?.max_version ?? 0;
