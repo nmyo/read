@@ -18,12 +18,10 @@ import {
   getAllNotes,
   getBook,
   getBooks,
-  getChunks,
   getBookmarks,
   getHighlights,
   getNotes,
   closeDB,
-  getSkills,
   initDatabase,
 } from "@readany/core/db";
 import {
@@ -143,8 +141,8 @@ export async function listBookmarks(bookId: string, env: NodeJS.ProcessEnv = pro
 }
 
 export async function listSkills(env: NodeJS.ProcessEnv = process.env) {
-  await ensureCoreInitialized(env);
-  return getSkills();
+  // AI feature removed - skills module no longer exists
+  return [];
 }
 
 export type ReaderContextOptions = {
@@ -598,6 +596,12 @@ function getChapterIndexFromId(chapterId: string): number | null {
 }
 
 export async function listIndexedChapters(options: ChapterListOptions): Promise<ChapterSummary[]> {
+  // AI feature removed - chunk indexing no longer available
+  return [];
+}
+
+/*
+export async function listIndexedChapters_DISABLED(options: ChapterListOptions): Promise<ChapterSummary[]> {
   const { bookId, env = process.env } = options;
   await ensureCoreInitialized(env);
   const chunks = await getChunks(bookId);
@@ -631,6 +635,8 @@ export async function listIndexedChapters(options: ChapterListOptions): Promise<
   return listFallbackChapters(bookId, env);
 }
 
+*/
+
 export async function getIndexedChapter(
   options: ChapterGetOptions,
 ): Promise<ChapterReadResult | null> {
@@ -642,7 +648,10 @@ export async function getIndexedChapter(
     return getFallbackChapter({ bookId, chapterId, contentLimit });
   }
 
-  const allChunks = (await getChunks(bookId)).filter(
+  // AI feature removed - chunk indexing no longer available
+  return getFallbackChapter({ bookId, chapterId, contentLimit });
+  
+  /*const allChunks = (await getChunks(bookId)).filter(
     (chunk) => chunk.chapterIndex === chapterIndex,
   );
   if (allChunks.length === 0) {
@@ -688,7 +697,7 @@ export async function getIndexedChapter(
       endCfi: chunk.endCfi,
       segmentCfis: chunk.segmentCfis,
     })),
-  };
+  };*/
 }
 
 async function listFallbackChapters(
