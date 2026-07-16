@@ -11,9 +11,7 @@ import "./styles/globals.css";
 import { onLibraryChanged } from "@readany/core/events/library-events";
 import { installFeedbackLogCapture, setFeedbackWorkerUrl } from "@readany/core/feedback";
 import { setPlatformService } from "@readany/core/services";
-import { TauriPlatformService } from "./lib/platform/tauri-platform-service";
 import { WebPlatformService } from "./lib/platform/web-platform-service";
-import { syncLegacyDesktopLibraryRootConfig } from "./lib/storage/desktop-library-root";
 import { useLibraryStore } from "./stores/library-store";
 import { flushAllWrites } from "./stores/persist";
 
@@ -23,24 +21,12 @@ const FEEDBACK_WORKER_FALLBACK = "https://feedback.readany.top";
 const feedbackWorkerUrl = import.meta.env.VITE_FEEDBACK_WORKER_URL?.trim() || FEEDBACK_WORKER_FALLBACK;
 setFeedbackWorkerUrl(feedbackWorkerUrl);
 
-// Detect environment: Tauri desktop or web browser
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-if (isTauri) {
-  const tauriPlatform = new TauriPlatformService();
-  tauriPlatform.initSync().catch(console.error);
-  setPlatformService(tauriPlatform);
-} else {
-  console.log("[ReadAny] Running in web mode");
-  setPlatformService(new WebPlatformService());
-}
-
-const desktopDataRootReady = isTauri ? syncLegacyDesktopLibraryRootConfig().catch(console.error) : Promise.resolve();
+// Web mode
+console.log("[ReadAny] Running in web mode");
+setPlatformService(new WebPlatformService());
 
 // Ensure i18n is fully initialized before rendering
 i18nReady.then(() => {
-  desktopDataRootReady.catch(console.error);
-
   // Restore saved theme from localStorage
   const savedTheme = localStorage.getItem("readany-theme");
   if (savedTheme === "system") {
@@ -62,9 +48,7 @@ i18nReady.then(() => {
   });
 
   // Initialize database and load books
-  desktopDataRootReady.then(() => {
-    useLibraryStore.getState().loadBooks();
-  });
+  useLibraryStore.getState().loadBooks();
 
   // Refresh library store when books/tags change
   onLibraryChanged((deletedTags) => useLibraryStore.getState().loadBooks(deletedTags));
