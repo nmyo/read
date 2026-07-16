@@ -32,21 +32,24 @@ export function getCurrentWindow() {
     toggleMaximize: () => Promise.resolve(),
     close: () => Promise.resolve(),
     startDragging: () => Promise.resolve(),
+    setFullscreen: (_fullscreen: boolean) => Promise.resolve(),
+    setDecorations: (_decorations: boolean) => Promise.resolve(),
+    setTitle: (_title: string) => Promise.resolve(),
     onCloseRequested: (cb: () => void) => { cb(); },
-    listen: (_event: string, _handler?: Function) => Promise.resolve(() => {}),
+    listen: (_event: string, _handler?: unknown) => Promise.resolve(() => {}),
   };
 }
 
 // @tauri-apps/api/webview
 export function getCurrentWebview() {
   return {
-    listen: (_event: string, _handler?: Function) => Promise.resolve(() => {}),
+    listen: (_event: string, _handler?: unknown) => Promise.resolve(() => {}),
   };
 }
 
 // @tauri-apps/plugin-dialog
-export function open(_options?: unknown) { return Promise.resolve(null); }
-export function save(_options?: unknown) { return Promise.resolve(null); }
+export function open(_options?: unknown): Promise<string | string[] | null> { return Promise.resolve(null); }
+export function save(_options?: unknown): Promise<string | null> { return Promise.resolve(null); }
 export function message(_msg: string, _opts?: unknown) { return Promise.resolve(); }
 export function ask(_msg: string, _opts?: unknown) { return Promise.resolve(false); }
 
@@ -57,7 +60,7 @@ export function writeTextFile(_path: string, _content: string) { return Promise.
 export function readTextFile(_path: string) { return Promise.reject(new Error("Not available in web mode")); }
 export function mkdir(_path: string, _opts?: unknown) { return Promise.resolve(); }
 export function exists(_path: string) { return Promise.resolve(false); }
-export function remove(_path: string) { return Promise.resolve(); }
+export function remove(_path: string, _opts?: { recursive?: boolean }) { return Promise.resolve(); }
 export function copyFile(_src: string, _dest: string) { return Promise.resolve(); }
 export function readDir(_path: string) { return Promise.resolve([] as Array<{ name: string; isFile: boolean; isDirectory: boolean }>); }
 
@@ -67,11 +70,11 @@ export function exit(_code?: number) { return Promise.resolve(); }
 
 // @tauri-apps/plugin-sql
 const dbStub = {
-  execute: () => Promise.reject(new Error("Not available in web mode")),
-  select: () => Promise.reject(new Error("Not available in web mode")),
+  execute: (_sql: string, _params?: unknown[]) => Promise.reject(new Error("Not available in web mode")),
+  select: <T = unknown>(_sql: string, _params?: unknown[]) => Promise.reject<T[]>(new Error("Not available in web mode")),
   close: () => Promise.resolve(),
 };
-const Database = { load: () => Promise.resolve(dbStub) };
+const Database = { load: (_path?: string) => Promise.resolve(dbStub) };
 export default Database;
 
 // @tauri-apps/plugin-updater
@@ -81,7 +84,7 @@ export function check() {
     date: "",
     body: "",
     download: () => Promise.resolve(),
-    downloadAndInstall: (_event?: unknown) => Promise.resolve(),
+    downloadAndInstall: (_event?: (event: { event: string; data: Record<string, unknown> }) => void) => Promise.resolve(),
   });
 }
 
