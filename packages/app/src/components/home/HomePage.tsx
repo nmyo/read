@@ -1,9 +1,7 @@
 /**
  * HomePage — library page
  */
-import { DesktopImportActions } from "@/components/home/DesktopImportActions";
 import { GroupPickerPopover } from "@/components/home/GroupPickerPopover";
-import { SyncButton } from "@/components/ui/SyncButton";
 import { useLibraryStore } from "@/stores/library-store";
 import type { Book, BookGroup, SortField } from "@readany/core/types";
 import {
@@ -30,7 +28,6 @@ import { BookCard } from "./BookCard";
 import { BookDetailsDialog } from "./BookDetailsDialog";
 import { BookGrid } from "./BookGrid";
 import { GroupCard } from "./GroupCard";
-import { ImportDropZone } from "./ImportDropZone";
 
 const SORT_OPTIONS: { field: SortField; labelKey: string }[] = [
   { field: "lastOpenedAt", labelKey: "library.sortRecent" },
@@ -86,10 +83,7 @@ export function HomePage() {
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const groupBtnRef = useRef<HTMLButtonElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const importBooks = useLibraryStore((s) => s.importBooks);
   const lastDropTime = useRef(0);
-  const importBooksRef = useRef(importBooks);
-  importBooksRef.current = importBooks;
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -158,18 +152,7 @@ export function HomePage() {
         }
       }
       if (paths.length > 0) {
-        const result = await importBooks(paths);
-        toast.success(
-          t("library.importResultSummary", {
-            imported: result.imported.length,
-            skipped: result.skippedDuplicates.length,
-            failed: result.failures.length,
-          }),
-        );
-      }
-    },
-    [importBooks, t],
-  );
+      );
 
   const filtered = useMemo(() => {
     let result = books.filter((b) => {
@@ -375,7 +358,7 @@ export function HomePage() {
   );
 
   if (books.length === 0) {
-    return <ImportDropZone />;
+    return null;
   }
 
   return (
@@ -567,7 +550,6 @@ export function HomePage() {
                   )}
                 </div>
               )}
-              <SyncButton />
             </div>
             <div className="flex items-center gap-2">
               {books.length > 0 && (
@@ -643,21 +625,6 @@ export function HomePage() {
                   </button>
                 </>
               )}
-              <DesktopImportActions align="end">
-                <button
-                  id="tour-add-book"
-                  type="button"
-                  disabled={isImporting}
-                  className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  {isImporting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Plus className="size-4" />
-                  )}
-                  {isImporting ? t("library.importing", "导入中...") : t("home.addBook")}
-                </button>
-              </DesktopImportActions>
             </div>
           </>
         )}

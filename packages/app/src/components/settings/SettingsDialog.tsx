@@ -12,7 +12,6 @@ import { FeedbackSettings } from "./FeedbackSettings";
 import { FontSettings } from "./FontSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ReadSettingsPanel } from "./ReadSettings";
-import { SyncSettings } from "./SyncSettings";
 
 
 interface SettingsDialogProps {
@@ -24,7 +23,6 @@ const TAB_IDS: SettingsTab[] = [
   "general",
   "reading",
   "fonts",
-  "sync",
   "feedback",
   "about",
 ];
@@ -32,7 +30,6 @@ const TAB_KEYS: Record<SettingsTab, string> = {
   general: "settings.general",
   reading: "settings.reading",
   fonts: "settings.fonts",
-  sync: "settings.sync",
   feedback: "feedback.title",
   about: "settings.about",
 };
@@ -104,7 +101,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             {settingsTab === "general" && <GeneralSettings />}
             {settingsTab === "reading" && <ReadSettingsPanel />}
             {settingsTab === "fonts" && <FontSettings />}
-            {settingsTab === "sync" && <SyncSettings />}
             {settingsTab === "feedback" && <FeedbackSettings />}
             {settingsTab === "about" && <AboutSettings />}
           </div>

@@ -1,10 +1,12 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import db from "./db.js";
+import authRouter from "./auth.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -15,6 +17,7 @@ if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Serve frontend static files (built with vite)
 const DIST_DIR = process.env.READANY_DIST_DIR || path.resolve("../app/dist");
@@ -38,6 +41,9 @@ const upload = multer({
     cb(null, allowed.includes(ext));
   },
 });
+
+// ==================== AUTH ====================
+app.use("/api/auth", authRouter);
 
 // ==================== BOOKS ====================
 

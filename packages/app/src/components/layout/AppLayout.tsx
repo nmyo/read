@@ -15,17 +15,11 @@
  * Home-type pages (home/chat/notes/skills/stats) share the left sidebar.
  * Reader pages are full-width (no sidebar).
  */
-import { ChatPage as ChatPageComponent } from "@/components/chat/ChatPage";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
-import { EpubDraftWorkspace } from "@/components/epub-draft/EpubDraftWorkspace";
 import { HomePage } from "@/components/home/HomePage";
-import { NotesPage } from "@/components/notes/NotesPage";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { ReaderView, evictBlobCache } from "@/components/reader/ReaderView";
-import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { MissingBookPromptDialog } from "@/components/shared/MissingBookPromptDialog";
-import { ReadingStatsPanel } from "@/components/stats/ReadingStatsPanel";
-import { toggleWindowFullscreen } from "@/lib/window-fullscreen";
 
 import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
@@ -41,9 +35,6 @@ import { TabBar } from "./TabBar";
 /** All home sub-views — each stays mounted and uses display:none to toggle. */
 const HOME_VIEWS: { id: string; Component: React.ComponentType }[] = [
   { id: "home", Component: HomePage },
-  { id: "chat", Component: ChatPageComponent },
-  { id: "notes", Component: NotesPage },
-  { id: "stats", Component: ReadingStatsPanel },
 ];
 
 /** Idle timeout before a background reader tab is hibernated (30 minutes). */
@@ -55,8 +46,6 @@ const IDLE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
 export function AppLayout() {
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
-  const showSettings = useAppStore((s) => s.showSettings);
-  const setShowSettings = useAppStore((s) => s.setShowSettings);
   const initTab = useReaderStore((s) => s.initTab);
   const readerStoreTabs = useReaderStore((s) => s.tabs);
   const books = useLibraryStore((s) => s.books);
@@ -126,9 +115,7 @@ export function AppLayout() {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const readerTabs = tabs.filter((t) => t.type === "reader" && t.bookId);
-  const draftTabs = tabs.filter((t) => t.type === "epubDraft" && t.draftId);
   const isReaderActive = readerTabs.some((t) => t.id === activeTabId);
-  const isWorkspaceActive = draftTabs.some((t) => t.id === activeTabId);
   const [showTabBar, setShowTabBar] = useState(!isReaderActive);
   const hideTabBarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevIsReaderActiveRef = useRef(isReaderActive);
@@ -155,15 +142,7 @@ export function AppLayout() {
         e.stopPropagation();
         toggleCommandPalette();
       }
-      if (e.key === "F11") {
-        e.preventDefault();
-        import("@tauri-apps/api/window")
-          .then(({ getCurrentWindow }) => {
-            const win = getCurrentWindow();
-            void toggleWindowFullscreen(win);
-          })
-          .catch((err) => console.warn("[Layout] Failed to toggle fullscreen:", err));
-      }
+
     };
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
@@ -235,7 +214,7 @@ export function AppLayout() {
   }, [isReaderActive]);
 
   // Determine which home sub-view is active
-  const homeViewKey = isReaderActive || isWorkspaceActive ? null : (activeTabId ?? "home");
+  const homeViewKey = isReaderActive ? null : (activeTabId ?? "home");
 
   // Track which reader tabs we've already initialized
   const initializedRef = useRef<Set<string>>(new Set());
