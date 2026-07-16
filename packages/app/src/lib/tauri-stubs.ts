@@ -1,6 +1,7 @@
 /**
  * Stub module for @tauri-apps/* packages in web mode.
  * All exports are no-ops or return sensible defaults.
+ * Typing is intentionally loose (any) to avoid cascading TS errors in desktop-only code paths.
  */
 
 // @tauri-apps/api/app
@@ -32,11 +33,12 @@ export function getCurrentWindow() {
     toggleMaximize: () => Promise.resolve(),
     close: () => Promise.resolve(),
     startDragging: () => Promise.resolve(),
-    setFullscreen: (_fullscreen: boolean) => Promise.resolve(),
-    setDecorations: (_decorations: boolean) => Promise.resolve(),
-    setTitle: (_title: string) => Promise.resolve(),
+    setFullscreen: (_f: boolean) => Promise.resolve(),
+    setDecorations: (_d: boolean) => Promise.resolve(),
+    setTitle: (_t: string) => Promise.resolve(),
     onCloseRequested: (cb: () => void) => { cb(); },
     listen: (_event: string, _handler?: unknown) => Promise.resolve(() => {}),
+    onResized: (_handler: unknown) => Promise.resolve(() => {}),
   };
 }
 
@@ -44,6 +46,7 @@ export function getCurrentWindow() {
 export function getCurrentWebview() {
   return {
     listen: (_event: string, _handler?: unknown) => Promise.resolve(() => {}),
+    onDragDropEvent: (_handler: (event: { payload: { type: string; paths: string[]; position: { x: number; y: number } } }) => void) => Promise.resolve(() => {}),
   };
 }
 
@@ -69,12 +72,13 @@ export function relaunch() { return Promise.resolve(); }
 export function exit(_code?: number) { return Promise.resolve(); }
 
 // @tauri-apps/plugin-sql
-const dbStub = {
-  execute: (_sql: string, _params?: unknown[]) => Promise.reject(new Error("Not available in web mode")),
-  select: <T = unknown>(_sql: string, _params?: unknown[]) => Promise.reject<T[]>(new Error("Not available in web mode")),
+// Use any for maximum compatibility with desktop-only code
+const dbStub: any = {
+  execute: (..._args: any[]) => Promise.reject(new Error("Not available in web mode")),
+  select: (..._args: any[]) => Promise.reject(new Error("Not available in web mode")),
   close: () => Promise.resolve(),
 };
-const Database = { load: (_path?: string) => Promise.resolve(dbStub) };
+const Database = { load: (..._args: any[]) => Promise.resolve(dbStub) };
 export default Database;
 
 // @tauri-apps/plugin-updater
@@ -84,7 +88,7 @@ export function check() {
     date: "",
     body: "",
     download: () => Promise.resolve(),
-    downloadAndInstall: (_event?: (event: { event: string; data: Record<string, unknown> }) => void) => Promise.resolve(),
+    downloadAndInstall: (handler?: (event: any) => void) => Promise.resolve(handler?.({ event: "", data: {} })),
   });
 }
 
