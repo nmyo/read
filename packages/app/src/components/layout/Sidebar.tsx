@@ -34,7 +34,12 @@ const NAV_ITEMS: NavItem[] = [
   { tabType: "home", labelKey: "sidebar.library", icon: BookOpen, expandable: true },
 ];
 
-export function HomeSidebar() {
+interface HomeSidebarProps {
+  collapsed?: boolean;
+  onToggle?: () => void;
+}
+
+export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
   const { t } = useTranslation();
   const { activeTabId, setActiveTab } = useAppStore();
   const {
@@ -73,8 +78,19 @@ export function HomeSidebar() {
 
 
   return (
-    <aside className="z-40 flex h-full min-h-0 w-48 shrink-0 select-none flex-col overflow-hidden">
-      <div className="px-2 pt-2">
+    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-12' : 'w-48'}`}>
+      {/* Toggle button */}
+      <div className="flex items-center justify-end px-2 py-1">
+        <button
+          type="button"
+          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={onToggle}
+          title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+        </button>
+      </div>
+      {!collapsed && (<>
         {isSearchVisible ? (
           <div className="flex w-full items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 transition-colors">
             <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -108,11 +124,9 @@ export function HomeSidebar() {
             <span className="text-sm">{t("common.search")}</span>
           </button>
         )}
-      </div>
       <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-1 pt-2 pl-2">
         {NAV_ITEMS.map((item) => {
           const isActive = activeType === item.tabType;
-          const Icon = item.icon;
           return (
             <div key={item.tabType}>
               {item.expandable ? (
@@ -123,7 +137,6 @@ export function HomeSidebar() {
                     onClick={() => handleNavClick(item.tabType)}
                   >
                     <div className="flex flex-1 items-center gap-2">
-                      <Icon size={16} className="shrink-0" />
                       <span className="font-medium text-sm">{t(item.labelKey)}</span>
                     </div>
                   </button>
@@ -148,7 +161,6 @@ export function HomeSidebar() {
                   className={`flex w-full items-center gap-2 rounded-md p-1 py-1 text-left text-sm transition-colors hover:bg-muted ${isActive ? "text-foreground" : "text-muted-foreground"}`}
                   onClick={() => handleNavClick(item.tabType)}
                 >
-                  <Icon size={16} className="shrink-0" />
                   <span className="font-medium text-sm">{t(item.labelKey)}</span>
                 </button>
               )}
@@ -392,6 +404,7 @@ export function HomeSidebar() {
           );
         })}
       </nav>
+      </>)}
       <UserMenu />
     </aside>
   );

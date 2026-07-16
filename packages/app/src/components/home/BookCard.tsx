@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useResolvedSrc, useSyncVersion } from "@/hooks/use-resolved-src";
 import { openDesktopBook } from "@/lib/library/open-book";
 /**
  * BookCard — Readest-inspired book card with realistic cover rendering
@@ -31,7 +30,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface BookCardProps {
@@ -65,31 +64,14 @@ export const BookCard = memo(function BookCard({
   const [showTagMenu, setShowTagMenu] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [preserveDataOnDelete, setPreserveDataOnDelete] = useState(true);
   const coverRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const suppressOpenUntilRef = useRef(0);
   const progressPct = getBookProgressPercent(book.progress);
-  const coverSrc = useResolvedSrc(book.meta.coverUrl);
-  const syncVersion = useSyncVersion();
-  const coverImageKey = coverSrc ? `${coverSrc}-${syncVersion}` : "";
   const downloadProgress = useDownloadProgressStore((s) => s.progress[book.id]);
-
-  useEffect(() => {
-    setImageError(false);
-    const image = imageRef.current;
-    if (coverImageKey && image?.complete) {
-      setImageLoaded(image.naturalWidth > 0);
-      setImageError(image.naturalWidth === 0);
-      return;
-    }
-    setImageLoaded(false);
-  }, [coverImageKey]);
 
   const handleOpen = async () => {
     if (isSelectionMode) {
@@ -135,17 +117,8 @@ export const BookCard = memo(function BookCard({
     [book, onShowDetails],
   );
 
-  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
-    setImageLoaded(event.currentTarget.naturalWidth > 0);
-    setImageError(false);
-  };
 
-  const handleImageError = () => {
-    setImageLoaded(false);
-    setImageError(true);
-  };
 
-  const hasVisibleCover = Boolean(coverSrc && imageLoaded && !imageError);
 
   return (
     <div
@@ -158,10 +131,10 @@ export const BookCard = memo(function BookCard({
         }
       }}
     >
-      {/* Cover area — 28:41 aspect ratio (Readest standard) */}
+      {/* Text-only card */}
       <div
         ref={coverRef}
-        className="book-cover-shadow relative flex aspect-[28/41] w-full items-end justify-center overflow-hidden rounded transition-all duration-200 group-hover:book-cover-shadow"
+        className="relative flex aspect-[28/41] w-full items-center justify-center overflow-hidden rounded bg-gradient-to-b from-stone-100 to-stone-200 p-4 transition-all duration-200 group-hover:shadow-md"
       >
         {/* Selection checkbox overlay */}
         {isSelectionMode && (
@@ -176,43 +149,20 @@ export const BookCard = memo(function BookCard({
         {isSelectionMode && isSelected && (
           <div className="absolute inset-0 z-10 rounded bg-black/15" />
         )}
-        {/* Actual cover image */}
-        {coverSrc && (
-          <img
-            ref={imageRef}
-            key={coverImageKey}
-            src={coverSrc}
-            alt={book.meta.title}
-            className={`absolute inset-0 h-full w-full rounded object-cover transition-opacity duration-300 ${
-              hasVisibleCover ? "opacity-100" : "opacity-0"
-            }`}
-            loading="lazy"
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-          />
-        )}
-
-        {/* Book spine overlay — only when image loaded */}
-        {hasVisibleCover && <div className="book-spine absolute inset-0 rounded" />}
-
-        {/* Fallback cover — serif title + author */}
-        {!hasVisibleCover && (
-          <div className="absolute inset-0 flex flex-col items-center rounded bg-gradient-to-b from-stone-100 to-stone-200 p-3">
-            <div className="flex flex-1 items-center justify-center">
-              <span className="line-clamp-3 text-center font-serif text-base font-medium leading-snug text-stone-500">
-                {book.meta.title}
+        {/* Title and author text */}
+        <div className="flex flex-col items-center justify-center">
+          <span className="line-clamp-4 text-center font-serif text-base font-medium leading-snug text-stone-600">
+            {book.meta.title}
+          </span>
+          {book.meta.author && (
+            <>
+              <div className="my-2 h-px w-8 bg-stone-300/60" />
+              <span className="line-clamp-1 text-center font-serif text-xs text-stone-400">
+                {book.meta.author}
               </span>
-            </div>
-            <div className="h-px w-8 bg-stone-300/60" />
-            {book.meta.author && (
-              <div className="flex h-1/4 items-center justify-center">
-                <span className="line-clamp-1 text-center font-serif text-xs text-stone-400">
-                  {book.meta.author}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
         {/* Progress bar at bottom of cover */}
         {progressPct > 0 && progressPct < 100 && (

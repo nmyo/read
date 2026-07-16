@@ -111,6 +111,7 @@ export function AppLayout() {
   }, [customFonts]);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const readerTabs = tabs.filter((t) => t.type === "reader" && t.bookId);
   const isReaderActive = readerTabs.some((t) => t.id === activeTabId);
   const [showTabBar, setShowTabBar] = useState(!isReaderActive);
@@ -327,7 +328,7 @@ export function AppLayout() {
           className="flex min-h-0 flex-1 w-full overflow-hidden"
           style={{ display: !isReaderActive ? "flex" : "none" }}
         >
-          <HomeSidebar />
+          <HomeSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
           <div className="min-h-0 flex-1 overflow-hidden pr-1 pb-1">
             <div className="relative flex h-full flex-col overflow-hidden rounded-xl border bg-background shadow-around">
               {/* All home sub-views stay mounted; toggle via display:none */}
