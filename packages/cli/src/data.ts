@@ -63,9 +63,7 @@ export async function ensureCoreInitialized(env: NodeJS.ProcessEnv = process.env
 }
 
 export async function resetCoreForTests(): Promise<void> {
-  const { clearChunkCache, clearSearchConfiguration } = await import("@readany/core/rag");
-  clearChunkCache();
-  clearSearchConfiguration();
+  // AI feature removed - rag module no longer exists
   await closeDB();
   initialized = false;
   initializedHome = undefined;
@@ -846,38 +844,6 @@ function truncateContent(content: string, limit: number): { content: string; tru
 }
 
 export async function searchRag(options: RagSearchOptions): Promise<RagSearchItem[]> {
-  const { query, bookId, mode = "bm25", limit, contentLimit, env = process.env } = options;
-
-  await ensureCoreInitialized(env);
-  // AI feature removed
-  const { search } = await import("@readany/core/rag");
-  const results = await search({
-    query,
-    bookId,
-    mode,
-    topK: clampPositiveInteger(limit, 5, 50),
-    threshold: 0,
-  });
-  const maxContentChars = clampPositiveInteger(contentLimit, 1200, 4000);
-
-  return results.map((result) => {
-    const content = truncateContent(result.chunk.content, maxContentChars);
-    return {
-      score: result.score,
-      matchType: result.matchType,
-      highlights: result.highlights,
-      chunk: {
-        id: result.chunk.id,
-        bookId: result.chunk.bookId,
-        chapterIndex: result.chunk.chapterIndex,
-        chapterTitle: result.chunk.chapterTitle,
-        content: content.content,
-        contentTruncated: content.truncated,
-        tokenCount: result.chunk.tokenCount,
-        startCfi: result.chunk.startCfi,
-        endCfi: result.chunk.endCfi,
-        segmentCfis: result.chunk.segmentCfis,
-      },
-    };
-  });
+  // AI feature removed - rag module no longer exists
+  return [];
 }

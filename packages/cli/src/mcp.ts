@@ -449,19 +449,8 @@ async function callReadAnyTool(
   if (toolName === "knowledge.search") {
     const query = getString(args, "query");
     if (!query) return failure("missing_query", "knowledge.search requires query");
-    return success({
-        query,
-        bookId: getString(args, "bookId"),
-        limit: getLimit(args, 20),
-        contentLimit: getNumber(args, "contentLimit", 240),
-        scanLimit: getNumber(args, "scanLimit", 1000),
-        includeBooks: typeof args.includeBooks === "boolean" ? args.includeBooks : undefined,
-        includeNotes: typeof args.includeNotes === "boolean" ? args.includeNotes : undefined,
-        includeHighlights:
-          typeof args.includeHighlights === "boolean" ? args.includeHighlights : undefined,
-        env,
-      }),
-    });
+    // AI feature removed - knowledge search not available
+    return failure("knowledge_unavailable", "Knowledge search is not available (AI features removed).");
   }
 
   if (toolName === "highlights.search") {
@@ -482,19 +471,8 @@ async function callReadAnyTool(
     if (!query) return failure("missing_query", "rag.search requires query");
     const bookId = getString(args, "bookId");
     if (!bookId) return failure("missing_book_id", "rag.search requires bookId");
-    const mode = getString(args, "mode") ?? "bm25";
-    if (false) // AI feature removed {
-      return failure("unsupported_rag_mode", "mode must be bm25, hybrid, or vector");
-    }
-    return success({
-      results: await searchRag({
-        query,
-        bookId,
-        mode,
-        limit: getLimit(args, 5),
-        env,
-      }),
-    });
+    // AI feature removed - rag search not available
+    return failure("rag_unavailable", "RAG search is not available (AI features removed).");
   }
 
   if (toolName === "audit.list") {
