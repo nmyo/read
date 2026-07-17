@@ -1,12 +1,9 @@
 import express from "express";
-import cookieParser from "cookie-parser";
 import cors from "cors";
-import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import db from "./db.js";
-import authRouter from "./auth.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -17,7 +14,6 @@ if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
 
 // Serve frontend static files (built with vite)
 const DIST_DIR = process.env.READANY_DIST_DIR || path.resolve("../app/dist");
@@ -25,27 +21,7 @@ if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 }
 
-// --- File upload (multer) ---
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: STORAGE_DIR,
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      cb(null, `${crypto.randomUUID()}${ext}`);
-    },
-  }),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
-  fileFilter: (_req, file, cb) => {
-    const allowed = [".epub", ".pdf"];
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, allowed.includes(ext));
-  },
-});
-
-// ==================== AUTH ====================
-app.use("/api/auth", authRouter);
-
-// ==================== BOOKS ====================
+// ==================== BOOKS (read-only) ====================
 
 // List all books
 app.get("/api/books", (_req, res) => {
@@ -58,71 +34,6 @@ app.get("/api/books/:id", (req, res) => {
   const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id);
   if (!book) return res.status(404).json({ error: "not found" });
   res.json(book);
-});
-
-// Upload book
-app.post("/api/books/upload", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "no file" });
-
-  const id = crypto.randomUUID();
-  const ext = path.extname(req.file.originalname).toLowerCase().slice(1);
-  const now = Date.now();
-
-  db.prepare(`
-    INSERT INTO books (id, title, author, format, file_size, file_path, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    req.body.title || path.basename(req.file.originalname, path.extname(req.file.originalname)),
-    req.body.author || null,
-    ext,
-    req.file.size,
-    req.file.filename,
-    now,
-    now,
-  );
-
-  const book = db.prepare("SELECT * FROM books WHERE id = ?").get(id);
-  res.json(book);
-});
-
-// Update book metadata (title, author, progress, cover)
-app.patch("/api/books/:id", (req, res) => {
-  const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id);
-  if (!book) return res.status(404).json({ error: "not found" });
-
-  const { title, author, progress, cover_url } = req.body;
-  const updates: string[] = [];
-  const values: unknown[] = [];
-
-  if (title !== undefined) { updates.push("title = ?"); values.push(title); }
-  if (author !== undefined) { updates.push("author = ?"); values.push(author); }
-  if (progress !== undefined) { updates.push("progress = ?"); values.push(progress); }
-  if (cover_url !== undefined) { updates.push("cover_url = ?"); values.push(cover_url); }
-
-  if (updates.length > 0) {
-    updates.push("updated_at = ?");
-    values.push(Date.now());
-    values.push(req.params.id);
-    db.prepare(`UPDATE books SET ${updates.join(", ")} WHERE id = ?`).run(...values);
-  }
-
-  res.json(db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id));
-});
-
-// Delete book (file + metadata)
-app.delete("/api/books/:id", (req, res) => {
-  const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id) as any;
-  if (!book) return res.status(404).json({ error: "not found" });
-
-  // Delete file from storage
-  if (book.file_path) {
-    const fullPath = path.join(STORAGE_DIR, book.file_path);
-    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-  }
-
-  db.prepare("DELETE FROM books WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
 });
 
 // Serve book file (for reader)
@@ -139,13 +50,15 @@ app.get("/api/books/:id/file", (req, res) => {
   fs.createReadStream(fullPath).pipe(res);
 });
 
-// ==================== BOOKMARKS ====================
+// ==================== BOOKMARKS (user reading records) ====================
 
+// Get bookmarks for a book
 app.get("/api/books/:id/bookmarks", (req, res) => {
   const rows = db.prepare("SELECT * FROM bookmarks WHERE book_id = ? ORDER BY created_at DESC").all(req.params.id);
   res.json(rows);
 });
 
+// Add bookmark
 app.post("/api/books/:id/bookmarks", (req, res) => {
   const id = crypto.randomUUID();
   const { cfi, chapter_index, label } = req.body;
@@ -154,6 +67,7 @@ app.post("/api/books/:id/bookmarks", (req, res) => {
   res.json(db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id));
 });
 
+// Delete bookmark
 app.delete("/api/bookmarks/:id", (req, res) => {
   db.prepare("DELETE FROM bookmarks WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
@@ -161,6 +75,7 @@ app.delete("/api/bookmarks/:id", (req, res) => {
 
 // ==================== READING SESSIONS ====================
 
+// Start reading session
 app.post("/api/books/:id/sessions", (req, res) => {
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -171,10 +86,29 @@ app.post("/api/books/:id/sessions", (req, res) => {
   res.json({ id, book_id: req.params.id, started_at: now });
 });
 
+// End reading session
 app.patch("/api/sessions/:id", (req, res) => {
   const { ended_at, duration_seconds } = req.body;
   db.prepare("UPDATE reading_sessions SET ended_at = ?, duration_seconds = ? WHERE id = ?")
     .run(ended_at || Date.now(), duration_seconds || 0, req.params.id);
+  res.json({ ok: true });
+});
+
+// ==================== READING PROGRESS ====================
+
+// Update reading progress (no login required)
+app.patch("/api/books/:id/progress", (req, res) => {
+  const { progress, currentCfi } = req.body;
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (progress !== undefined) { updates.push("progress = ?"); values.push(progress); }
+  if (currentCfi !== undefined) { updates.push("currentCfi = ?"); values.push(currentCfi); }
+  updates.push("updated_at = ?");
+  values.push(Date.now());
+  values.push(req.params.id);
+
+  db.prepare(`UPDATE books SET ${updates.join(", ")} WHERE id = ?`).run(...values);
   res.json({ ok: true });
 });
 
