@@ -329,7 +329,7 @@ export function AppLayout() {
   }, [readerTabs]);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-muted">
+    <div className="flex h-[100dvh] w-screen flex-col overflow-hidden bg-muted">
       <div
         data-tab-bar
         onMouseEnter={handleTabBarMouseEnter}
