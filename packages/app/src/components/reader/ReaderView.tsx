@@ -1697,8 +1697,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   );
 
   const handleNavigateToCitation = useCallback(
-    // REMOVED: unused
-    //     (citation: CitationPart) => {
+    (citation: CitationPart) => {
       if (!citation.cfi || citation.cfi.trim() === "") {
         console.warn("Citation has no valid CFI, falling back to chapter index:", {
           chapterTitle: citation.chapterTitle,
@@ -2056,7 +2055,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            {/* {/* ChatPanel removed */} */}
+            {/* <ChatPanel book={book} onNavigateToCitation={handleNavigateToCitation} /> */}
           </div>
         </div>
       )}
