@@ -1,4 +1,4 @@
-import { SyncButton } from "@/components/ui/SyncButton";
+// import { SyncButton } from "@/components/ui/SyncButton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toggleWindowFullscreen } from "@/lib/window-fullscreen";
@@ -8,12 +8,7 @@ import { useReaderStore } from "@/stores/reader-store";
 import {
   ArrowLeft,
   List,
-  Maximize,
-  MessageSquare,
-  NotebookPen,
-  Pin,
   RotateCcw,
-  Search,
   Settings,
   Undo,
   ZoomIn,
