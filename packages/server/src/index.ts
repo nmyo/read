@@ -213,6 +213,8 @@ app.get("/api/books/:id/bookmarks", (req, res) => {
 app.post("/api/books/:id/bookmarks", (req, res) => {
   const id = crypto.randomUUID();
   const { cfi, chapter_index, label } = req.body;
+  if (cfi && String(cfi).length > 500) return res.status(400).json({ error: "cfi too long" });
+  if (label && String(label).length > 200) return res.status(400).json({ error: "label too long" });
   db.prepare("INSERT INTO bookmarks (id, book_id, cfi, chapter_index, label, created_at) VALUES (?,?,?,?,?,?)")
     .run(id, req.params.id, cfi || null, chapter_index ?? null, label || null, Date.now());
   res.json(db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id));
@@ -288,13 +290,7 @@ app.get("/api/files/book", (req, res) => {
     const sp = safePath(STORAGE_DIR, trySeg);
     if (sp && fs.existsSync(sp)) {
       const ext = path.extname(sp).toLowerCase();
-      const mimeTypes: Record<string, string> = {
-        ".epub": "application/epub+zip",
-        ".pdf": "application/pdf",
-        ".mobi": "application/x-mobipocket-ebook",
-        ".txt": "text/plain; charset=utf-8",
-      };
-      res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
+      res.setHeader("Content-Type", BOOK_MIME_TYPES[ext.slice(1)] || "application/octet-stream");
       res.setHeader("Content-Disposition", "inline");
       
       // For TXT files, detect encoding and convert to UTF-8
@@ -309,8 +305,7 @@ app.get("/api/files/book", (req, res) => {
         }
         // Try GBK/GB2312
         try {
-          const { TextDecoder } = require("util");
-          const decoder = new TextDecoder("gbk");
+                    const decoder = new TextDecoder("gbk");
           const gbkText = decoder.decode(buf);
           res.setHeader("Content-Type", "text/plain; charset=utf-8");
           return res.send(gbkText);
@@ -339,6 +334,14 @@ function rateLimitFile(req: any, res: any, next: any) {
   if (entry.count > 100) return res.status(429).json({ error: "too many requests" }); // 100 per minute
   next();
 }
+
+// Clean up rate limiter entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of fileRequestCounts) {
+    if (now > entry.resetAt) fileRequestCounts.delete(ip);
+  }
+}, 300000); // every 5 minutes
 
 // Serve cover images
 app.get("/api/covers/:filename", rateLimitFile, (req, res) => {

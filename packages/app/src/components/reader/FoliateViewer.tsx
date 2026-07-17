@@ -213,10 +213,10 @@ function getSelectionAdvanceIntent(
 
 const REMOTE_FONT_LINK_ATTR = "data-readany-remote-font-link";
 
-function cleanText(s: string) { return s; }
+function cleanText(s: string) { return s; } // stub kept for compatibility
 
 function normalizeTTSSegmentText(text?: string | null) {
-  return cleanText(String(text || ""));
+  return (String(text || ""));
 }
 
 function acceptTTSNode(node: Node) {
@@ -444,7 +444,7 @@ function getElementPreviewText(element: Element | Range | null): string {
     node.remove();
   }
 
-  return cleanText(cloned.textContent || "").slice(0, 600);
+  return (cloned.textContent || "").slice(0, 600);
 }
 
 async function resolveFootnotePreviewText(
