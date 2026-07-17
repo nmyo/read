@@ -1177,7 +1177,7 @@ export class Paginator extends HTMLElement {
             if (!this.scrolled && !this.#isAnimating) this.#replaceBackground()
             // Preload forward when fewer than minPages ahead
             if (!this.noPreload && !this.noContinuousScroll && !this.#filling && !this.#stabilizing) {
-                const minPages = 5
+                const minPages = 3
                 const pagesAhead = this.size > 0
                     ? Math.floor((this.#renderedViewSize - this.#renderedEnd) / this.size)
                     : 0
@@ -1204,7 +1204,7 @@ export class Paginator extends HTMLElement {
             // anchored as the section is inserted above.
             if (this.scrolled && !this.noPreload && !this.noContinuousScroll
                 && !this.#filling && !this.#stabilizing) {
-                const minPages = 5
+                const minPages = 3
                 const pagesBehind = this.size > 0
                     ? Math.floor(this.#renderedStart / this.size)
                     : 0
@@ -2443,8 +2443,8 @@ export class Paginator extends HTMLElement {
         this.#filling = true
         try {
             const { size } = this
-            const minPages = 5
-            const maxSections = 8
+            const minPages = 3
+            const maxSections = 4
             // Load forward sections until we have enough pages ahead
             let iterations = 0
             while (this.#views.size < maxSections && iterations < maxSections) {
@@ -2668,8 +2668,8 @@ export class Paginator extends HTMLElement {
         try {
             const { size } = this
             if (!size) return
-            const minPages = 5
-            const maxSections = 8
+            const minPages = 3
+            const maxSections = 4
 
             // If the primary section is shorter than one spread and
             // there's no section already loaded before it, load the
