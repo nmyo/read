@@ -209,6 +209,29 @@ app.post("/api/files/write", express.raw({ type: "*/*", limit: "10mb" }), (req, 
   res.json({ ok: true });
 });
 
+// Serve book file by path (for reader)
+app.get("/api/files/book", (req, res) => {
+  const filePath = req.query.path as string;
+  if (!filePath) return res.status(400).json({ error: "missing path" });
+  const basename = path.basename(filePath);
+  const cleanPath = filePath.replace(/^\/data\//, "");
+  for (const tryPath of [path.join(STORAGE_DIR, cleanPath), path.join(STORAGE_DIR, basename)]) {
+    if (fs.existsSync(tryPath)) {
+      const ext = path.extname(tryPath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".epub": "application/epub+zip",
+        ".pdf": "application/pdf",
+        ".mobi": "application/x-mobipocket-ebook",
+        ".txt": "text/plain; charset=utf-8",
+      };
+      res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
+      res.setHeader("Content-Disposition", "inline");
+      return fs.createReadStream(tryPath).pipe(res);
+    }
+  }
+  res.status(404).json({ error: "not found" });
+});
+
 // ==================== SPA FALLBACK ====================
 
 if (fs.existsSync(DIST_DIR)) {
