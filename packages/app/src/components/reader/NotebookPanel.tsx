@@ -1,4 +1,3 @@
-import { ExportDropdown } from "@/components/notes/ExportDropdown";
 import { Button } from "@/components/ui/button";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { useAnnotationStore } from "@/stores/annotation-store";
@@ -202,7 +201,7 @@ export function NotebookPanel({
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 px-3">
         <span className="text-xs font-medium text-foreground">{t("notebook.title")}</span>
         <div className="flex items-center gap-1">
-          <ExportDropdown onExport={handleExport} disabled={bookHighlights.length === 0} />
+          {/* ExportDropdown removed */}
           <button
             type="button"
             className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

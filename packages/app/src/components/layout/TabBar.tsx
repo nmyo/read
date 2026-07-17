@@ -1,5 +1,4 @@
 import { evictBlobCache } from "@/components/reader/ReaderView";
-import { DesktopWindowControls } from "@/components/layout/DesktopWindowControls";
 /**
  * TabBar — draggable tab bar
  * macOS: native traffic lights (left), can optionally preview custom controls on the right
@@ -105,7 +104,7 @@ export function TabBar() {
       </div>
 
       {/* Desktop: custom window controls on right; macOS keeps native traffic lights only */}
-      {isTauri && <DesktopWindowControls headerRef={headerRef} />}
+      
     </div>
   );
 }

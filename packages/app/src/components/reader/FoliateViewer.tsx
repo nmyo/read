@@ -1747,38 +1747,8 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
             console.error("[applyChapterTranslationVisibility] Error:", err);
           }
         },
-        injectRuby: async (mode: "zh-pinyin" | "zh-zhuyin" | "ja") => {
-          try {
-            const renderer = viewRef.current?.renderer;
-            const contents = renderer?.getContents?.();
-            if (!contents?.[0]?.doc) return;
-            const doc = contents[0].doc as Document;
-            // Ensure dict is loaded
-            if (mode.startsWith("zh")) {
-              const { isPinyinDictLoaded } = await import("@/lib/ruby/pinyin-processor");
-              if (!isPinyinDictLoaded()) {
-                const { tryLoadExistingDict } = await import("@/lib/ruby/dict-service");
-                await tryLoadExistingDict("zh");
-              }
-            }
-            const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
-            injectRubyAnnotations(doc, mode);
-          } catch (err) {
-            console.warn("[injectRuby] Error:", err);
-          }
-        },
-        removeRuby: async () => {
-          try {
-            const renderer = viewRef.current?.renderer;
-            const contents = renderer?.getContents?.();
-            if (!contents?.[0]?.doc) return;
-            const doc = contents[0].doc as Document;
-            const { removeRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
-            removeRubyAnnotations(doc);
-          } catch (err) {
-            console.warn("[removeRuby] Error:", err);
-          }
-        },
+        injectRuby: async () => {},
+        removeRuby: async () => {},
       }),
       [viewReady],
     );
@@ -1858,27 +1828,6 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
           onSectionLoad?.(detail.index);
         }
 
-        // Inject ruby annotations if enabled for this book
-        void (async () => {
-          try {
-            const { useRubyStore } = await import("@readany/core/stores/ruby-store");
-            const rubyMode = useRubyStore.getState().getBookRuby(bookKey);
-            if (rubyMode && rubyMode.startsWith("zh")) {
-              const { isPinyinDictLoaded } = await import("@/lib/ruby/pinyin-processor");
-              // Ensure dict is loaded into memory (may have been downloaded in a previous session)
-              if (!isPinyinDictLoaded()) {
-                const { tryLoadExistingDict } = await import("@/lib/ruby/dict-service");
-                await tryLoadExistingDict("zh");
-              }
-              if (isPinyinDictLoaded()) {
-                const { injectRubyAnnotations } = await import("@/lib/ruby/ruby-injector");
-                injectRubyAnnotations(detail.doc as Document, rubyMode);
-              }
-            }
-          } catch (err) {
-            console.warn("[FoliateViewer] Ruby injection failed:", err);
-          }
-        })();
       },
       [appTheme, bookKey, viewSettings, onLoaded, onSectionLoad, isFixedLayout],
     );
