@@ -76,7 +76,7 @@ const defaultReadSettings: ReadSettings = {
   paginatedLayout: "single",
   fixedLayoutZoom: 1,
   pageMargin: 40,
-  paragraphSpacing: 16,
+  paragraphSpacing: 6,
   showTopTitleProgress: true,
   showBottomTimeBattery: true,
   volumeButtonsPageTurn: false,

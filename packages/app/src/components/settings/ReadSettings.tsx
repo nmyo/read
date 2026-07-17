@@ -119,7 +119,7 @@ export function ReadSettingsPanel() {
           {/* Paragraph Spacing */}
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-foreground">{t("settings.paragraphSpacing")}</span>
+              <span className="text-sm text-foreground">段距</span>
               <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 {readSettings.paragraphSpacing}px
               </span>
