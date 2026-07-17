@@ -32,7 +32,13 @@ function scanAndSyncBooks() {
     
     // Scan main directory and subdirectories
     function scanDir(dir: string, relativePath: string = "") {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (err) {
+        // Skip directories that can't be read (e.g., OneDrive Personal Vault)
+        return;
+      }
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
