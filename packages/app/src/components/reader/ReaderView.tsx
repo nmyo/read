@@ -12,7 +12,6 @@
  * - Managing reading state (progress, location, selection)
  * - Rendering the FoliateViewer and surrounding UI (toolbar, footer, panels)
  */
-import { ReadSettingsPanel } from "@/components/settings/ReadSettings";
 import { useReadingSession } from "@/hooks/use-reading-session";
 import { useResizablePanel } from "@/hooks/use-resizable-panel";
 import { hasSeenReaderTour, startReaderTour } from "@/lib/reader-tour";
@@ -29,20 +28,11 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { getPlatformService } from "@readany/core/services";
 import { getCSSFontFace, useFontStore, useReadingSessionStore } from "@readany/core/stores";
 import { useRubyStore } from "@readany/core/stores/ruby-store";
-import type { CitationPart, HighlightColor } from "@readany/core/types";
 import { eventBus } from "@readany/core/utils/event-bus";
 import { throttle } from "@readany/core/utils/throttle";
-import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookmarkRibbon } from "./BookmarkRibbon";
-import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
-import { FoliateViewer } from "./FoliateViewer";
-import { FooterBar } from "./FooterBar";
-import { ReaderToolbar } from "./ReaderToolbar";
 import { ResizeHandle } from "./ResizeHandle";
-import { SearchBar } from "./SearchBar";
-import { SelectionPopover } from "./SelectionPopover";
 import { TOCPanel } from "./TOCPanel";
 
 const REFLOWABLE_CHARACTERS_PER_LOCATION = 1500;
@@ -53,7 +43,6 @@ const INITIAL_PROGRESS_RESTORE_GUARD_MS = 1800;
 const PROGRAMMATIC_NAV_GUARD_MS = 1200;
 const FIXED_LAYOUT_ZOOM_MIN = 0.5;
 const FIXED_LAYOUT_ZOOM_MAX = 3;
-const FIXED_LAYOUT_ZOOM_STEP = 0.1;
 const INITIAL_LOCATION_CHAPTER_PREFIX = "chapter:";
 const BOOK_IMPORT_FILTERS = [
   {
@@ -719,7 +708,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
-  const [isToolbarPinned, setIsToolbarPinned] = useState(() => {
+  const [isToolbarPinned] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(TOOLBAR_PIN_STORAGE_KEY) === "true";
   });
