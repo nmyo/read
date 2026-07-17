@@ -703,25 +703,43 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       return [...tagSet].sort();
     };
 
-    // 1) Fast path: restore from FS cache so UI shows books instantly
+    // Web mode: load directly from /api/books
     try {
-      const cached = await loadFromFS<Book[]>("library-books");
-      const cachedGroups = await loadFromFS<BookGroup[]>("library-groups");
-      if (cached && cached.length > 0) {
-        const groups = cachedGroups ?? get().groups;
-        set((state) => ({
-          books: cached,
+      const res = await fetch("/api/books");
+      if (res.ok) {
+        const rows = await res.json();
+        const books: Book[] = rows.map((row: any) => ({
+          id: row.id,
+          filePath: row.file_path || "",
+          format: (row.format as Book["format"]) || "epub",
+          meta: {
+            title: row.title || "",
+            author: row.author || "",
+            coverUrl: row.cover_url || undefined,
+          },
+          addedAt: row.added_at || row.created_at || Date.now(),
+          lastOpenedAt: row.last_opened_at || row.last_read_at || undefined,
+          updatedAt: row.updated_at || row.added_at || row.created_at || Date.now(),
+          progress: row.progress || 0,
+          currentCfi: row.current_cfi || undefined,
+          tags: (() => { try { return typeof row.tags === 'string' ? JSON.parse(row.tags) : (row.tags || []); } catch { return []; } })(),
+          fileHash: row.file_hash || undefined,
+          syncStatus: "local" as const,
+        }));
+        const groups: BookGroup[] = get().groups;
+        set({
+          books,
           groups,
           isLoaded: true,
-          allTags: computeTags(cached),
-          activeGroupId: keepActiveGroupId(state.activeGroupId, groups),
-        }));
+          allTags: computeTags(books),
+        });
+        return;
       }
     } catch (err) {
-      console.warn("[Library] Failed to load cached books:", err);
+      console.warn("[Library] Failed to load books from API:", err);
     }
 
-    // 2) Full path: init DB and load from SQLite (source of truth for books)
+    // Fallback: try DB
     try {
       await db.initDatabase();
       const [books, groups] = await Promise.all([db.getBooks(), db.getGroups()]);
