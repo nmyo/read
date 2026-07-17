@@ -36,7 +36,7 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
   };
 
   return (
-    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-12' : 'w-48 md:w-56 lg:w-64 max-md:w-12'}`}>
+    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-12' : 'w-48 md:w-56 lg:w-64'}`}>
       {/* Toggle button */}
       <div className={`flex items-center ${collapsed ? 'justify-center py-2' : 'justify-between px-3 py-2'}`}>
         {!collapsed && (
