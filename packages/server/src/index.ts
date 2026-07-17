@@ -25,36 +25,48 @@ const SUPPORTED_FORMATS = [".epub", ".pdf", ".mobi", ".txt", ".fb2", ".cbz"];
 
 function scanAndSyncBooks() {
   try {
-    const files = fs.readdirSync(STORAGE_DIR);
     const existingBooks = db.prepare("SELECT file_path FROM books").all() as { file_path: string }[];
     const existingPaths = new Set(existingBooks.map(b => b.file_path));
     
     let added = 0;
-    for (const file of files) {
-      const ext = path.extname(file).toLowerCase();
-      if (!SUPPORTED_FORMATS.includes(ext)) continue;
-      if (existingPaths.has(file)) continue;
-      
-      const filePath = path.join(STORAGE_DIR, file);
-      const stat = fs.statSync(filePath);
-      if (!stat.isFile()) continue;
-      
-      // Extract title from filename (remove extension)
-      const title = path.basename(file, ext);
-      const id = crypto.randomUUID();
-      const format = ext.slice(1); // remove dot
-      
-      // Check for cover image
-      const coverName = path.basename(file, ext) + ".jpg";
-      const coverPath = path.join(STORAGE_DIR, "covers", coverName);
-      const coverUrl = fs.existsSync(coverPath) ? `covers/${coverName}` : null;
-      
-      db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`)
-        .run(id, title, "", coverUrl, format, file, stat.size, JSON.stringify([format]), Date.now(), Date.now());
-      
-      console.log(`[Scanner] Added book: ${title} (${format}, ${(stat.size / 1024 / 1024).toFixed(1)}MB)`);
-      added++;
+    
+    // Scan main directory and subdirectories
+    function scanDir(dir: string, relativePath: string = "") {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+        
+        if (entry.isDirectory()) {
+          // Scan subdirectory
+          scanDir(fullPath, relPath);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (!SUPPORTED_FORMATS.includes(ext)) continue;
+          if (existingPaths.has(relPath)) continue;
+          
+          const stat = fs.statSync(fullPath);
+          const title = path.basename(entry.name, ext);
+          const id = crypto.randomUUID();
+          const format = ext.slice(1);
+          
+          // Check for cover image (in covers/ subdirectory or alongside the file)
+          const coverName = path.basename(entry.name, ext) + ".jpg";
+          const coverPathInDir = path.join(dir, coverName);
+          const coverPathInCovers = path.join(STORAGE_DIR, "covers", coverName);
+          const coverUrl = fs.existsSync(coverPathInCovers) ? `covers/${coverName}` : 
+                          fs.existsSync(coverPathInDir) ? `${relativePath ? relativePath + '/' : ''}${coverName}` : null;
+          
+          db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`)
+            .run(id, title, "", coverUrl, format, relPath, stat.size, JSON.stringify([format]), Date.now(), Date.now());
+          
+          console.log(`[Scanner] Added book: ${title} (${format}, ${(stat.size / 1024).toFixed(0)}KB)`);
+          added++;
+        }
+      }
     }
+    
+    scanDir(STORAGE_DIR);
     
     if (added > 0) {
       console.log(`[Scanner] Added ${added} new book(s)`);
