@@ -13,6 +13,12 @@ const STORAGE_DIR = process.env.READANY_STORAGE_DIR || "./storage";
 if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 app.use(cors());
+app.use((req, _res, next) => {
+  if (req.path.startsWith('/api/')) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  }
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use((err: any, _req: any, res: any, next: any) => {
   if (err.type === 'entity.parse.failed') {
