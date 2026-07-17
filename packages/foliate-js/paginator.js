@@ -2153,11 +2153,16 @@ export class Paginator extends HTMLElement {
         const totalDx = Math.abs(touch.screenX - (state.startX ?? touch.screenX))
         const totalDy = Math.abs(touch.screenY - (state.startY ?? touch.screenY))
         if (!state.axisLocked && (totalDx > 10 || totalDy > 10)) {
-            if (totalDy > totalDx * 1.3) {
+            // Be more strict: require horizontal movement to be significantly more than vertical
+            if (totalDy > totalDx * 2.0) {
                 state.axisLocked = 'y'
                 state.aborted = true
-            } else {
+            } else if (totalDx > totalDy * 1.5) {
                 state.axisLocked = 'x'
+            } else {
+                // Ambiguous diagonal movement - abort to prevent accidental page turns
+                state.axisLocked = 'y'
+                state.aborted = true
             }
         }
         if (state.aborted) return
@@ -2179,9 +2184,9 @@ export class Paginator extends HTMLElement {
         state.dt += dt
         this.#touchScrolled = true
         if (!this.hasAttribute('animated') || this.hasAttribute('eink')) return
-        if (!this.#vertical && Math.abs(state.dx) >= Math.abs(state.dy) && !this.hasAttribute('eink') && (!isStylus || Math.abs(dx) > 1)) {
+        if (!this.#vertical && Math.abs(state.dx) > Math.abs(state.dy) * 1.5 && !this.hasAttribute('eink') && (!isStylus || Math.abs(dx) > 1)) {
             this.scrollBy(dx, 0)
-        } else if (this.#vertical && Math.abs(state.dx) < Math.abs(state.dy) && !this.hasAttribute('eink') && (!isStylus || Math.abs(dy) > 1)) {
+        } else if (this.#vertical && Math.abs(state.dy) > Math.abs(state.dx) * 1.5 && !this.hasAttribute('eink') && (!isStylus || Math.abs(dy) > 1)) {
             this.scrollBy(0, dy)
         }
     }
