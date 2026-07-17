@@ -232,6 +232,15 @@ app.get("/api/files/book", (req, res) => {
   res.status(404).json({ error: "not found" });
 });
 
+// Serve cover images
+app.get("/api/covers/:filename", (req, res) => {
+  const coverPath = path.join(STORAGE_DIR, "covers", req.params.filename);
+  if (!fs.existsSync(coverPath)) return res.status(404).json({ error: "not found" });
+  res.setHeader("Content-Type", "image/jpeg");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  fs.createReadStream(coverPath).pipe(res);
+});
+
 // ==================== SPA FALLBACK ====================
 
 if (fs.existsSync(DIST_DIR)) {

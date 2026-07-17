@@ -149,13 +149,21 @@ export const BookCard = memo(function BookCard({
         {isSelectionMode && isSelected && (
           <div className="absolute inset-0 z-10 rounded bg-black/15" />
         )}
-        {/* Title and author text */}
-        <div className="flex flex-col items-center justify-center">
-          <span className="line-clamp-4 text-center font-serif text-base font-medium leading-snug text-stone-600">
-            {book.meta.title}
-          </span>
-
-        </div>
+        {/* Cover image or title */}
+        {book.meta.coverUrl ? (
+          <img
+            src={`/api/covers/${book.meta.coverUrl.split('/').pop()}`}
+            alt={book.meta.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center">
+            <span className="line-clamp-4 text-center font-serif text-base font-medium leading-snug text-stone-600">
+              {book.meta.title}
+            </span>
+          </div>
+        )}
 
         {/* Progress bar at bottom of cover */}
         {progressPct > 0 && progressPct < 100 && (
