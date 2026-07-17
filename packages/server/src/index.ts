@@ -301,63 +301,22 @@ app.get("/api/files/book", (req, res) => {
       // For TXT files, detect encoding and convert to UTF-8
       if (ext === ".txt") {
         const buf = fs.readFileSync(sp);
-        
-        // Check for BOM markers
-        if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) {
-          // UTF-8 BOM
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          return res.send(buf.toString("utf8"));
-        }
-        if (buf[0] === 0xFF && buf[1] === 0xFE) {
-          // UTF-16 LE BOM
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          return res.send(buf.toString("utf16le"));
-        }
-        
         // Try UTF-8 first
         const text = buf.toString("utf8");
-        // Check if it looks like valid UTF-8 (no replacement characters)
-        if (!text.includes("\uFFFD")) {
-          // Additional check: look for common GBK patterns that might be invalid UTF-8
-          // GBK bytes often start with 0x80-0xFF followed by 0x40-0xFF
-          let hasHighBytes = false;
-          for (let i = 0; i < Math.min(buf.length, 1000); i++) {
-            if (buf[i] > 127) {
-              hasHighBytes = true;
-              break;
-            }
-          }
-          if (!hasHighBytes) {
-            // Pure ASCII, safe to serve as UTF-8
-            res.setHeader("Content-Type", "text/plain; charset=utf-8");
-            return res.send(text);
-          }
-          // Has high bytes, might be GBK - try to detect
+        // Only try GBK if UTF-8 produces replacement characters
+        if (text.includes("\uFFFD")) {
           try {
             const decoder = new TextDecoder("gbk");
             const gbkText = decoder.decode(buf);
-            // Check if GBK decoding produces more readable Chinese characters
-            const utf8Chinese = (text.match(/\u4e00-\u9fff/g) || []).length;
-            const gbkChinese = (gbkText.match(/[\u4e00-\u9fff]/g) || []).length;
-            if (gbkChinese > utf8Chinese * 2) {
-              // GBK produces much more Chinese characters, use it
-              res.setHeader("Content-Type", "text/plain; charset=utf-8");
-              return res.send(gbkText);
-            }
-          } catch {}
-          // Default to UTF-8
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          return res.send(text);
+            res.setHeader("Content-Type", "text/plain; charset=utf-8");
+            return res.send(gbkText);
+          } catch {
+            // Fallback to UTF-8
+          }
         }
-        // UTF-8 has replacement characters, try GBK
-        try {
-          const decoder = new TextDecoder("gbk");
-          const gbkText = decoder.decode(buf);
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          return res.send(gbkText);
-        } catch {
-          // Fallback: send as-is
-        }
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        return res.send(text);
+      }
       }
       
       return fs.createReadStream(sp).pipe(res);
