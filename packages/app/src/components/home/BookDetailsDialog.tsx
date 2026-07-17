@@ -773,8 +773,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                                     <SelectItem value={NO_GROUP}>
                                       {t("sidebar.uncategorized", "Uncategorized")}
                                     </SelectItem>
-                                      </SelectItem>
-                                    ))}
                                   </SelectContent>
                                 </Select>
                               </InlineFieldRow>
@@ -794,11 +792,7 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                                 valueNode={<TagSummary tags={splitEditableList(values.tagsText)} />}
                                 onClick={() => setEditingBasics(true)}
                               />
-                              <SummaryRow
-                                label={t("library.group", "Group")}
-                                value={groupName}
-                                onClick={() => setEditingBasics(true)}
-                              />
+
                             </>
                           )}
                         </div>
