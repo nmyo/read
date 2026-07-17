@@ -3176,6 +3176,12 @@ body {
   padding-bottom: 40px !important;
 }
 
+/* Prevent content bleeding between pages */
+.view {
+  overflow: hidden !important;
+  clip-path: inset(0) !important;
+}
+
 /* Links */
 a, a:any-link {
   color: ${linkColor} !important;
