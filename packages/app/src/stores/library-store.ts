@@ -14,6 +14,19 @@ import { debouncedSave, loadFromFS } from "@readany/core/stores/persist";
 import type { Book, BookGroup, LibraryFilter, SortField, SortOrder } from "@readany/core/types";
 import { create } from "zustand";
 
+
+// Save reading progress to localStorage for non-logged-in users
+function saveProgressToLocalStorage(bookId: string, progress: number, currentCfi?: string) {
+  try {
+    const key = 'readany-progress-' + bookId;
+    const data = JSON.stringify({ progress, currentCfi, updatedAt: Date.now() });
+    localStorage.setItem(key, data);
+  } catch (e) {
+    console.warn('Failed to save progress to localStorage:', e);
+  }
+}
+
+
 interface EpubMeta {
   title: string;
   author: string;
@@ -845,6 +858,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           ? Array.from(new Set([...state.allTags, ...updates.tags])).sort()
           : state.allTags,
     }));
+    // Save progress to localStorage
+    if (updates.progress !== undefined || updates.currentCfi !== undefined) {
+      const book = get().books.find(b => b.id === bookId);
+      if (book) {
+        saveProgressToLocalStorage(bookId, updates.progress ?? book.progress, updates.currentCfi ?? book.currentCfi);
+      }
+    }
     // Update FS cache
     debouncedSave("library-books", get().books);
     await db

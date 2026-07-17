@@ -2010,7 +2010,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             onTogglePinned={() => setIsToolbarPinned((prev) => !prev)}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            getPageSnippet={() => foliateRef.current?.getVisibleText() || ""}
           />
 
           {/* Floating Footer bar — overlays content area */}
