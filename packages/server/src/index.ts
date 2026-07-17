@@ -281,6 +281,29 @@ app.get("/api/files/book", (req, res) => {
       };
       res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
       res.setHeader("Content-Disposition", "inline");
+      
+      // For TXT files, detect encoding and convert to UTF-8
+      if (ext === ".txt") {
+        const buf = fs.readFileSync(sp);
+        // Try UTF-8 first
+        const text = buf.toString("utf8");
+        // Check if it looks like valid UTF-8 (no replacement characters)
+        if (!text.includes("�")) {
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.send(text);
+        }
+        // Try GBK/GB2312
+        try {
+          const { TextDecoder } = require("util");
+          const decoder = new TextDecoder("gbk");
+          const gbkText = decoder.decode(buf);
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.send(gbkText);
+        } catch {
+          // Fallback: send as-is
+        }
+      }
+      
       return fs.createReadStream(sp).pipe(res);
     }
   }
