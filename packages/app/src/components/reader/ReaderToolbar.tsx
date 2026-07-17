@@ -2,16 +2,12 @@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/stores/app-store";
-import { useNotebookStore } from "@/stores/notebook-store";
 import { useReaderStore } from "@/stores/reader-store";
 import {
   ArrowLeft,
   List,
-  RotateCcw,
   Settings,
   Undo,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TOCItem } from "./FoliateViewer";

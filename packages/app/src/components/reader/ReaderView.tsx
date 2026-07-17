@@ -1,4 +1,3 @@
-import { ChatPanel } from "@/components/chat/ChatPanel";
 /**
  * ReaderView — main reader page component.
  *
@@ -1698,7 +1697,8 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   );
 
   const handleNavigateToCitation = useCallback(
-    (citation: CitationPart) => {
+    // REMOVED: unused
+    //     (citation: CitationPart) => {
       if (!citation.cfi || citation.cfi.trim() === "") {
         console.warn("Citation has no valid CFI, falling back to chapter index:", {
           chapterTitle: citation.chapterTitle,
@@ -1978,23 +1978,8 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
           <ReaderToolbar
             tabId={tabId}
             isVisible={toolbarVisible}
-            onPrev={handleNavPrev}
-            onNext={handleNavNext}
-            tocItems={tocItems}
-            onGoToChapter={handleGoToChapter}
-            onToggleSearch={handleToggleSearch}
             onToggleToc={handleToggleToc}
             onToggleSettings={handleToggleSettings}
-            onToggleChat={handleToggleChat}
-            isChatOpen={showChat}
-            isFixedLayout={isFixedLayout}
-            fixedLayoutZoom={fixedLayoutZoom}
-            fixedLayoutZoomMin={FIXED_LAYOUT_ZOOM_MIN}
-            fixedLayoutZoomMax={FIXED_LAYOUT_ZOOM_MAX}
-            fixedLayoutZoomStep={FIXED_LAYOUT_ZOOM_STEP}
-            onFixedLayoutZoomChange={handleFixedLayoutZoomChange}
-            isPinned={isToolbarPinned}
-            onTogglePinned={() => setIsToolbarPinned((prev) => !prev)}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           />
@@ -2071,7 +2056,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            {/* <ChatPanel book={book} onNavigateToCitation={handleNavigateToCitation} /> */}
+            {/* {/* ChatPanel removed */} */}
           </div>
         </div>
       )}
