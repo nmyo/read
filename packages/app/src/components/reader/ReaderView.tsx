@@ -62,7 +62,6 @@ const BOOK_IMPORT_FILTERS = [
   },
 ];
 
-function normalizeFixedLayoutZoom(value: number): number {
   if (!Number.isFinite(value)) return 1;
   const rounded = Math.round(value * 10) / 10;
   return Math.min(FIXED_LAYOUT_ZOOM_MAX, Math.max(FIXED_LAYOUT_ZOOM_MIN, rounded));
@@ -1688,7 +1687,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     [navigateToCfi],
   );
 
-  const handleNavigateToCitation = useCallback(
     (citation: CitationPart) => {
       if (!citation.cfi || citation.cfi.trim() === "") {
         console.warn("Citation has no valid CFI, falling back to chapter index:", {
@@ -1789,7 +1787,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
       )}
 
       {/* Notebook sidebar — LEFT side */}{/* 
-      <NotebookSidebarWrapper
         bookId={bookId}
         onGoToCfi={navigateToCfi}
         onAddAnnotation={(cfi, color, note) => {
@@ -2056,7 +2053,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
 }
 
 // Separate component to use notebook store hook
-function NotebookSidebarWrapper({
   bookId,
   onGoToCfi,
   onAddAnnotation,
