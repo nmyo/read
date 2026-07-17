@@ -1,8 +1,6 @@
-import { resolveDesktopDataPath } from "@/lib/storage/desktop-library-root";
 import { useAppStore } from "@/stores/app-store";
 import { useDownloadProgressStore } from "@/stores/download-progress-store";
 import { useLibraryStore } from "@/stores/library-store";
-import { useMissingBookPromptStore } from "@/stores/missing-book-prompt-store";
 import { setBookSyncStatus } from "@readany/core/db/database";
 import { getPlatformService } from "@readany/core/services";
 import { useSyncStore } from "@readany/core/stores/sync-store";
@@ -34,25 +32,7 @@ function authorsLikelyMatch(a?: string, b?: string): boolean {
   );
 }
 
-function shouldConfirmReimportCandidate(
-  originalBook: Book,
-  candidate: { title: string; author: string; format: Book["format"]; fileHash?: string },
-): boolean {
-  if (candidate.fileHash && originalBook.fileHash && candidate.fileHash === originalBook.fileHash) {
-    return false;
-  }
-  const originalTitle = normalizeBookIdentityText(originalBook.meta.title);
-  const candidateTitle = normalizeBookIdentityText(candidate.title);
-  const titleMismatch =
-    !!originalTitle &&
-    !!candidateTitle &&
-    originalTitle !== candidateTitle &&
-    !originalTitle.includes(candidateTitle) &&
-    !candidateTitle.includes(originalTitle);
-  const authorMismatch = !authorsLikelyMatch(originalBook.meta.author, candidate.author);
-  const formatMismatch = originalBook.format !== candidate.format;
-  return titleMismatch || (formatMismatch && authorMismatch);
-}
+
 
 const pendingDownloads = new Set<string>();
 const BOOK_IMPORT_FILTERS = [
@@ -94,8 +74,7 @@ export async function openDesktopBook({
       return false;
     }
 
-    const platform = getPlatformService();
-    const secretKey =
+      const secretKey =
       syncStore.config.type === "webdav" ? "sync_webdav_password" : "sync_s3_secret_key";
     const password = await platform.kvGetItem(secretKey);
     if (!password) {
@@ -143,7 +122,6 @@ export async function openDesktopBook({
     }
   }
 
-  const platform = getPlatformService();
 
   // A soft-deleted book is no longer in the live store — even if its file
   // still exists on disk we must re-import it first so it rejoins the store.
@@ -167,7 +145,6 @@ export async function openDesktopBook({
   let restoredBook: any = null;
   if (false) {
     // Dead code - kept for type compatibility
-    const selectedPath = "";
     if (!restoredBook) {
       toast.error(t("reader.reimportFailed", "重新导入失败，请稍后再试。"));
       return false;
