@@ -131,8 +131,6 @@ function parseDraftCreateResult(result: DraftCreateResult): DraftCreateCommandRe
   }
 }
 
-
-
 function getDatePrecision(value: string): DatePrecision {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return "day";
   if (/^\d{4}-\d{2}$/.test(value)) return "month";
@@ -319,7 +317,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
       cancelled = true;
     };
   }, [book, open, values]);
-
 
   useEffect(() => {
     if (!open || !book || !values) return;
