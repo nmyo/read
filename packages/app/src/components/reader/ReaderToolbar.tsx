@@ -115,46 +115,6 @@ export function ReaderToolbar({
       </div>
 
       <div className="flex items-center gap-0.5">
-        {/* SyncButton hidden */}
->
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onFixedLayoutZoomChange?.(fixedLayoutZoom - fixedLayoutZoomStep)}
-              disabled={!onFixedLayoutZoomChange || !canZoomOut}
-              title={t("reader.zoomOut")}
-              aria-label={t("reader.zoomOut")}
-            >
-              <ZoomOut className="h-3.5 w-3.5" />
-            </Button>
-            <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
-              {fixedLayoutZoomPercent}%
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onFixedLayoutZoomChange?.(fixedLayoutZoom + fixedLayoutZoomStep)}
-              disabled={!onFixedLayoutZoomChange || !canZoomIn}
-              title={t("reader.zoomIn")}
-              aria-label={t("reader.zoomIn")}
-            >
-              <ZoomIn className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onFixedLayoutZoomChange?.(1)}
-              disabled={!onFixedLayoutZoomChange || !canResetZoom}
-              title={t("reader.resetZoom")}
-              aria-label={t("reader.resetZoom")}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
         {/* Search hidden */}
         {/* Pin hidden */}
         {/* Chat hidden */}
