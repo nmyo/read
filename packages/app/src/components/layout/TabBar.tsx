@@ -9,11 +9,10 @@ import { type Tab, useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useReaderStore } from "@/stores/reader-store";
 import { useSyncStore } from "@/stores/sync-store";
-import { BookOpen, FilePenLine, Home, MessageSquare, NotebookPen, X } from "lucide-react";
+import { BookOpen, FilePenLine, MessageSquare, NotebookPen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const TAB_ICONS: Record<string, React.ElementType> = {
-  home: Home,
   reader: BookOpen,
   chat: MessageSquare,
   notes: NotebookPen,
@@ -87,15 +86,7 @@ export function TabBar() {
     >
       {/* macOS: space for native traffic lights (hidden in reader mode) */}
       <div className="flex h-full shrink-0 items-center" style={{ paddingLeft: (isMac && !isFullscreen) ? 68 : 4 }}>
-        <button
-          type="button"
-          className="flex items-center justify-center rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-200/60 hover:text-neutral-800"
-          style={NO_DRAG_STYLE}
-          data-no-window-drag
-          onClick={() => setActiveTab("home")}
-        >
-          <Home className="h-[18px] w-[18px]" />
-        </button>
+
       </div>
 
       {/* Tabs */}
