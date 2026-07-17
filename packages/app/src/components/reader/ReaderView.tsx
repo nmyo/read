@@ -147,8 +147,15 @@ async function loadAndParseBook(
   console.log("[loadAndParseBook] blob loaded, size:", blob.size);
 
   const fileName = filePath.split("/").pop() || "book.epub";
+  // Detect file type from extension if blob type is missing
+  let fileType = blob.type || "application/octet-stream";
+  if (fileName.endsWith('.txt') || fileName.endsWith('.text')) {
+    fileType = 'text/plain';
+  } else if (fileName.endsWith('.epub')) {
+    fileType = 'application/epub+zip';
+  }
   const file = new File([blob], fileName, {
-    type: blob.type || "application/octet-stream",
+    type: fileType,
   });
 
   const loader = new DocumentLoader(file);
