@@ -76,9 +76,63 @@ export function ReadSettingsPanel() {
             </Select>
           </div>
 
-          {/* Font */}
-          <div className="flex items-center justify-between">
-            <!-- Font theme removed -->
+          {/* Font theme removed */}
+
+          {/* Font Size */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm text-foreground">
+                {t("settings.fontSize", { size: readSettings.fontSize })}
+              </span>
+              <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {readSettings.fontSize}px
+              </span>
+            </div>
+            <Slider
+              min={12}
+              max={64}
+              step={1}
+              value={[readSettings.fontSize]}
+              onValueChange={([v]) => updateReadSettings({ fontSize: v })}
+            />
+          </div>
+
+          {/* Line Height */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm text-foreground">
+                {t("settings.lineHeight", { height: readSettings.lineHeight })}
+              </span>
+              <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {readSettings.lineHeight}
+              </span>
+            </div>
+            <Slider
+              min={1.2}
+              max={2.5}
+              step={0.1}
+              value={[readSettings.lineHeight]}
+              onValueChange={([v]) => updateReadSettings({ lineHeight: v })}
+            />
+          </div>
+
+          {/* Paragraph Spacing */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm text-foreground">{t("settings.paragraphSpacing")}</span>
+              <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {readSettings.paragraphSpacing}px
+              </span>
+            </div>
+            <Slider
+              min={0}
+              max={32}
+              step={2}
+              value={[readSettings.paragraphSpacing]}
+              onValueChange={([v]) => updateReadSettings({ paragraphSpacing: v })}
+            />
+          </div>
+        </div>
       </section>
 
     </div>
