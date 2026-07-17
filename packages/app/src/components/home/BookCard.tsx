@@ -399,13 +399,7 @@ export const BookCard = memo(function BookCard({
               <span className="text-[9px] text-muted-foreground">+{book.tags.length - 2}</span>
             )}
           </div>
-        ) : (
-          <div className="mt-0.5 flex flex-wrap gap-0.5">
-            <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-px text-[9px] text-muted-foreground">
-              {t("sidebar.uncategorized")}
-            </span>
-          </div>
-        )}
+        ) : null}
 
         {/* Status row */}
         <div className="mt-0.5 flex items-center justify-between" style={{ minHeight: "14px" }}>
