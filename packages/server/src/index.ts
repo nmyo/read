@@ -14,6 +14,17 @@ if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
 
+const BOOK_MIME_TYPES: Record<string, string> = {
+  epub: "application/epub+zip",
+  pdf: "application/pdf",
+  mobi: "application/x-mobipocket-ebook",
+  azw: "application/vnd.amazon.ebook",
+  azw3: "application/vnd.amazon.ebook",
+  cbz: "application/vnd.comicbook+zip",
+  fb2: "application/x-fictionbook+xml",
+  txt: "text/plain; charset=utf-8",
+};
+
 // CORS: restrict to same origin (Caddy proxy)
 app.use(cors({ origin: true }));
 app.use((req, _res, next) => {
@@ -22,7 +33,7 @@ app.use((req, _res, next) => {
   }
   next();
 });
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use((err: any, _req: any, res: any, next: any) => {
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Invalid JSON' });
@@ -67,7 +78,11 @@ app.patch("/api/books/:id/progress", (req, res) => {
   const values: unknown[] = [];
 
   if (progress !== undefined) { updates.push("progress = ?"); values.push(progress); }
-  if (currentCfi !== undefined) { updates.push("currentCfi = ?"); values.push(currentCfi); }
+  if (currentCfi !== undefined) {
+    // Validate CFI format or limit length to prevent XSS
+    const cfiStr = String(currentCfi).slice(0, 500);
+    updates.push("currentCfi = ?"); values.push(cfiStr);
+  }
   updates.push("updated_at = ?");
   values.push(Date.now());
   values.push(req.params.id);
@@ -84,23 +99,15 @@ app.get("/api/books/:id/file", (req, res) => {
   const fullPath = safePath(STORAGE_DIR, book.file_path);
   if (!fullPath || !fs.existsSync(fullPath)) return res.status(404).json({ error: "file missing" });
 
-  const mimeTypes: Record<string, string> = {
-    epub: "application/epub+zip",
-    pdf: "application/pdf",
-    mobi: "application/x-mobipocket-ebook",
-    azw: "application/vnd.amazon.ebook",
-    azw3: "application/vnd.amazon.ebook",
-    cbz: "application/vnd.comicbook+zip",
-    fb2: "application/x-fictionbook+xml",
-    txt: "text/plain; charset=utf-8",
-  };
-  const mime = mimeTypes[book.format] || "application/octet-stream";
+  const mime = BOOK_MIME_TYPES[book.format] || "application/octet-stream";
   
   res.setHeader("Content-Type", mime);
   res.setHeader("Content-Disposition", "inline");
   res.setHeader("Cache-Control", "private, no-store");
   
-  fs.createReadStream(fullPath).pipe(res);
+  const stream = fs.createReadStream(fullPath);
+  stream.on('error', () => { if (!res.headersSent) res.status(500).json({ error: "read error" }); });
+  stream.pipe(res);
 });
 
 // ==================== BOOKMARKS ====================

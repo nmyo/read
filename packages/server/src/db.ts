@@ -45,24 +45,6 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON bookmarks(book_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_book ON reading_sessions(book_id);
-
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS user_sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    expires_at INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
-  CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
 `);
 
 export default db;
