@@ -3171,6 +3171,11 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 0.3em !important;
 }
 
+/* Add bottom padding for better reading experience */
+body {
+  padding-bottom: 40px !important;
+}
+
 /* Links */
 a, a:any-link {
   color: ${linkColor} !important;
