@@ -105,7 +105,7 @@ onClick={() => { window.history.back(); }}
 
       {/* Center: chapter title */}
       <div className="absolute inset-x-0 flex justify-center pointer-events-none">
-        <span className="max-w-[200px] truncate text-xs text-foreground">
+        <span className="max-w-[60vw] sm:max-w-[200px] truncate text-xs text-foreground">
           {tab.chapterTitle || t("reader.untitled")}
         </span>
       </div>
