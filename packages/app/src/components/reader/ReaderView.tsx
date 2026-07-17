@@ -1858,24 +1858,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
 
             {/* Bookmark ribbon */}
 
-            {/* Selection popover */}
-            {selection && (
-              <SelectionPopover
-                position={selectionPos}
-                selectedText={selection.text}
-                annotated={selection.annotated}
-                currentColor={selection.color as HighlightColor | undefined}
-                defaultColor={viewSettings.defaultHighlightColor ?? "yellow"}
-                isPdf={bookFormat === "PDF"}
-                onHighlight={handleHighlight}
-                onRemoveHighlight={handleRemoveHighlight}
-                onNote={handleNote}
-                onCopy={handleCopy}
-                onTranslate={handleTranslate}
-                onAskAI={handleAskAI}
-                onClose={handleCloseSelection}
-              />
-            )}
 
 
           </div>
