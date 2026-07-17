@@ -149,58 +149,25 @@ export async function openDesktopBook({
   // still exists on disk we must re-import it first so it rejoins the store.
   const isSoftDeleted = !!book.deletedAt;
 
-  // Check whether the local book file is accessible
-  let fileAccessible = false;
-  if (!isSoftDeleted && book.filePath) {
-    const targetPath = await resolveDesktopDataPath(book.filePath);
-    fileAccessible = await platform.exists(targetPath).catch(() => false);
-  }
-
-  if (!fileAccessible) {
-    // File missing or never had one — prompt user to re-import
-    const shouldReimport = await useMissingBookPromptStore.getState().showPrompt({
-      title: t("reader.reimportPromptTitle", "书籍文件缺失"),
-      description: t(
-        "reader.reimportDialogDescriptionDesktop",
-        "笔记和阅读记录都还在，重新导入即可继续。",
-      ),
-      confirmLabel: t("reader.reimportSelectFile", "重新导入"),
-      cancelLabel: t("common.cancel", "取消"),
-    });
-    if (!shouldReimport) {
-      return false;
-    }
-
-    const picked = await platform.pickFile({
-      multiple: false,
-      filters: BOOK_IMPORT_FILTERS,
-    });
-    const selectedPath = Array.isArray(picked) ? picked[0] : picked;
-    if (!selectedPath) {
-      return false;
-    }
-
-    const candidate = await inspectDeletedBookCandidate(book.id, selectedPath);
-    if (candidate && shouldConfirmReimportCandidate(book, candidate)) {
-      const shouldContinue = await useMissingBookPromptStore.getState().showPrompt({
-        title: t("reader.reimportMismatchTitle", "这份文件看起来和原书不太一致"),
-        description: t(
-          "reader.reimportMismatchDescription",
-          "原书《{{originalTitle}}》与当前文件《{{candidateTitle}}》信息差异较大。仍要把它接回原来的笔记和阅读统计吗？",
-          {
-            originalTitle: book.meta.title,
-            candidateTitle: candidate.title || t("reader.unknownBook", "未命名书籍"),
-          },
-        ),
-        confirmLabel: t("reader.reimportContinue", "继续接回"),
-        cancelLabel: t("reader.reimportPickAnotherFile", "重新选择"),
-      });
-      if (!shouldContinue) {
+  // In web mode, check if book file is accessible via API
+  if (!isSoftDeleted && book.id) {
+    try {
+      const res = await fetch(`/api/books/${book.id}/file`, { method: "HEAD" });
+      if (!res.ok) {
+        console.warn("[openBook] Book file not accessible via API:", book.filePath);
         return false;
       }
+    } catch {
+      console.warn("[openBook] Book file check failed:", book.filePath);
+      return false;
     }
+  }
 
-    const restoredBook = await reimportDeletedBook(book.id, selectedPath);
+  // Skip local file operations in web mode
+  let restoredBook: any = null;
+  if (false) {
+    // Dead code - kept for type compatibility
+    const selectedPath = "";
     if (!restoredBook) {
       toast.error(t("reader.reimportFailed", "重新导入失败，请稍后再试。"));
       return false;
