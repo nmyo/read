@@ -147,17 +147,9 @@ export function SelectionPopover({
             <button
               type="button"
               key={btn.label}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                btn.disabled ? "cursor-not-allowed opacity-40" : "hover:bg-muted",
-                btn.isHighlight && showColors && !isPdf && "bg-muted",
-                btn.isDestructive &&
-                  !btn.disabled &&
-                  "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
-              )}
+              className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted"
               title={btn.label}
-              onClick={btn.disabled ? undefined : btn.onClick}
-              disabled={btn.disabled}
+              onClick={btn.onClick}
             >
               <btn.icon className="h-4 w-4" />
             </button>
