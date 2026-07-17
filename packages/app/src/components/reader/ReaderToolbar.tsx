@@ -63,11 +63,15 @@ export function ReaderToolbar({
           size="icon"
           className="h-7 w-7"
 onClick={() => {
-          const { removeTab, activeTabId } = useAppStore.getState();
+          const { removeTab, activeTabId, setActiveTab } = useAppStore.getState();
           if (activeTabId && activeTabId !== "home") {
             removeTab(activeTabId);
+            setActiveTab("home");
           }
-          window.history.back();
+          // Push home state if needed
+          if (window.location.pathname !== "/") {
+            window.history.pushState({ tabId: "home" }, "", "/");
+          }
         }}
           title={t("common.back")}
         >

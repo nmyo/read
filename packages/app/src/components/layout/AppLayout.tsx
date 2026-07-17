@@ -330,18 +330,14 @@ export function AppLayout() {
 
   return (
     <div className="flex h-[100dvh] w-screen flex-col overflow-hidden bg-muted">
-      <div
-        data-tab-bar
-        onMouseEnter={handleTabBarMouseEnter}
-        onMouseLeave={handleTabBarMouseLeave}
-        className={`absolute left-0 right-0 top-0 z-[80] transition-transform duration-300 ease-in-out ${
-          isReaderActive && !showTabBar ? "-translate-y-full" : "translate-y-0"
-        }`}
-      >
-        <TabBar />
-      </div>
+      {/* TabBar hidden in reader mode */}
+      {!isReaderActive && (
+        <div className="h-8 shrink-0">
+          <TabBar />
+        </div>
+      )}
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {!isReaderActive && <div className="h-8 shrink-0" />}
+
         {/* === Home layer (sidebar + content card) === */}
         <div
           className="flex min-h-0 flex-1 w-full overflow-hidden"
