@@ -78,7 +78,7 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
             <BookOpen size={18} />
           </button>
           <div className="mt-auto">
-            <UserMenu collapsed />
+            <UserMenu collapsed onExpand={onToggle} />
           </div>
         </div>
       )}

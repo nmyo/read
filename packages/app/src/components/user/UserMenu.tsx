@@ -22,9 +22,10 @@ interface UserInfo {
 
 interface UserMenuProps {
   collapsed?: boolean;
+  onExpand?: () => void;
 }
 
-export function UserMenu({ collapsed = false }: UserMenuProps) {
+export function UserMenu({ collapsed = false, onExpand }: UserMenuProps) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
@@ -254,27 +255,17 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
 
   if (collapsed) {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="登录/注册"
-          >
-            <LogIn size={18} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem onClick={() => setShowLogin(true)}>
-            <LogIn size={14} className="mr-2" />
-            登录
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShowRegister(true)}>
-            <UserPlus size={14} className="mr-2" />
-            注册
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <button
+        type="button"
+        className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        title="登录/注册"
+        onClick={() => {
+          onExpand?.();
+          setTimeout(() => setShowLogin(true), 200);
+        }}
+      >
+        <LogIn size={18} />
+      </button>
     );
   }
 
