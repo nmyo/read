@@ -1,4 +1,3 @@
-import { ChatPanel } from "@/components/chat/ChatPanel";
 /**
  * ReaderView — main reader page component.
  *
@@ -40,7 +39,6 @@ import { BookmarkRibbon } from "./BookmarkRibbon";
 import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
 import { FoliateViewer } from "./FoliateViewer";
 import { FooterBar } from "./FooterBar";
-import { NotebookPanel } from "./NotebookPanel";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { ResizeHandle } from "./ResizeHandle";
 import { SearchBar } from "./SearchBar";
@@ -1978,23 +1976,8 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
           <ReaderToolbar
             tabId={tabId}
             isVisible={toolbarVisible}
-            onPrev={handleNavPrev}
-            onNext={handleNavNext}
-            tocItems={tocItems}
-            onGoToChapter={handleGoToChapter}
-            onToggleSearch={handleToggleSearch}
             onToggleToc={handleToggleToc}
             onToggleSettings={handleToggleSettings}
-            onToggleChat={handleToggleChat}
-            isChatOpen={showChat}
-            isFixedLayout={isFixedLayout}
-            fixedLayoutZoom={fixedLayoutZoom}
-            fixedLayoutZoomMin={FIXED_LAYOUT_ZOOM_MIN}
-            fixedLayoutZoomMax={FIXED_LAYOUT_ZOOM_MAX}
-            fixedLayoutZoomStep={FIXED_LAYOUT_ZOOM_STEP}
-            onFixedLayoutZoomChange={handleFixedLayoutZoomChange}
-            isPinned={isToolbarPinned}
-            onTogglePinned={() => setIsToolbarPinned((prev) => !prev)}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           />
@@ -2071,7 +2054,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <ChatPanel book={book} onNavigateToCitation={handleNavigateToCitation} />
+
           </div>
         </div>
       )}
@@ -2115,13 +2098,6 @@ function NotebookSidebarWrapper({
         onResize={(delta) => onResize(delta, "right")}
         onResizeEnd={onResizeEnd}
       />
-      <NotebookPanel
-        bookId={bookId}
-        onClose={closeNotebook}
-        onGoToCfi={onGoToCfi}
-        onAddAnnotation={onAddAnnotation}
-        onDeleteAnnotation={onDeleteAnnotation}
-      />
-    </div>
+</div>
   );
 }
