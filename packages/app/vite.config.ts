@@ -30,6 +30,18 @@ export default defineConfig(async () => ({
   worker: {
     format: "es",
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-slider', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          'vendor-foliate': ['foliate-js'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   resolve: {
     alias: [
       { find: "@", replacement: path.resolve(__dirname, "./src") },
