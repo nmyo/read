@@ -407,11 +407,7 @@ export const BookCard = memo(function BookCard({
             <span className="text-[10px] tabular-nums text-muted-foreground">{progressPct}%</span>
           ) : progressPct >= 100 ? (
             <span className="text-[10px] font-medium text-green-600">{t("home.complete")}</span>
-          ) : (
-            <span className="inline-block rounded-full bg-primary/8 px-1.5 py-px text-[9px] font-medium text-primary">
-              {t("home.new")}
-            </span>
-          )}
+          ) : null}
 
           {/* Format badge — subtle, right-aligned */}
           <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">
