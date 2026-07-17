@@ -166,6 +166,38 @@ app.post("/api/db/execute", (req, res) => {
   }
 });
 
+// ==================== FILE SYSTEM (for FS cache) ====================
+
+const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
+
+app.get("/api/files/exists", (req, res) => {
+  const filePath = req.query.path as string;
+  if (!filePath) return res.json(false);
+  // Only allow reading from data dir (for cache)
+  const fullPath = path.join(DATA_DIR, path.basename(filePath));
+  res.json(fs.existsSync(fullPath));
+});
+
+app.get("/api/files/read", (req, res) => {
+  const filePath = req.query.path as string;
+  if (!filePath) return res.status(400).json({ error: "missing path" });
+  const fullPath = path.join(DATA_DIR, path.basename(filePath));
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: "not found" });
+  const content = fs.readFileSync(fullPath, "utf-8");
+  res.json(content);
+});
+
+app.post("/api/files/write", (req, res) => {
+  const filePath = req.body.path as string;
+  if (!filePath) return res.status(400).json({ error: "missing path" });
+  const fullPath = path.join(DATA_DIR, path.basename(filePath));
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  // Handle both JSON body and form data
+  const content = req.body.content || "";
+  fs.writeFileSync(fullPath, content);
+  res.json({ ok: true });
+});
+
 // ==================== SPA FALLBACK ====================
 
 if (fs.existsSync(DIST_DIR)) {
