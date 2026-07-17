@@ -2,7 +2,6 @@ import { useAppStore } from "@/stores/app-store";
 import { useDownloadProgressStore } from "@/stores/download-progress-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { setBookSyncStatus } from "@readany/core/db/database";
-import { getPlatformService } from "@readany/core/services";
 import { useSyncStore } from "@readany/core/stores/sync-store";
 import { downloadBookFile } from "@readany/core/sync";
 import { createSyncBackend } from "@readany/core/sync/sync-backend-factory";
@@ -20,27 +19,10 @@ function normalizeBookIdentityText(value?: string): string {
   return (value || "").toLowerCase().replace(/[\s\p{P}\p{S}_-]+/gu, "");
 }
 
-function authorsLikelyMatch(a?: string, b?: string): boolean {
-  const left = normalizeBookIdentityText(a);
-  const right = normalizeBookIdentityText(b);
-  if (!left || !right) return true;
-  if (left === right || left.includes(right) || right.includes(left)) return true;
-  const leftParts = left.split(/[,，、/&]+/).filter((part) => part.length > 1);
-  const rightParts = right.split(/[,，、/&]+/).filter((part) => part.length > 1);
-  return leftParts.some((part) =>
-    rightParts.some((candidate) => part.includes(candidate) || candidate.includes(part)),
-  );
-}
 
 
 
 const pendingDownloads = new Set<string>();
-const BOOK_IMPORT_FILTERS = [
-  {
-    name: "Books",
-    extensions: ["epub", "pdf", "mobi", "azw", "azw3", "cbz", "fb2", "fbz", "txt", "umd"],
-  },
-];
 
 function openReaderTab(book: Book, initialCfi?: string) {
   const { addTab, setActiveTab } = useAppStore.getState();
