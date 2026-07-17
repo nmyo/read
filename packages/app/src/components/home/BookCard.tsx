@@ -154,14 +154,7 @@ export const BookCard = memo(function BookCard({
           <span className="line-clamp-4 text-center font-serif text-base font-medium leading-snug text-stone-600">
             {book.meta.title}
           </span>
-          {book.meta.author && (
-            <>
-              <div className="my-2 h-px w-8 bg-stone-300/60" />
-              <span className="line-clamp-1 text-center font-serif text-xs text-stone-400">
-                {book.meta.author}
-              </span>
-            </>
-          )}
+
         </div>
 
         {/* Progress bar at bottom of cover */}

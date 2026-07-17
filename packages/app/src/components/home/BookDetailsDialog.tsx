@@ -638,15 +638,7 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                         onDone={() => setEditingTitleField(null)}
                         onChange={(value) => setField("title", value)}
                       />
-                      <InlineTitleEdit
-                        value={values.author}
-                        editing={editingTitleField === "author"}
-                        className="text-base text-muted-foreground"
-                        placeholder={t("library.detailsUnknownAuthor", "Unknown author")}
-                        onStartEdit={() => setEditingTitleField("author")}
-                        onDone={() => setEditingTitleField(null)}
-                        onChange={(value) => setField("author", value)}
-                      />
+
                     </div>
                     <RatingField
                       className="mt-4"
