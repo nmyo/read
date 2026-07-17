@@ -178,10 +178,17 @@ app.get("/api/books/:id/file", (req, res) => {
   if (!fullPath || !fs.existsSync(fullPath)) return res.status(404).json({ error: "file missing" });
 
   const mime = BOOK_MIME_TYPES[book.format] || "application/octet-stream";
+  const stat = fs.statSync(fullPath);
   
   res.setHeader("Content-Type", mime);
   res.setHeader("Content-Disposition", "inline");
   res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Content-Length", stat.size);
+  
+  // For HEAD requests, just send headers
+  if (req.method === "HEAD") {
+    return res.end();
+  }
   
   const stream = fs.createReadStream(fullPath);
   stream.on('error', () => { if (!res.headersSent) res.status(500).json({ error: "read error" }); });
