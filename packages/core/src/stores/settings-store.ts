@@ -69,7 +69,7 @@ export interface SettingsState {
 }
 
 const defaultReadSettings: ReadSettings = {
-  fontSize: 16,
+  fontSize: 20,
   lineHeight: 1.6,
   fontTheme: "system",
   viewMode: "paginated",

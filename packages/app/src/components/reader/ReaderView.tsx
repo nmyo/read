@@ -42,7 +42,6 @@ import { NotebookPanel } from "./NotebookPanel";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { ResizeHandle } from "./ResizeHandle";
 import { SearchBar } from "./SearchBar";
-import { SelectionPopover } from "./SelectionPopover";
 import { TOCPanel } from "./TOCPanel";
 
 const REFLOWABLE_CHARACTERS_PER_LOCATION = 1500;
