@@ -3,6 +3,7 @@
  * 支持按格式分类显示：TXT 列表、EPUB 网格
  */
 import { useLibraryStore } from "@/stores/library-store";
+import { openDesktopBook } from "@/lib/library/open-book";
 import type { Book, SortField } from "@readany/core/types";
 import {
   ArrowDownAZ,
@@ -192,7 +193,7 @@ export function HomePage() {
                   key={book.id}
                   type="button"
                   className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-muted/50"
-                  onClick={() => handleShowDetails(book)}
+                  onClick={() => openDesktopBook({ book })}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">

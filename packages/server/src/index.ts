@@ -142,8 +142,13 @@ function safePath(root: string, ...segments: string[]): string | null {
 // List all books
 app.get("/api/books", (_req, res) => {
   const books = db.prepare("SELECT * FROM books ORDER BY updated_at DESC").all();
+  // Parse tags from JSON string to array
+  const parsed = books.map((book: any) => ({
+    ...book,
+    tags: typeof book.tags === 'string' ? JSON.parse(book.tags || '[]') : (book.tags || []),
+  }));
   res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
-  res.json(books);
+  res.json(parsed);
 });
 
 // Get single book
