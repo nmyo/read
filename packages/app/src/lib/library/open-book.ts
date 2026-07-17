@@ -15,9 +15,6 @@ interface OpenDesktopBookOptions {
   initialCfi?: string;
 }
 
-function normalizeBookIdentityText(value?: string): string {
-  return (value || "").toLowerCase().replace(/[\s\p{P}\p{S}_-]+/gu, "");
-}
 
 
 
