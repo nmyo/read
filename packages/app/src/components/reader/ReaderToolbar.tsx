@@ -24,19 +24,8 @@ interface ReaderToolbarProps {
   onNext?: () => void;
   tocItems?: TOCItem[];
   onGoToChapter?: (href: string) => void;
-  onToggleSearch?: () => void;
   onToggleToc?: () => void;
   onToggleSettings?: () => void;
-  onToggleChat?: () => void;
-  isChatOpen?: boolean;
-  isFixedLayout?: boolean;
-  fixedLayoutZoom?: number;
-  fixedLayoutZoomMin?: number;
-  fixedLayoutZoomMax?: number;
-  fixedLayoutZoomStep?: number;
-  onFixedLayoutZoomChange?: (zoom: number) => void;
-  isPinned?: boolean;
-  onTogglePinned?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
