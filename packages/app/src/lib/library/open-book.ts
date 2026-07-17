@@ -39,7 +39,7 @@ export async function openDesktopBook({
   t,
   initialCfi,
 }: OpenDesktopBookOptions): Promise<boolean> {
-  const { books, setBooks, loadBooks, inspectDeletedBookCandidate, reimportDeletedBook } =
+  const { books, setBooks, loadBooks } =
     useLibraryStore.getState();
 
   if (pendingDownloads.has(book.id) || book.syncStatus === "downloading") {
