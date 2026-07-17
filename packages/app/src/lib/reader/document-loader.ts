@@ -177,12 +177,17 @@ export class DocumentLoader {
       linear: 'yes',
       href: `section-${i}.xhtml`,
       load: async () => {
-        const doc = document.implementation.createHTMLDocument(ch.title);
         const escapeHTML = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        doc.body.innerHTML = ch.content.split('\n').map(p => 
+        const paragraphs = ch.content.split('\n').map(p => 
           p.trim() ? `<p>${escapeHTML(p)}</p>` : ''
         ).join('');
-        const url = URL.createObjectURL(new Blob([doc.documentElement.outerHTML], { type: 'application/xhtml+xml' }));
+        const html = `<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>${escapeHTML(ch.title)}</title>
+<style>body{margin:0;padding:20px;font-family:sans-serif;line-height:1.8}p{margin:0.5em 0;text-indent:2em}</style>
+</head>
+<body>${paragraphs}</body></html>`;
+        const url = URL.createObjectURL(new Blob([html], { type: 'application/xhtml+xml' }));
         return url;
       },
       unload: () => {},
