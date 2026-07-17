@@ -52,18 +52,12 @@ export const BookCard = memo(function BookCard({
   const removeBook = useLibraryStore((s) => s.removeBook);
   const closeAppTab = useAppStore((s) => s.removeTab);
   const closeReaderTab = useReaderStore((s) => s.removeTab);
-  const allTags = useLibraryStore((s) => s.allTags);
   const groups = useLibraryStore((s) => s.groups);
   const addGroup = useLibraryStore((s) => s.addGroup);
   const moveBookToGroup = useLibraryStore((s) => s.moveBookToGroup);
   const removeBookFromGroup = useLibraryStore((s) => s.removeBookFromGroup);
-  const addTagToBook = useLibraryStore((s) => s.addTagToBook);
-  const removeTagFromBook = useLibraryStore((s) => s.removeTagFromBook);
-  const addTag = useLibraryStore((s) => s.addTag);
   const [showMenu, setShowMenu] = useState(false);
-  const [showTagMenu, setShowTagMenu] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
-  const [newTagInput, setNewTagInput] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [preserveDataOnDelete, setPreserveDataOnDelete] = useState(true);
   const coverRef = useRef<HTMLDivElement>(null);
@@ -236,14 +230,14 @@ export const BookCard = memo(function BookCard({
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu(false);
-              setShowTagMenu(false);
+              // tag menu removed
               setMenuPos(null);
             }}
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Escape") {
                 setShowMenu(false);
-                setShowTagMenu(false);
+                // tag menu removed
                 setMenuPos(null);
               }
             }}
@@ -290,76 +284,6 @@ export const BookCard = memo(function BookCard({
                 {t("library.removeFromGroup", "移出分组")}
               </button>
             )}
-            {/* Tags submenu */}
-            <div className="relative">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  suppressOpenUntilRef.current = Date.now() + 300;
-                  setShowTagMenu(!showTagMenu);
-                }}
-              >
-                <Hash className="h-3.5 w-3.5" />
-                {t("home.manageTags")}
-                <ChevronRight className="ml-auto h-3 w-3" />
-              </button>
-              {showTagMenu && (
-                <div
-                  className="absolute right-full top-0 z-50 mr-1 min-w-36 max-h-52 overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {allTags.map((tag) => {
-                    const hasTag = book.tags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          suppressOpenUntilRef.current = Date.now() + 300;
-                          if (hasTag) removeTagFromBook(book.id, tag);
-                          else addTagToBook(book.id, tag);
-                        }}
-                      >
-                        <div
-                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${hasTag ? "border-primary bg-primary" : "border-border"}`}
-                        >
-                          {hasTag && <Check className="h-2.5 w-2.5 text-white" />}
-                        </div>
-                        <span className="truncate">{tag}</span>
-                      </button>
-                    );
-                  })}
-                  {/* Quick add new tag */}
-                  <div className="mt-1 border-t pt-1">
-                    <div className="flex items-center gap-1 px-1">
-                      <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <input
-                        type="text"
-                        className="w-full bg-transparent px-1 py-1 text-xs outline-none placeholder:text-muted-foreground"
-                        placeholder={t("sidebar.tagPlaceholder")}
-                        value={newTagInput}
-                        onChange={(e) => setNewTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-                          if (e.key === "Enter" && newTagInput.trim()) {
-                            suppressOpenUntilRef.current = Date.now() + 300;
-                            addTag(newTagInput.trim());
-                            addTagToBook(book.id, newTagInput.trim());
-                            setNewTagInput("");
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
             {/* Delete button */}
             <button
               type="button"

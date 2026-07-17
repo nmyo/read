@@ -62,7 +62,13 @@ export function ReaderToolbar({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-onClick={() => { window.history.back(); }}
+onClick={() => {
+          const { removeTab, activeTabId } = useAppStore.getState();
+          if (activeTabId && activeTabId !== "home") {
+            removeTab(activeTabId);
+          }
+          window.history.back();
+        }}
           title={t("common.back")}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
