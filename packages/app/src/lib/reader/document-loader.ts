@@ -201,6 +201,7 @@ export class DocumentLoader {
       })),
       sections,
       splitTOCHref: (href: string) => [href],
+      getTOCFragment: (doc: Document, id: string) => doc.getElementById(id),
       getCover: async () => null,
     };
     
