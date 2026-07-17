@@ -36,7 +36,7 @@ app.get("/api/books/:id", (req, res) => {
   res.json(book);
 });
 
-// Serve book file (for reader)
+// Serve book file (for reader only - no download)
 app.get("/api/books/:id/file", (req, res) => {
   const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id) as any;
   if (!book) return res.status(404).json({ error: "not found" });
@@ -44,9 +44,24 @@ app.get("/api/books/:id/file", (req, res) => {
   const fullPath = path.join(STORAGE_DIR, book.file_path);
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: "file missing" });
 
-  const mime = book.format === "pdf" ? "application/pdf" : "application/epub+zip";
+  // Set MIME type based on format
+  const mimeTypes: Record<string, string> = {
+    epub: "application/epub+zip",
+    pdf: "application/pdf",
+    mobi: "application/x-mobipocket-ebook",
+    azw: "application/vnd.amazon.ebook",
+    azw3: "application/vnd.amazon.ebook",
+    cbz: "application/vnd.comicbook+zip",
+    fb2: "application/x-fictionbook+xml",
+    txt: "text/plain; charset=utf-8",
+  };
+  const mime = mimeTypes[book.format] || "application/octet-stream";
+  
+  // Only allow inline viewing, prevent download
   res.setHeader("Content-Type", mime);
-  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(book.title)}.${book.format}"`);
+  res.setHeader("Content-Disposition", "inline");
+  res.setHeader("Cache-Control", "private, no-store"); // Prevent caching
+  
   fs.createReadStream(fullPath).pipe(res);
 });
 

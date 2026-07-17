@@ -133,6 +133,78 @@ export class DocumentLoader {
     );
   }
 
+  private isTXT(): boolean {
+    return (
+      this.file.type === "text/plain" || 
+      this.file.name.endsWith(`.${EXTS.TXT}`) ||
+      this.file.name.endsWith(".text")
+    );
+  }
+
+  private async makeTXTBook(): Promise<BookDoc> {
+    const text = await this.file.text();
+    const title = this.file.name.replace(/\.txt$/i, '').replace(/\.text$/i, '');
+    
+    // Split into chapters by common chapter markers
+    const chapterRegex = /^(第[一二三四五六七八九十百千\d]+[章节回卷]|Chapter\s+\d+|CHAPTER\s+\d+)/gm;
+    const lines = text.split('\n');
+    const chapters: { title: string; content: string }[] = [];
+    let currentChapter = { title: title, content: '' };
+    
+    for (const line of lines) {
+      if (chapterRegex.test(line) && currentChapter.content.trim()) {
+        chapters.push(currentChapter);
+        currentChapter = { title: line.trim(), content: '' };
+        chapterRegex.lastIndex = 0;
+      } else {
+        currentChapter.content += line + '\n';
+      }
+    }
+    if (currentChapter.content.trim()) {
+      chapters.push(currentChapter);
+    }
+    
+    // If no chapters found, treat entire file as one chapter
+    if (chapters.length === 0) {
+      chapters.push({ title, content: text });
+    }
+    
+    const sections = chapters.map((ch, i) => ({
+      id: `section-${i}`,
+      cfi: `/6/2[section-${i}!]`,
+      size: ch.content.length,
+      linear: 'yes',
+      href: `section-${i}.xhtml`,
+      createDocument: async () => {
+        const doc = document.implementation.createHTMLDocument(ch.title);
+        doc.body.innerHTML = ch.content.split('\n').map(p => 
+          p.trim() ? `<p>${p}</p>` : ''
+        ).join('');
+        return doc;
+      }
+    }));
+    
+    const book: BookDoc = {
+      metadata: {
+        title,
+        author: 'Unknown',
+        language: 'en',
+      },
+      dir: 'ltr',
+      toc: chapters.map((ch, i) => ({
+        id: i,
+        label: ch.title,
+        href: `section-${i}.xhtml`,
+        index: i,
+      })),
+      sections,
+      splitTOCHref: (href: string) => [href],
+      getCover: async () => null,
+    };
+    
+    return book;
+  }
+
   public async open(): Promise<{ book: BookDoc; format: BookFormat }> {
     // biome-ignore lint: foliate-js returns untyped book objects
     let book: any = null;
@@ -186,6 +258,9 @@ export class DocumentLoader {
         const { makeFB2 } = await import("foliate-js/fb2.js");
         book = await makeFB2(this.file);
         format = "FB2";
+      } else if (this.isTXT()) {
+        book = await this.makeTXTBook();
+        format = "TXT";
       } else {
         throw new Error(`Unsupported file format: ${this.file.name}`);
       }
@@ -242,18 +317,14 @@ async function markImageOnlyEpubAsFixedLayout(book: BookDoc): Promise<void> {
 
   if (inspected < 4 || imageOnlyPages / inspected < 0.75) return;
 
-  book.rendition ??= {};
+  book.rendition = book.rendition ?? {};
   book.rendition.layout = "pre-paginated";
   book.rendition.spread ??= "auto";
 }
 
 function isImageOnlyPageDocument(doc: Document): boolean {
-  const body = doc.body;
+  const { body } = doc;
   if (!body) return false;
-
-  const images = body.querySelectorAll("img, svg");
-  if (images.length === 0) return false;
-
-  const text = (body.textContent || "").replace(/\s+/g, "").trim();
-  return text.length <= 32;
+  if (body.querySelectorAll("img, svg").length === 0) return false;
+  return (body.textContent || "").replace(/\s+/g, "").trim().length <= 32;
 }
