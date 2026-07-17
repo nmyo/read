@@ -33,9 +33,17 @@ export function HomePage() {
   } = useLibraryStore();
 
   const [activeTab, setActiveTab] = useState<CategoryTab>("txt");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [detailsBookId, setDetailsBookId] = useState<string | null>(null);
   const detailsBook = detailsBookId ? books.find(b => b.id === detailsBookId) ?? null : null;
   const handleShowDetails = useCallback((book: Book) => setDetailsBookId(book.id), []);
+
+  // Reset page when tab changes
+  const handleTabChange = useCallback((tab: CategoryTab) => {
+    setActiveTab(tab);
+    setPage(1);
+  }, []);
 
   const filtered = useMemo(() => {
     let result = books.filter((b) => {
@@ -73,6 +81,13 @@ export function HomePage() {
     },
     [filter.sortField, filter.sortOrder, setFilter],
   );
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedBooks = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
 
@@ -138,7 +153,7 @@ export function HomePage() {
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-muted"
           }`}
-          onClick={() => setActiveTab("txt")}
+          onClick={() => handleTabChange("txt")}
         >
           TXT ({txtCount})
         </button>
@@ -149,7 +164,7 @@ export function HomePage() {
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-muted"
           }`}
-          onClick={() => setActiveTab("epub")}
+          onClick={() => handleTabChange("epub")}
         >
           EPUB ({epubCount})
         </button>
@@ -160,7 +175,7 @@ export function HomePage() {
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-muted"
           }`}
-          onClick={() => setActiveTab("all")}
+          onClick={() => handleTabChange("all")}
         >
           全部 ({books.length})
         </button>
@@ -172,7 +187,7 @@ export function HomePage() {
           activeTab === "txt" ? (
             /* TXT: Simple list view */
             <div className="divide-y divide-border">
-              {filtered.map((book) => (
+              {paginatedBooks.map((book) => (
                 <button
                   key={book.id}
                   type="button"
@@ -197,7 +212,7 @@ export function HomePage() {
             </div>
           ) : (
             /* EPUB/All: Grid view with covers */
-            <BookGrid books={filtered} onShowDetails={handleShowDetails} />
+            <BookGrid books={paginatedBooks} onShowDetails={handleShowDetails} />
           )
         ) : (
           <div className="flex h-64 items-center justify-center text-muted-foreground">
@@ -205,6 +220,51 @@ export function HomePage() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t px-6 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              共 {filtered.length} 本，第 {page}/{totalPages} 页
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+            >
+              首页
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              上一页
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              下一页
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+            >
+              末页
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Book details dialog */}
       <BookDetailsDialog
