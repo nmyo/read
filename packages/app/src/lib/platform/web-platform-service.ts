@@ -17,23 +17,17 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
-// --- WebDatabase: proxies SQL to backend ---
+// --- WebDatabase: safe API calls only (no raw SQL) ---
 function createWebDatabase(): IDatabase {
   return {
-    async execute(sql: string, params?: unknown[]): Promise<void> {
-      await fetch(`${API_BASE}/db/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql, params: params ?? [] }),
-      });
+    async execute(_sql: string, _params?: unknown[]): Promise<void> {
+      // No-op: raw SQL execution is disabled for security
+      console.warn("[WebDatabase] Raw SQL execution is disabled");
     },
-    async select<T>(sql: string, params?: unknown[]): Promise<T[]> {
-      const res = await fetch(`${API_BASE}/db/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql, params: params ?? [] }),
-      });
-      return res.json();
+    async select<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
+      // No-op: raw SQL queries are disabled for security
+      console.warn("[WebDatabase] Raw SQL queries are disabled");
+      return [] as T[];
     },
     async close(): Promise<void> {
       // no-op for web

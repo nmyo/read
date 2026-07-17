@@ -6,6 +6,10 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import db from "./db.js";
 
+// Enable WAL mode for better concurrent read performance
+db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
+
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
@@ -95,7 +99,7 @@ const BOOK_MIME_TYPES: Record<string, string> = {
 };
 
 // CORS: restrict to same origin (Caddy proxy)
-app.use(cors({ origin: true }));
+app.use(cors({ origin: false })); // Same origin only (Caddy proxy)
 app.use(compression({
   threshold: 1024, // Only compress responses larger than 1KB
   level: 6, // Balanced compression level
@@ -155,10 +159,14 @@ app.patch("/api/books/:id/progress", (req, res) => {
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  if (progress !== undefined) { updates.push("progress = ?"); values.push(progress); }
+  if (progress !== undefined) {
+    const p = Number(progress);
+    if (isNaN(p) || p < 0 || p > 1) return res.status(400).json({ error: "invalid progress" });
+    updates.push("progress = ?"); values.push(p);
+  }
   if (currentCfi !== undefined) {
-    // Validate CFI format or limit length to prevent XSS
     const cfiStr = String(currentCfi).slice(0, 500);
+    if (/[<>"']/.test(cfiStr)) return res.status(400).json({ error: "invalid cfi" });
     updates.push("currentCfi = ?"); values.push(cfiStr);
   }
   updates.push("updated_at = ?");
@@ -317,8 +325,23 @@ app.get("/api/files/book", (req, res) => {
   res.status(404).json({ error: "not found" });
 });
 
+// Rate limit file requests
+const fileRequestCounts = new Map<string, { count: number; resetAt: number }>();
+function rateLimitFile(req: any, res: any, next: any) {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = fileRequestCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    fileRequestCounts.set(ip, { count: 1, resetAt: now + 60000 }); // 1 minute window
+    return next();
+  }
+  entry.count++;
+  if (entry.count > 100) return res.status(429).json({ error: "too many requests" }); // 100 per minute
+  next();
+}
+
 // Serve cover images
-app.get("/api/covers/:filename", (req, res) => {
+app.get("/api/covers/:filename", rateLimitFile, (req, res) => {
   const coverPath = safePath(STORAGE_DIR, "covers", req.params.filename);
   if (!coverPath || !fs.existsSync(coverPath)) return res.status(404).json({ error: "not found" });
   res.setHeader("Content-Type", "image/jpeg");
