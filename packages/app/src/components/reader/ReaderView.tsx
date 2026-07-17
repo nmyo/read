@@ -1725,7 +1725,8 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
         </div>
       )}
 
-      {/* Notebook sidebar — LEFT side */}
+    </div>
+  );
 }
 
 
