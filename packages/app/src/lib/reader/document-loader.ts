@@ -176,9 +176,18 @@ export class DocumentLoader {
       size: ch.content.length,
       linear: 'yes',
       href: `section-${i}.xhtml`,
+      load: async () => {
+        const doc = document.implementation.createHTMLDocument(ch.title);
+        const escapeHTML = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        doc.body.innerHTML = ch.content.split('\n').map(p => 
+          p.trim() ? `<p>${escapeHTML(p)}</p>` : ''
+        ).join('');
+        const url = URL.createObjectURL(new Blob([doc.documentElement.outerHTML], { type: 'application/xhtml+xml' }));
+        return url;
+      },
+      unload: () => {},
       createDocument: async () => {
         const doc = document.implementation.createHTMLDocument(ch.title);
-        // Escape HTML to prevent XSS from TXT content
         const escapeHTML = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         doc.body.innerHTML = ch.content.split('\n').map(p => 
           p.trim() ? `<p>${escapeHTML(p)}</p>` : ''
