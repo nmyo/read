@@ -1,3 +1,4 @@
+import { ChatPanel } from "@/components/chat/ChatPanel";
 /**
  * ReaderView — main reader page component.
  *
@@ -12,6 +13,7 @@
  * - Managing reading state (progress, location, selection)
  * - Rendering the FoliateViewer and surrounding UI (toolbar, footer, panels)
  */
+import { ReadSettingsPanel } from "@/components/settings/ReadSettings";
 import { useReadingSession } from "@/hooks/use-reading-session";
 import { useResizablePanel } from "@/hooks/use-resizable-panel";
 import { hasSeenReaderTour, startReaderTour } from "@/lib/reader-tour";
@@ -28,11 +30,21 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { getPlatformService } from "@readany/core/services";
 import { getCSSFontFace, useFontStore, useReadingSessionStore } from "@readany/core/stores";
 import { useRubyStore } from "@readany/core/stores/ruby-store";
+import type { CitationPart, HighlightColor } from "@readany/core/types";
 import { eventBus } from "@readany/core/utils/event-bus";
 import { throttle } from "@readany/core/utils/throttle";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BookmarkRibbon } from "./BookmarkRibbon";
+import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
+import { FoliateViewer } from "./FoliateViewer";
+import { FooterBar } from "./FooterBar";
+import { NotebookPanel } from "./NotebookPanel";
+import { ReaderToolbar } from "./ReaderToolbar";
 import { ResizeHandle } from "./ResizeHandle";
+import { SearchBar } from "./SearchBar";
+import { SelectionPopover } from "./SelectionPopover";
 import { TOCPanel } from "./TOCPanel";
 
 const REFLOWABLE_CHARACTERS_PER_LOCATION = 1500;
@@ -43,6 +55,7 @@ const INITIAL_PROGRESS_RESTORE_GUARD_MS = 1800;
 const PROGRAMMATIC_NAV_GUARD_MS = 1200;
 const FIXED_LAYOUT_ZOOM_MIN = 0.5;
 const FIXED_LAYOUT_ZOOM_MAX = 3;
+const FIXED_LAYOUT_ZOOM_STEP = 0.1;
 const INITIAL_LOCATION_CHAPTER_PREFIX = "chapter:";
 const BOOK_IMPORT_FILTERS = [
   {
@@ -708,7 +721,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
-  const [isToolbarPinned] = useState(() => {
+  const [isToolbarPinned, setIsToolbarPinned] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(TOOLBAR_PIN_STORAGE_KEY) === "true";
   });
@@ -780,6 +793,13 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     isFixedLayout,
   );
   const isDoublePage = (viewSettings.paginatedLayout ?? "double") === "double";
+  const fixedLayoutZoom = normalizeFixedLayoutZoom(viewSettings.fixedLayoutZoom ?? 1);
+  const handleFixedLayoutZoomChange = useCallback(
+    (zoom: number) => {
+      updateReadSettings({ fixedLayoutZoom: normalizeFixedLayoutZoom(zoom) });
+    },
+    [updateReadSettings],
+  );
   const toolbarVisible = controlsVisible || isToolbarPinned;
   const readingHeaderTitle = (readerTab?.chapterTitle || book?.meta.title || "").trim();
   const contentTopPadding = isToolbarPinned ? 78 : 56;
@@ -1677,7 +1697,70 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     [navigateToCfi],
   );
 
+  const handleNavigateToCitation = useCallback(
+    (citation: CitationPart) => {
+      if (!citation.cfi || citation.cfi.trim() === "") {
+        console.warn("Citation has no valid CFI, falling back to chapter index:", {
+          chapterTitle: citation.chapterTitle,
+          chapterIndex: citation.chapterIndex,
+          text: citation.text.slice(0, 50),
+        });
+        try {
+          foliateRef.current?.goToIndex(citation.chapterIndex);
+        } catch (error) {
+          console.error("Failed to navigate to chapter:", error, citation);
+        }
+        return;
+      }
 
+      if (citation.cfi.startsWith("page:")) {
+        navigateToReaderLocation(citation.cfi);
+        return;
+      }
+
+      console.log("[handleNavigateToCitation] Citation clicked:", citation);
+
+      try {
+        navigateToCfi(citation.cfi);
+
+        const flashHighlight = () => {
+          let flashCount = 0;
+          const maxFlashes = 3;
+          const flashInterval = 500;
+
+          const doFlash = () => {
+            if (flashCount >= maxFlashes) return;
+
+            foliateRef.current?.addAnnotation({
+              value: citation.cfi,
+              type: "highlight",
+              color: "orange",
+            });
+
+            setTimeout(() => {
+              foliateRef.current?.deleteAnnotation({ value: citation.cfi });
+              flashCount++;
+
+              if (flashCount < maxFlashes) {
+                setTimeout(doFlash, flashInterval);
+              }
+            }, flashInterval);
+          };
+
+          setTimeout(doFlash, 100);
+        };
+
+        flashHighlight();
+      } catch (error) {
+        console.error(
+          "[handleNavigateToCitation] Failed to navigate to citation:",
+          error,
+          citation,
+        );
+      }
+    },
+    [navigateToCfi, navigateToReaderLocation],
+  );
 
   if (!readerTab) {
     return <div className="flex h-full items-center justify-center">{t("common.loading")}</div>;
@@ -1714,8 +1797,331 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
         </div>
       )}
 
+      {/* Notebook sidebar — LEFT side */}{/* 
+      <NotebookSidebarWrapper
+        bookId={bookId}
+        onGoToCfi={navigateToCfi}
+        onAddAnnotation={(cfi, color, note) => {
+          foliateRef.current?.addAnnotation({
+            value: cfi,
+            type: "highlight",
+            color,
+            note,
+          });
+        }}
+        onDeleteAnnotation={(cfi) => {
+          foliateRef.current?.deleteAnnotation({ value: cfi });
+        }}
+        panelWidth={notebookPanel.width}
+        onResize={notebookPanel.handleResize}
+        onResizeStart={notebookPanel.handleResizeStart}
+        onResizeEnd={notebookPanel.handleResizeEnd}
+      />
+
+      {/* Main reading area */}
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm">
+        {/* Search bar — stacked above content when visible */}
+        {showSearch && (
+          <SearchBar
+            onSearch={handleSearch}
+            onNext={() => navigateSearchResult("next")}
+            onPrev={() => navigateSearchResult("prev")}
+            onClose={() => {
+              setShowSearch(false);
+              setSearchResults(0);
+              setSearchIndex(0);
+              foliateRef.current?.clearSearch();
+            }}
+            resultCount={searchResults}
+            currentIndex={searchIndex}
+          />
+        )}
+
+        {/* Content area — takes full remaining space */}
+        <div
+          className="relative flex flex-1 overflow-hidden transition-[padding] duration-300"
+          style={{ paddingTop: contentTopPadding }}
+        >
+          {readingHeaderTitle && (
+            <div className="pointer-events-none absolute left-5 top-3 z-[4] max-w-[70%] select-none truncate text-[20px] font-semibold tracking-tight text-foreground/86">
+              {readingHeaderTitle}
+            </div>
+          )}
+
+          {/* Reading area — FoliateViewer */}
+          <div className="relative flex-1 overflow-hidden" ref={containerRef}>
+            {/* Click zone indicators — visible only during reader tour (driver.js highlights them) */}
+            <div
+              id="reader-zone-prev"
+              className="pointer-events-none absolute left-0 top-0 bottom-0 z-[100]"
+              style={{ width: isDoublePage ? "33%" : "40%" }}
+            />
+            <div
+              id="reader-zone-toolbar"
+              className="pointer-events-none absolute top-0 bottom-0 z-[100]"
+              style={{ left: isDoublePage ? "33%" : "40%", width: isDoublePage ? "34%" : "20%" }}
+            />
+            <div
+              id="reader-zone-next"
+              className="pointer-events-none absolute right-0 top-0 bottom-0 z-[100]"
+              style={{ width: isDoublePage ? "33%" : "40%" }}
+            />
+            {bookDoc ? (
+              <FoliateViewer
+                ref={foliateRef}
+                bookKey={bookId}
+                bookDoc={bookDoc}
+                format={bookFormat}
+                viewSettings={viewSettingsWithFonts}
+                lastLocation={book?.currentCfi || undefined}
+                onRelocate={handleRelocate}
+                onTocReady={handleTocReady}
+                onLoaded={handleLoaded}
+                onSectionLoad={handleSectionLoad}
+                onError={handleError}
+                onSelection={handleSelection}
+                onShowAnnotation={handleShowAnnotation}
+                onToggleSearch={handleToggleSearch}
+                onToggleToc={handleToggleToc}
+                onToggleChat={handleToggleChat}
+              />
+            ) : isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                  <p className="text-sm text-muted-foreground">{t("reader.loadingBook")}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Error state */}
+            {error && !isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background">
+                <div className="flex max-w-md flex-col items-center gap-3 px-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                    <span className="text-lg text-destructive">!</span>
+                  </div>
+                  <p className="text-sm font-medium text-destructive">{t("reader.loadFailed")}</p>
+                  <p className="text-xs text-muted-foreground">{error}</p>
+                  {book?.filePath ? (
+                    <button
+                      type="button"
+                      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                      onClick={() => {
+                        isInitializedRef.current = false;
+                        setError(null);
+                        setBookDoc(null);
+                        setIsLoading(true);
+                        loadAndParseBook(book.filePath)
+                          .then(({ bookDoc, format }) => {
+                            setBookDoc(bookDoc);
+                            setBookFormat(format);
+                            isInitializedRef.current = true;
+                          })
+                          .catch((err) => {
+                            setError(err instanceof Error ? err.message : "Failed");
+                            setIsLoading(false);
+                          });
+                      }}
+                    >
+                      {t("common.retry")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                      onClick={handleCloseMissingBookTab}
+                    >
+                      {t("common.back", "返回")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void handleReimportMissingBook()}
+                    disabled={isReimporting}
+                  >
+                    {isReimporting
+                      ? t("reader.reimporting", "正在重新导入...")
+                      : t("reader.reimport", "重新导入")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Bookmark ribbon */}
+            <BookmarkRibbon visible={isBookmarked} />
+
+            {/* Selection popover */}
+            {selection && (
+              <SelectionPopover
+                position={selectionPos}
+                selectedText={selection.text}
+                annotated={selection.annotated}
+                currentColor={selection.color as HighlightColor | undefined}
+                defaultColor={viewSettings.defaultHighlightColor ?? "yellow"}
+                isPdf={bookFormat === "PDF"}
+                onHighlight={handleHighlight}
+                onRemoveHighlight={handleRemoveHighlight}
+                onNote={handleNote}
+                onCopy={handleCopy}
+                onTranslate={handleTranslate}
+                onAskAI={handleAskAI}
+                onClose={handleCloseSelection}
+              />
+            )}
+
+
+          </div>
+
+          {/* Floating Toolbar — overlays content area */}
+          <ReaderToolbar
+            tabId={tabId}
+            isVisible={toolbarVisible}
+            onPrev={handleNavPrev}
+            onNext={handleNavNext}
+            tocItems={tocItems}
+            onGoToChapter={handleGoToChapter}
+            onToggleSearch={handleToggleSearch}
+            onToggleToc={handleToggleToc}
+            onToggleSettings={handleToggleSettings}
+            onToggleChat={handleToggleChat}
+            isChatOpen={showChat}
+            isFixedLayout={isFixedLayout}
+            fixedLayoutZoom={fixedLayoutZoom}
+            fixedLayoutZoomMin={FIXED_LAYOUT_ZOOM_MIN}
+            fixedLayoutZoomMax={FIXED_LAYOUT_ZOOM_MAX}
+            fixedLayoutZoomStep={FIXED_LAYOUT_ZOOM_STEP}
+            onFixedLayoutZoomChange={handleFixedLayoutZoomChange}
+            isPinned={isToolbarPinned}
+            onTogglePinned={() => setIsToolbarPinned((prev) => !prev)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          />
+
+          {/* Floating Footer bar — overlays content area */}
+          <FooterBar
+            tabId={tabId}
+            totalPages={totalPages}
+            currentPage={currentPage}
+            isVisible={controlsVisible}
+            onPrev={handleNavPrev}
+            onNext={handleNavNext}
+            onSeek={(fraction) => {
+              suppressProgressTracking(3000);
+              foliateRef.current?.goToFraction(fraction);
+            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          />
+
+          {/* Always-visible thin progress bar at the very bottom */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 h-[2px] bg-foreground/5">
+            <div
+              className="h-full bg-primary/30 transition-all duration-300 ease-out"
+              style={{ width: `${Math.round((readerTab?.progress ?? 0) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Settings overlay */}
+        {showSettings && (
+          <>
+            <div
+              className="absolute inset-0 z-40 bg-black/20"
+              onClick={() => setShowSettings(false)}
+            />
+            <div className="absolute top-12 right-2 z-50 w-80 animate-in slide-in-from-top-2 duration-200 rounded-lg border border-border/60 bg-background shadow-lg">
+              <div className="flex items-center justify-between border-b border-border/40 px-4 py-2">
+                <span className="text-xs font-medium">{t("settings.reading_title")}</span>
+                <button
+                  type="button"
+                  className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={() => setShowSettings(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <ReadSettingsPanel />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* AI Chat sidebar — RIGHT side, resizable */}
+      {showChat && (
+        <div
+          className="relative ml-1 flex shrink-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm"
+          style={{ width: chatPanel.width }}
+        >
+          <ResizeHandle
+            side="left"
+            onResizeStart={chatPanel.handleResizeStart}
+            onResize={(delta) => chatPanel.handleResize(delta, "left")}
+            onResizeEnd={chatPanel.handleResizeEnd}
+          />
+          <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 px-3">
+            <span className="text-xs font-medium text-foreground">{t("chat.aiAssistant")}</span>
+            <button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => setShowChat(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {/* <ChatPanel book={book} onNavigateToCitation={handleNavigateToCitation} /> */}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+// Separate component to use notebook store hook
+function NotebookSidebarWrapper({
+  bookId,
+  onGoToCfi,
+  onAddAnnotation,
+  onDeleteAnnotation,
+  panelWidth,
+  onResize,
+  onResizeStart,
+  onResizeEnd,
+}: {
+  bookId: string;
+  onGoToCfi: (cfi: string) => void;
+  onAddAnnotation: (cfi: string, color: string, note?: string) => void;
+  onDeleteAnnotation: (cfi: string) => void;
+  panelWidth: number;
+  onResize: (delta: number, side: "left" | "right") => void;
+  onResizeStart: () => void;
+  onResizeEnd: () => void;
+}) {
+  const isOpen = useNotebookStore((s) => s.isOpen);
+  const closeNotebook = useNotebookStore((s) => s.closeNotebook);
 
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="relative mr-1 flex shrink-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm"
+      style={{ width: panelWidth }}
+    >
+      <ResizeHandle
+        side="right"
+        onResizeStart={onResizeStart}
+        onResize={(delta) => onResize(delta, "right")}
+        onResizeEnd={onResizeEnd}
+      />
+      <NotebookPanel
+        bookId={bookId}
+        onClose={closeNotebook}
+        onGoToCfi={onGoToCfi}
+        onAddAnnotation={onAddAnnotation}
+        onDeleteAnnotation={onDeleteAnnotation}
+      />
+    </div>
+  );
+}

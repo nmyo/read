@@ -1,34 +1,87 @@
-/**
- * ReaderToolbar — simplified toolbar for web mode
- */
-import { ArrowLeft, List, Settings } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { SyncButton } from "@/components/ui/SyncButton";
 import { Button } from "@/components/ui/button";
-import { useReaderStore } from "@/stores/reader-store";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toggleWindowFullscreen } from "@/lib/window-fullscreen";
 import { useAppStore } from "@/stores/app-store";
+import { useNotebookStore } from "@/stores/notebook-store";
+import { useReaderStore } from "@/stores/reader-store";
+import {
+  ArrowLeft,
+  List,
+  Maximize,
+  MessageSquare,
+  NotebookPen,
+  Pin,
+  RotateCcw,
+  Search,
+  Settings,
+  Undo,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TOCItem } from "./FoliateViewer";
 
 interface ReaderToolbarProps {
   tabId: string;
   isVisible: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  onToggleToc: () => void;
-  onToggleSettings: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  tocItems?: TOCItem[];
+  onGoToChapter?: (href: string) => void;
+  onToggleSearch?: () => void;
+  onToggleToc?: () => void;
+  onToggleSettings?: () => void;
+  onToggleChat?: () => void;
+  isChatOpen?: boolean;
+  isFixedLayout?: boolean;
+  fixedLayoutZoom?: number;
+  fixedLayoutZoomMin?: number;
+  fixedLayoutZoomMax?: number;
+  fixedLayoutZoomStep?: number;
+  onFixedLayoutZoomChange?: (zoom: number) => void;
+  isPinned?: boolean;
+  onTogglePinned?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export function ReaderToolbar({
   tabId,
   isVisible,
-  onMouseEnter,
-  onMouseLeave,
+  onPrev: _onPrev,
+  onNext: _onNext,
+  tocItems: _tocItems = [],
+  onGoToChapter: _onGoToChapter,
+  onToggleSearch,
   onToggleToc,
   onToggleSettings,
+  onToggleChat,
+  isChatOpen,
+  isFixedLayout = false,
+  fixedLayoutZoom = 1,
+  fixedLayoutZoomMin = 0.5,
+  fixedLayoutZoomMax = 3,
+  fixedLayoutZoomStep = 0.1,
+  onFixedLayoutZoomChange,
+  isPinned = false,
+  onTogglePinned,
+  onMouseEnter,
+  onMouseLeave,
 }: ReaderToolbarProps) {
   const { t } = useTranslation();
-  const { setActiveTab } = useAppStore();
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
   const tab = useReaderStore((s) => s.tabs[tabId]);
   const canGoBack = useReaderStore((s) => s.canGoBack(tabId));
   const goBack = useReaderStore((s) => s.goBack);
+  const { isOpen: isNotebookOpen, toggleNotebook } = useNotebookStore();
+
+
+  const fixedLayoutZoomPercent = Math.round(fixedLayoutZoom * 100);
+  const canZoomOut = fixedLayoutZoom > fixedLayoutZoomMin + 0.001;
+  const canZoomIn = fixedLayoutZoom < fixedLayoutZoomMax - 0.001;
+  const canResetZoom = Math.abs(fixedLayoutZoom - 1) > 0.001;
+
 
   if (!tab) return null;
 
@@ -42,7 +95,7 @@ export function ReaderToolbar({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Left: back + TOC */}
+      {/* Left: back + history back + TOC + notebook */}
       <div className="flex items-center gap-0.5">
         <Button
           variant="ghost"
@@ -55,15 +108,23 @@ export function ReaderToolbar({
         </Button>
 
         {canGoBack && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => goBack(tabId)}
-            title={t("reader.goBackToPreviousLocation")}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => goBack(tabId)}
+                >
+                  <Undo className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t("reader.goBackToPreviousLocation")}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         <div className="mx-0.5 h-3.5 w-px bg-border/40" />
@@ -77,6 +138,8 @@ export function ReaderToolbar({
         >
           <List className="h-3.5 w-3.5" />
         </Button>
+
+        {/* Notebook hidden */}
       </div>
 
       {/* Center: chapter title */}
@@ -86,8 +149,55 @@ export function ReaderToolbar({
         </span>
       </div>
 
-      {/* Right: settings */}
       <div className="flex items-center gap-0.5">
+        {/* SyncButton hidden */}
+        {isFixedLayout && (
+          <div
+            className="mx-0.5 flex h-7 items-center gap-0.5 rounded-sm border border-border/50 bg-muted/40 px-0.5"
+            aria-label={t("reader.pdfZoom")}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onFixedLayoutZoomChange?.(fixedLayoutZoom - fixedLayoutZoomStep)}
+              disabled={!onFixedLayoutZoomChange || !canZoomOut}
+              title={t("reader.zoomOut")}
+              aria-label={t("reader.zoomOut")}
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
+              {fixedLayoutZoomPercent}%
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onFixedLayoutZoomChange?.(fixedLayoutZoom + fixedLayoutZoomStep)}
+              disabled={!onFixedLayoutZoomChange || !canZoomIn}
+              title={t("reader.zoomIn")}
+              aria-label={t("reader.zoomIn")}
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onFixedLayoutZoomChange?.(1)}
+              disabled={!onFixedLayoutZoomChange || !canResetZoom}
+              title={t("reader.resetZoom")}
+              aria-label={t("reader.resetZoom")}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+        {/* Search hidden */}
+        {/* Pin hidden */}
+        {/* Chat hidden */}
+        {/* Fullscreen hidden */}
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggleSettings}>
           <Settings className="h-3.5 w-3.5" />
         </Button>
