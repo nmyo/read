@@ -1689,69 +1689,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     [navigateToCfi],
   );
 
-    (citation: CitationPart) => {
-      if (!citation.cfi || citation.cfi.trim() === "") {
-        console.warn("Citation has no valid CFI, falling back to chapter index:", {
-          chapterTitle: citation.chapterTitle,
-          chapterIndex: citation.chapterIndex,
-          text: citation.text.slice(0, 50),
-        });
-        try {
-          foliateRef.current?.goToIndex(citation.chapterIndex);
-        } catch (error) {
-          console.error("Failed to navigate to chapter:", error, citation);
-        }
-        return;
-      }
 
-      if (citation.cfi.startsWith("page:")) {
-        navigateToReaderLocation(citation.cfi);
-        return;
-      }
-
-      console.log("[handleNavigateToCitation] Citation clicked:", citation);
-
-      try {
-        navigateToCfi(citation.cfi);
-
-        const flashHighlight = () => {
-          let flashCount = 0;
-          const maxFlashes = 3;
-          const flashInterval = 500;
-
-          const doFlash = () => {
-            if (flashCount >= maxFlashes) return;
-
-            foliateRef.current?.addAnnotation({
-              value: citation.cfi,
-              type: "highlight",
-              color: "orange",
-            });
-
-            setTimeout(() => {
-              foliateRef.current?.deleteAnnotation({ value: citation.cfi });
-              flashCount++;
-
-              if (flashCount < maxFlashes) {
-                setTimeout(doFlash, flashInterval);
-              }
-            }, flashInterval);
-          };
-
-          setTimeout(doFlash, 100);
-        };
-
-        flashHighlight();
-      } catch (error) {
-        console.error(
-          "[handleNavigateToCitation] Failed to navigate to citation:",
-          error,
-          citation,
-        );
-      }
-    },
-    [navigateToCfi, navigateToReaderLocation],
-  );
 
   if (!readerTab) {
     return <div className="flex h-full items-center justify-center">{t("common.loading")}</div>;
