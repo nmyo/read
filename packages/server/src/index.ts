@@ -317,7 +317,6 @@ app.get("/api/files/book", (req, res) => {
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
         return res.send(text);
       }
-      }
       
       return fs.createReadStream(sp).pipe(res);
     }
