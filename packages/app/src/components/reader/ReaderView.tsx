@@ -966,7 +966,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   // --- Event handlers from FoliateViewer ---
   const handleRelocate = useCallback(
     (detail: RelocateDetail) => {
-      const progress = detail.fraction ?? 0;
+      const sectionFraction = detail.fraction ?? 0;
       const sectionIndex = detail.section?.current ?? 0;
       const cfi = detail.cfi || `section-${sectionIndex}`;
       const sectionTotal = detail.section?.total;
@@ -976,6 +976,12 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
         currentSectionTotalRef.current = sectionTotal;
         setCurrentSectionTotal((prev) => (prev === sectionTotal ? prev : sectionTotal));
       }
+
+      // Calculate overall progress: (currentSection + sectionFraction) / totalSections
+      const totalSections = sectionTotal ?? currentSectionTotalRef.current ?? 0;
+      const progress = totalSections > 0 
+        ? Math.min(1, (sectionIndex + sectionFraction) / totalSections) 
+        : sectionFraction;
 
       // Update reader store (immediate)
       setProgress(tabId, progress, cfi);
