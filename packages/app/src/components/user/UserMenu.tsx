@@ -20,7 +20,11 @@ interface UserInfo {
   createdAt: number;
 }
 
-export function UserMenu() {
+interface UserMenuProps {
+  collapsed?: boolean;
+}
+
+export function UserMenu({ collapsed = false }: UserMenuProps) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
@@ -193,6 +197,33 @@ export function UserMenu() {
   }
 
   if (user) {
+    if (collapsed) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title={user.username}
+            >
+              <User size={18} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem disabled>
+              <User size={14} className="mr-2" />
+              {user.username}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut size={14} className="mr-2" />
+              退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -221,22 +252,48 @@ export function UserMenu() {
     );
   }
 
+  if (collapsed) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="登录/注册"
+          >
+            <LogIn size={18} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={() => setShowLogin(true)}>
+            <LogIn size={14} className="mr-2" />
+            登录
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowRegister(true)}>
+            <UserPlus size={14} className="mr-2" />
+            注册
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
-    <div className="space-y-1 px-2">
+    <div className="space-y-1">
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded-md p-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         onClick={() => setShowLogin(true)}
       >
-        <LogIn size={14} />
+        <LogIn size={16} />
         <span>登录</span>
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded-md p-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         onClick={() => setShowRegister(true)}
       >
-        <UserPlus size={14} />
+        <UserPlus size={16} />
         <span>注册</span>
       </button>
     </div>

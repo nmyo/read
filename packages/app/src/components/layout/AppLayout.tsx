@@ -111,7 +111,7 @@ export function AppLayout() {
   }, [customFonts]);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const readerTabs = tabs.filter((t) => t.type === "reader" && t.bookId);
   const isReaderActive = readerTabs.some((t) => t.id === activeTabId);
   const [showTabBar, setShowTabBar] = useState(!isReaderActive);

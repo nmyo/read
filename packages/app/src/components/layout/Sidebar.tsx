@@ -1,4 +1,4 @@
-import { Menu, Search } from "lucide-react";
+import { Menu, Search, BookOpen } from "lucide-react";
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,25 +25,71 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
     setActiveTab("home");
   };
 
+  const handleSearchClick = () => {
+    if (collapsed) {
+      // If collapsed, expand sidebar and show search
+      onToggle?.();
+      setTimeout(() => setIsSearchVisible(true), 200);
+    } else {
+      setIsSearchVisible(!isSearchVisible);
+    }
+  };
+
   return (
-    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-10' : 'w-48'}`}>
+    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-12' : 'w-48 md:w-56 lg:w-64'}`}>
       {/* Toggle button */}
-      <div className={`flex items-center ${collapsed ? 'justify-center py-3' : 'justify-end px-2 py-1'}`}>
+      <div className={`flex items-center ${collapsed ? 'justify-center py-2' : 'justify-between px-3 py-2'}`}>
+        {!collapsed && (
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            {t("sidebar.library")}
+          </span>
+        )}
         <button
           type="button"
-          className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           onClick={onToggle}
           title={collapsed ? "展开侧边栏" : "收起侧边栏"}
         >
-          <Menu size={20} />
+          <Menu size={18} />
         </button>
       </div>
+
+      {/* Collapsed state - icon buttons */}
+      {collapsed && (
+        <div className="flex flex-col items-center gap-1 py-2">
+          <button
+            type="button"
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={handleSearchClick}
+            title="搜索"
+          >
+            <Search size={18} />
+          </button>
+          <button
+            type="button"
+            className={`rounded-md p-2 transition-colors ${
+              activeType === "home" 
+                ? "bg-primary/10 text-primary" 
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            onClick={() => handleNavClick("home")}
+            title={t("sidebar.library")}
+          >
+            <BookOpen size={18} />
+          </button>
+          <div className="mt-auto">
+            <UserMenu collapsed />
+          </div>
+        </div>
+      )}
+
+      {/* Expanded state */}
       {!collapsed && (<>
         {/* Search bar */}
-        <div className="px-2 pt-2">
+        <div className="px-3 pb-2">
           {isSearchVisible ? (
-            <div className="flex w-full items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 transition-colors">
-              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <div className="flex w-full items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 transition-colors border border-transparent focus-within:border-primary/30">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 type="text"
                 placeholder={`${t("common.search")}...`}
@@ -68,31 +114,35 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
           ) : (
             <button
               type="button"
-              className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={() => setIsSearchVisible(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              onClick={handleSearchClick}
             >
-              <Search className="h-3.5 w-3.5 shrink-0" />
+              <Search className="h-4 w-4 shrink-0" />
               <span className="text-sm">{t("common.search")}</span>
             </button>
           )}
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-1 pt-2 pl-2">
-          <div>
-            <div className="flex w-full items-center">
-              <button
-                type="button"
-                className={`flex flex-1 items-center gap-2 rounded-md p-1 py-1 text-left text-sm transition-colors hover:bg-muted ${activeType === "home" ? "text-foreground" : "text-muted-foreground"}`}
-                onClick={() => handleNavClick("home")}
-              >
-                <div className="flex flex-1 items-center gap-2">
-                  <span className="font-medium text-sm">{t("sidebar.library")}</span>
-                </div>
-              </button>
-            </div>
+        <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3">
+          <div className="space-y-0.5">
+            <button
+              type="button"
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                activeType === "home" 
+                  ? "bg-primary/10 text-primary font-medium" 
+                  : "text-foreground hover:bg-muted"
+              }`}
+              onClick={() => handleNavClick("home")}
+            >
+              <BookOpen size={16} className="shrink-0" />
+              <span>{t("sidebar.library")}</span>
+            </button>
           </div>
         </nav>
-        <UserMenu />
+
+        <div className="border-t border-border p-3">
+          <UserMenu />
+        </div>
       </>)}
     </aside>
   );
