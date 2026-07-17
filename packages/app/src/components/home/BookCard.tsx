@@ -20,14 +20,11 @@ import type { Book } from "@readany/core/types";
 import { getBookProgressPercent } from "@readany/core/utils";
 import {
   Check,
-  ChevronRight,
   FolderInput,
   FolderMinus,
-  Hash,
   Info,
   Loader2,
   MoreVertical,
-  Plus,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useRef, useState } from "react";
