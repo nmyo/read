@@ -88,7 +88,7 @@ scanAndSyncBooks();
 // Watch for changes (debounced)
 let scanTimeout: ReturnType<typeof setTimeout> | null = null;
 try {
-  fs.watch(STORAGE_DIR, { recursive: false }, (eventType, filename) => {
+  fs.watch(STORAGE_DIR, { recursive: true }, (eventType, filename) => {
     if (!filename) return;
     const ext = path.extname(filename).toLowerCase();
     if (!SUPPORTED_FORMATS.includes(ext)) return;
