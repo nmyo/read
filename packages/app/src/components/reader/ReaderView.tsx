@@ -37,6 +37,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
 import { FoliateViewer } from "./FoliateViewer";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 import { FooterBar } from "./FooterBar";
 import { NotebookPanel } from "./NotebookPanel";
 import { ReaderToolbar } from "./ReaderToolbar";

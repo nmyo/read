@@ -1271,34 +1271,14 @@ export const FoliateViewer = forwardRef<FoliateViewerHandle, FoliateViewerProps>
                   returnSource = "direct-visible";
                 }
               }
-              console.log("[FoliateViewer][TTS] visibleTTSSegments", {
-                alignCfi: alignCfi || null,
-                contentsCount: contents.length,
-                scannedContentsCount: scanContents.length,
-                directCount: segments.length,
-                alignedCount: alignedSegments.length,
-                returnedCount: returnedSegments.length,
-                returnSource,
-                firstVisibleText: segments[0]?.text || null,
-              });
-              return returnedSegments;
+                            return returnedSegments;
             }
           } catch {
             // fall through to manual segments
           }
         }
 
-        console.log("[FoliateViewer][TTS] visibleTTSSegments", {
-          alignCfi: alignCfi || null,
-          contentsCount: contents.length,
-          scannedContentsCount: scanContents.length,
-          directCount: segments.length,
-          alignedCount: 0,
-          returnedCount: segments.length,
-          returnSource: "direct",
-          firstVisibleText: segments[0]?.text || null,
-        });
-        return segments;
+                return segments;
       },
       [ensureDesktopTTS],
     );
