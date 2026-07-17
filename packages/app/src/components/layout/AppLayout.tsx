@@ -304,7 +304,7 @@ export function AppLayout() {
       } else {
         // Go back to home
         const appStore = useAppStore.getState();
-        appStore.setActiveTab(null);
+        appStore.setActiveTab("home");
       }
     };
     
