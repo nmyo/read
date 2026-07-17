@@ -78,27 +78,7 @@ export function SelectionPopover({
   };
 
   const buttons = [
-    {
-      icon: Highlighter,
-      label: isPdf ? t("reader.highlightNotSupportedPdf") : t("reader.highlight"),
-      onClick: handleHighlightClick,
-      isHighlight: true,
-      disabled: isPdf,
-    },
-    { icon: NotebookPen, label: t("reader.note"), onClick: onNote, disabled: isPdf },
     { icon: Copy, label: t("common.copy"), onClick: onCopy },
-    { icon: Languages, label: t("reader.translate"), onClick: onTranslate },
-    { icon: Sparkles, label: t("reader.askAI"), onClick: onAskAI },
-    ...(annotated
-      ? [
-          {
-            icon: Trash2,
-            label: t("notebook.deleteHighlight"),
-            onClick: onRemoveHighlight,
-            isDestructive: true,
-          },
-        ]
-      : []),
   ];
 
   useLayoutEffect(() => {
