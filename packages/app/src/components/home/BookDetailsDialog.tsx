@@ -754,28 +754,7 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                                   }}
                                 />
                               </InlineFieldRow>
-                              <InlineFieldRow label={t("library.group", "Group")}>
-                                <Select
-                                  value={values.groupId || NO_GROUP}
-                                  onValueChange={(value) =>
-                                    setField("groupId", value === NO_GROUP ? "" : value)
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className={cn(
-                                      inlineEditableControlClass,
-                                      "h-8 w-full shadow-none focus:ring-0",
-                                    )}
-                                  >
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value={NO_GROUP}>
-                                      {t("sidebar.uncategorized", "Uncategorized")}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </InlineFieldRow>
+
                             </>
                           ) : (
                             <>
