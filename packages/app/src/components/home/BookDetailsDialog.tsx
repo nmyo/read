@@ -45,10 +45,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronDown,
-  Cloud,
-  Database,
   FileText,
-  Folder,
   HardDrive,
   ImagePlus,
   Plus,
@@ -134,11 +131,7 @@ function parseDraftCreateResult(result: DraftCreateResult): DraftCreateCommandRe
   }
 }
 
-function statusLabel(status: Book["syncStatus"], t: TFunction) {
-  if (status === "remote") return t("library.detailsSyncRemote", "Remote only");
-  if (status === "downloading") return t("library.detailsSyncDownloading", "Downloading");
-  return t("library.detailsSyncLocal", "Local");
-}
+
 
 function getDatePrecision(value: string): DatePrecision {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return "day";
@@ -327,11 +320,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
     };
   }, [book, open, values]);
 
-  const groupName = useMemo(() => {
-    const groupId = values?.groupId ?? book?.groupId;
-    if (!groupId) return t("sidebar.uncategorized", "Uncategorized");
-    return groups.find((group) => group.id === groupId)?.name ?? t("library.group", "Group");
-  }, [book?.groupId, groups, t, values?.groupId]);
 
   useEffect(() => {
     if (!open || !book || !values) return;
@@ -785,9 +773,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                                     <SelectItem value={NO_GROUP}>
                                       {t("sidebar.uncategorized", "Uncategorized")}
                                     </SelectItem>
-                                    {groups.map((group) => (
-                                      <SelectItem key={group.id} value={group.id}>
-                                        {group.name}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
