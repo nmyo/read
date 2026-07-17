@@ -297,15 +297,15 @@ export function AppLayout() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state;
-      if (state?.bookId && state?.tabId) {
-        // Navigate to the book
+      // Use requestAnimationFrame for smoother transition
+      requestAnimationFrame(() => {
         const appStore = useAppStore.getState();
-        appStore.setActiveTab(state.tabId);
-      } else {
-        // Go back to home
-        const appStore = useAppStore.getState();
-        appStore.setActiveTab("home");
-      }
+        if (state?.bookId && state?.tabId) {
+          appStore.setActiveTab(state.tabId);
+        } else {
+          appStore.setActiveTab("home");
+        }
+      });
     };
     
     window.addEventListener('popstate', handlePopState);
