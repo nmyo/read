@@ -131,10 +131,12 @@ export const BookCard = memo(function BookCard({
         }
       }}
     >
-      {/* Text-only card */}
+      {/* Book card */}
       <div
         ref={coverRef}
-        className="relative flex aspect-[28/41] w-full items-center justify-center overflow-hidden rounded bg-gradient-to-b from-stone-100 to-stone-200 p-4 transition-all duration-200 group-hover:shadow-md"
+        className={`relative aspect-[28/41] w-full overflow-hidden rounded transition-all duration-200 group-hover:shadow-md ${
+          book.meta.coverUrl ? '' : 'flex items-center justify-center bg-gradient-to-b from-stone-100 to-stone-200 p-4'
+        }`}
       >
         {/* Selection checkbox overlay */}
         {isSelectionMode && (
