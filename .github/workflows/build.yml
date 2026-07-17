@@ -34,6 +34,7 @@ jobs:
           cp -r packages/app/dist web-dist/frontend
           cp -r packages/server/dist web-dist/server
           cp packages/server/package.json web-dist/
+          cd web-dist && npm install --production && cd ..
           printf '#!/bin/bash\nexport READANY_DATA_DIR=${READANY_DATA_DIR:-./data}\nexport READANY_STORAGE_DIR=${READANY_STORAGE_DIR:-./storage}\nexport READANY_DIST_DIR=${READANY_DIST_DIR:-./frontend}\nexport PORT=${PORT:-3000}\nnode server/index.js\n' > web-dist/start.sh
           chmod +x web-dist/start.sh
           tar czf readany-web.tar.gz -C web-dist .
