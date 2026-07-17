@@ -501,7 +501,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const bookmarks = useAnnotationStore((s) => s.bookmarks);
   const loadAnnotations = useAnnotationStore((s) => s.loadAnnotations);
 
-  const isBookmarked = bookmarks.some(
+  const _isBookmarked = bookmarks.some(
     (b) => b.bookId === bookId && b.cfi === readerTab?.currentCfi,
   );
 

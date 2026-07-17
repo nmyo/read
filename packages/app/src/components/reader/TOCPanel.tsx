@@ -340,21 +340,7 @@ export function TOCPanel({
             <BookOpen className="h-3.5 w-3.5" />
             {t("reader.toc")}
           </button>
-          <button
-            type="button"
-            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-medium transition-colors ${
-              activeTab === "bookmarks"
-                ? "text-primary bg-primary/8"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-            onClick={() => setActiveTab("bookmarks")}
-          >
-            <BookmarkIcon className="h-3.5 w-3.5" />
-            {t("bookmarks.title")}
-            {bookBookmarks.length > 0 && (
-              <span className="text-xs text-muted-foreground">({bookBookmarks.length})</span>
-            )}
-          </button>
+
         </div>
         <button
           type="button"
@@ -384,24 +370,7 @@ export function TOCPanel({
             ))}
           </div>
         )
-      ) : bookBookmarks.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-          <BookmarkIcon className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-xs text-muted-foreground">{t("bookmarks.empty")}</p>
-          <p className="text-xs text-muted-foreground/60 text-center">{t("bookmarks.emptyHint")}</p>
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
-          {bookBookmarks.map((bm) => (
-            <BookmarkItem
-              key={bm.id}
-              bookmark={bm}
-              onClick={() => onGoToCfi?.(bm.cfi)}
-              onDelete={() => removeBookmark(bm.id)}
-            />
-          ))}
-        </div>
-      )}
+      ) : null;
     </div>
   );
 }

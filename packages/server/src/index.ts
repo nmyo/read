@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -95,6 +96,10 @@ const BOOK_MIME_TYPES: Record<string, string> = {
 
 // CORS: restrict to same origin (Caddy proxy)
 app.use(cors({ origin: true }));
+app.use(compression({
+  threshold: 1024, // Only compress responses larger than 1KB
+  level: 6, // Balanced compression level
+}));
 app.use((req, _res, next) => {
   if (req.path.startsWith('/api/')) {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -112,7 +117,11 @@ app.use((err: any, _req: any, res: any, next: any) => {
 // Serve frontend static files (built with vite)
 const DIST_DIR = process.env.READANY_DIST_DIR || path.resolve("../app/dist");
 if (fs.existsSync(DIST_DIR)) {
-  app.use(express.static(DIST_DIR));
+  app.use(express.static(DIST_DIR, {
+    maxAge: '1d', // Cache static assets for 1 day
+    etag: true,
+    lastModified: true,
+  }));
 }
 
 // ==================== SECURITY HELPERS ====================
@@ -128,7 +137,8 @@ function safePath(root: string, ...segments: string[]): string | null {
 
 // List all books
 app.get("/api/books", (_req, res) => {
-  const books = db.prepare("SELECT * FROM books ORDER BY updated_at DESC").all();
+  const books = db.prepare("SELECT id, title, author, cover_url, format, progress, last_read_at, created_at, updated_at FROM books ORDER BY updated_at DESC").all();
+  res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
   res.json(books);
 });
 
@@ -282,8 +292,11 @@ app.get("/api/covers/:filename", (req, res) => {
   const coverPath = safePath(STORAGE_DIR, "covers", req.params.filename);
   if (!coverPath || !fs.existsSync(coverPath)) return res.status(404).json({ error: "not found" });
   res.setHeader("Content-Type", "image/jpeg");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  fs.createReadStream(coverPath).pipe(res);
+  res.setHeader("Cache-Control", "public, max-age=604800, immutable"); // 7 days cache
+  res.setHeader("ETag", `"${path.basename(coverPath)}"`);
+  const stream = fs.createReadStream(coverPath);
+  stream.on('error', () => { if (!res.headersSent) res.status(500).json({ error: "read error" }); });
+  stream.pipe(res);
 });
 
 // ==================== SPA FALLBACK ====================
