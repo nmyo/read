@@ -404,9 +404,9 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
             </div>
           );
         })}
+      <UserMenu />
       </nav>
       </>)}
-      <UserMenu />
     </aside>
   );
 }
