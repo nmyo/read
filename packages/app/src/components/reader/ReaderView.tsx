@@ -1684,11 +1684,11 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
 
 
   return (
-    <div className="flex h-full bg-muted/30 p-1">
+    <div className="flex h-full bg-muted/30">
       {/* TOC sidebar — LEFT side */}
       {showToc && (
         <div
-          className="relative mr-1 flex shrink-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm"
+          className="relative mr-1 flex shrink-0 flex-col overflow-hidden bg-background"
           style={{ width: tocPanel.width }}
         >
           <ResizeHandle
@@ -1735,7 +1735,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
       />
 
       {/* Main reading area */}
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm">
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
         {/* Search bar — stacked above content when visible */}
         {showSearch && (
           <SearchBar
