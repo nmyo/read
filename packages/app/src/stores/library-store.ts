@@ -708,24 +708,40 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const res = await fetch("/api/books");
       if (res.ok) {
         const rows = await res.json();
-        const books: Book[] = rows.map((row: any) => ({
-          id: row.id,
-          filePath: row.file_path || "",
-          format: (row.format as Book["format"]) || "epub",
-          meta: {
-            title: row.title || "",
-            author: row.author || "",
-            coverUrl: row.cover_url || undefined,
-          },
-          addedAt: row.added_at || row.created_at || Date.now(),
-          lastOpenedAt: row.last_opened_at || row.last_read_at || undefined,
-          updatedAt: row.updated_at || row.added_at || row.created_at || Date.now(),
-          progress: row.progress || 0,
-          currentCfi: row.current_cfi || undefined,
-          tags: (() => { try { return typeof row.tags === 'string' ? JSON.parse(row.tags) : (row.tags || []); } catch { return []; } })(),
-          fileHash: row.file_hash || undefined,
-          syncStatus: "local" as const,
-        }));
+        const books: Book[] = rows.map((row: any) => {
+          // Merge localStorage progress (backup for when server save fails)
+          let progress = row.progress || 0;
+          let currentCfi = row.current_cfi || undefined;
+          try {
+            const saved = localStorage.getItem('readany-progress-' + row.id);
+            if (saved) {
+              const data = JSON.parse(saved);
+              if (data.progress > progress) {
+                progress = data.progress;
+                currentCfi = data.currentCfi;
+              }
+            }
+          } catch {}
+          
+          return {
+            id: row.id,
+            filePath: row.file_path || "",
+            format: (row.format as Book["format"]) || "epub",
+            meta: {
+              title: row.title || "",
+              author: row.author || "",
+              coverUrl: row.cover_url || undefined,
+            },
+            addedAt: row.added_at || row.created_at || Date.now(),
+            lastOpenedAt: row.last_opened_at || row.last_read_at || undefined,
+            updatedAt: row.updated_at || row.added_at || row.created_at || Date.now(),
+            progress,
+            currentCfi,
+            tags: (() => { try { return typeof row.tags === 'string' ? JSON.parse(row.tags) : (row.tags || []); } catch { return []; } })(),
+            fileHash: row.file_hash || undefined,
+            syncStatus: "local" as const,
+          };
+        });
         const groups: BookGroup[] = get().groups;
         set({
           books,
