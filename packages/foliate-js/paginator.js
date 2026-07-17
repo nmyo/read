@@ -2184,9 +2184,9 @@ export class Paginator extends HTMLElement {
         state.dt += dt
         this.#touchScrolled = true
         if (!this.hasAttribute('animated') || this.hasAttribute('eink')) return
-        if (!this.#vertical && Math.abs(state.dx) > Math.abs(state.dy) * 1.5 && !this.hasAttribute('eink') && (!isStylus || Math.abs(dx) > 1)) {
+        if (!this.#vertical && state.axisLocked === 'x' && !this.hasAttribute('eink') && (!isStylus || Math.abs(dx) > 1)) {
             this.scrollBy(dx, 0)
-        } else if (this.#vertical && Math.abs(state.dy) > Math.abs(state.dx) * 1.5 && !this.hasAttribute('eink') && (!isStylus || Math.abs(dy) > 1)) {
+        } else if (this.#vertical && state.axisLocked === 'y' && !this.hasAttribute('eink') && (!isStylus || Math.abs(dy) > 1)) {
             this.scrollBy(0, dy)
         }
     }
