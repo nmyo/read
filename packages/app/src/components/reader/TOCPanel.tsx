@@ -340,7 +340,7 @@ export function TOCPanel({
             <BookOpen className="h-3.5 w-3.5" />
             {t("reader.toc")}
           </button>
-
+          {/* Bookmarks tab hidden */}
         </div>
         <button
           type="button"
@@ -370,7 +370,24 @@ export function TOCPanel({
             ))}
           </div>
         )
-      ) : null;
+      ) : bookBookmarks.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
+          <BookmarkIcon className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-xs text-muted-foreground">{t("bookmarks.empty")}</p>
+          <p className="text-xs text-muted-foreground/60 text-center">{t("bookmarks.emptyHint")}</p>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
+          {bookBookmarks.map((bm) => (
+            <BookmarkItem
+              key={bm.id}
+              bookmark={bm}
+              onClick={() => onGoToCfi?.(bm.cfi)}
+              onDelete={() => removeBookmark(bm.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
