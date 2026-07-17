@@ -173,18 +173,33 @@ const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
 app.get("/api/files/exists", (req, res) => {
   const filePath = req.query.path as string;
   if (!filePath) return res.json(false);
-  // Only allow reading from data dir (for cache)
-  const fullPath = path.join(DATA_DIR, path.basename(filePath));
-  res.json(fs.existsSync(fullPath));
+  const basename = path.basename(filePath);
+  // Check data dir
+  if (fs.existsSync(path.join(DATA_DIR, basename))) return res.json(true);
+  // Check storage dir (strip /data/ prefix if present)
+  const cleanPath = filePath.replace(/^\/data\//, "");
+  if (fs.existsSync(path.join(STORAGE_DIR, cleanPath))) return res.json(true);
+  if (fs.existsSync(path.join(STORAGE_DIR, basename))) return res.json(true);
+  res.json(false);
 });
 
 app.get("/api/files/read", (req, res) => {
   const filePath = req.query.path as string;
   if (!filePath) return res.status(400).json({ error: "missing path" });
-  const fullPath = path.join(DATA_DIR, path.basename(filePath));
-  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: "not found" });
-  const content = fs.readFileSync(fullPath, "utf-8");
-  res.json(content);
+  const basename = path.basename(filePath);
+  const cleanPath = filePath.replace(/^\/data\//, "");
+  // Try data dir first (for cache files)
+  const dataPath = path.join(DATA_DIR, basename);
+  if (fs.existsSync(dataPath)) {
+    return res.sendFile(dataPath);
+  }
+  // Try storage dir (for book files)
+  for (const tryPath of [path.join(STORAGE_DIR, cleanPath), path.join(STORAGE_DIR, basename)]) {
+    if (fs.existsSync(tryPath)) {
+      return res.sendFile(tryPath);
+    }
+  }
+  res.status(404).json({ error: "not found" });
 });
 
 app.post("/api/files/write", express.raw({ type: "*/*", limit: "10mb" }), (req, res) => {
