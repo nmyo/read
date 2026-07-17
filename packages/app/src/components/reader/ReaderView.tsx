@@ -1845,16 +1845,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
                       {t("common.back", "返回")}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => void handleReimportMissingBook()}
-                    disabled={isReimporting}
-                  >
-                    {isReimporting
-                      ? t("reader.reimporting", "正在重新导入...")
-                      : t("reader.reimport", "重新导入")}
-                  </button>
+                  {/* Reimport button removed */}
                 </div>
               </div>
             )}
