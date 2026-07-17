@@ -47,9 +47,9 @@ export function getElementPreviewText(element: Element | Range | null): string {
   if (!element) return "";
   try {
     if (element instanceof Range) {
-      return element instanceof Range ? (element.toString() || "").slice(0, 100) : (element.textContent || "").slice(0, 100);
+      return (element.toString() || "").slice(0, 100);
     }
-    return element instanceof Range ? (element.toString() || "").slice(0, 100) : (element.textContent || "").slice(0, 100);
+    return ((element as any).textContent || "").slice(0, 100);
   } catch {
     return "";
   }
