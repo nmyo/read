@@ -14,6 +14,74 @@ if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
 
+// ==================== AUTO-SCAN BOOKS ====================
+
+const SUPPORTED_FORMATS = [".epub", ".pdf", ".mobi", ".txt", ".fb2", ".cbz"];
+
+function scanAndSyncBooks() {
+  try {
+    const files = fs.readdirSync(STORAGE_DIR);
+    const existingBooks = db.prepare("SELECT file_path FROM books").all() as { file_path: string }[];
+    const existingPaths = new Set(existingBooks.map(b => b.file_path));
+    
+    let added = 0;
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase();
+      if (!SUPPORTED_FORMATS.includes(ext)) continue;
+      if (existingPaths.has(file)) continue;
+      
+      const filePath = path.join(STORAGE_DIR, file);
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) continue;
+      
+      // Extract title from filename (remove extension)
+      const title = path.basename(file, ext);
+      const id = crypto.randomUUID();
+      const format = ext.slice(1); // remove dot
+      
+      // Check for cover image
+      const coverName = path.basename(file, ext) + ".jpg";
+      const coverPath = path.join(STORAGE_DIR, "covers", coverName);
+      const coverUrl = fs.existsSync(coverPath) ? `covers/${coverName}` : null;
+      
+      db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`)
+        .run(id, title, "", coverUrl, format, file, stat.size, Date.now(), Date.now());
+      
+      console.log(`[Scanner] Added book: ${title} (${format}, ${(stat.size / 1024 / 1024).toFixed(1)}MB)`);
+      added++;
+    }
+    
+    if (added > 0) {
+      console.log(`[Scanner] Added ${added} new book(s)`);
+    }
+  } catch (err) {
+    console.error("[Scanner] Error scanning books:", err);
+  }
+}
+
+// Scan on startup
+scanAndSyncBooks();
+
+// Watch for changes (debounced)
+let scanTimeout: ReturnType<typeof setTimeout> | null = null;
+try {
+  fs.watch(STORAGE_DIR, { recursive: false }, (eventType, filename) => {
+    if (!filename) return;
+    const ext = path.extname(filename).toLowerCase();
+    if (!SUPPORTED_FORMATS.includes(ext)) return;
+    
+    // Debounce: wait 2 seconds after last change
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = setTimeout(() => {
+      console.log(`[Scanner] File change detected: ${filename}, scanning...`);
+      scanAndSyncBooks();
+    }, 2000);
+  });
+  console.log(`[Scanner] Watching ${STORAGE_DIR} for new books`);
+} catch (err) {
+  console.warn("[Scanner] Could not watch directory:", err);
+}
+
 const BOOK_MIME_TYPES: Record<string, string> = {
   epub: "application/epub+zip",
   pdf: "application/pdf",
