@@ -13,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -21,11 +20,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useResolvedSrc } from "@/hooks/use-resolved-src";
 import { extractLocalBookMetadata } from "@/lib/book/auto-metadata";
-import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "@/stores/app-store";
 import { useLibraryStore } from "@/stores/library-store";
 import type { Book, BookReview } from "@readany/core/types";
@@ -470,9 +467,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
     try {
       const [{ open }, { copyFile, mkdir }, { join }, { getDesktopLibraryRoot }] =
         await Promise.all([
-          import("@tauri-apps/plugin-dialog"),
-          import("@tauri-apps/plugin-fs"),
-          import("@tauri-apps/api/path"),
           import("@/lib/storage/desktop-library-root"),
         ]);
       const selected = await open({
