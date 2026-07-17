@@ -46,13 +46,6 @@ export function ReaderToolbar({
   const tab = useReaderStore((s) => s.tabs[tabId]);
   const canGoBack = useReaderStore((s) => s.canGoBack(tabId));
   const goBack = useReaderStore((s) => s.goBack);
-  const { isOpen: isNotebookOpen, toggleNotebook } = useNotebookStore();
-
-
-  const fixedLayoutZoomPercent = Math.round(fixedLayoutZoom * 100);
-  const canZoomOut = fixedLayoutZoom > fixedLayoutZoomMin + 0.001;
-  const canZoomIn = fixedLayoutZoom < fixedLayoutZoomMax - 0.001;
-  const canResetZoom = Math.abs(fixedLayoutZoom - 1) > 0.001;
 
 
   if (!tab) return null;
@@ -123,11 +116,7 @@ export function ReaderToolbar({
 
       <div className="flex items-center gap-0.5">
         {/* SyncButton hidden */}
-        {isFixedLayout && (
-          <div
-            className="mx-0.5 flex h-7 items-center gap-0.5 rounded-sm border border-border/50 bg-muted/40 px-0.5"
-            aria-label={t("reader.pdfZoom")}
-          >
+>
             <Button
               variant="ghost"
               size="icon"
