@@ -72,7 +72,7 @@ const defaultReadSettings: ReadSettings = {
   fontSize: 16,
   lineHeight: 1.6,
   fontTheme: "system",
-  viewMode: "scroll",
+  viewMode: "paginated",
   paginatedLayout: "single",
   fixedLayoutZoom: 1,
   pageMargin: 40,
