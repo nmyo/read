@@ -137,7 +137,7 @@ function safePath(root: string, ...segments: string[]): string | null {
 
 // List all books
 app.get("/api/books", (_req, res) => {
-  const books = db.prepare("SELECT id, title, author, cover_url, format, progress, last_read_at, created_at, updated_at FROM books ORDER BY updated_at DESC").all();
+  const books = db.prepare("SELECT * FROM books ORDER BY updated_at DESC").all();
   res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
   res.json(books);
 });

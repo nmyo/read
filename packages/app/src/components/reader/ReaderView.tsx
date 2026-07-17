@@ -717,7 +717,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isReimporting, setIsReimporting] = useState(false);
   const [isToolbarPinned] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(TOOLBAR_PIN_STORAGE_KEY) === "true";
@@ -950,86 +949,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     }
   }, [book?.filePath, bookId, t]);
 
-  const handleReimportMissingBook = useCallback(async () => {
-    if (isReimporting) return;
-    setIsReimporting(true);
-
-    try {
-      const platform = getPlatformService();
-      const { reimportDeletedBook, inspectDeletedBookCandidate } = useLibraryStore.getState();
-      const picked = await platform.pickFile({
-        multiple: false,
-        filters: BOOK_IMPORT_FILTERS,
-      });
-      const selectedPath = Array.isArray(picked) ? picked[0] : picked;
-      if (!selectedPath) return;
-
-      if (book) {
-        const candidate = await inspectDeletedBookCandidate(bookId, selectedPath);
-        if (candidate) {
-          const normalize = (value?: string) =>
-            (value || "").toLowerCase().replace(/[\s\p{P}\p{S}_-]+/gu, "");
-          const authorsMatch = (() => {
-            const left = normalize(book.meta.author);
-            const right = normalize(candidate.author);
-            if (!left || !right) return true;
-            return left === right || left.includes(right) || right.includes(left);
-          })();
-          const titleMismatch = (() => {
-            const originalTitle = normalize(book.meta.title);
-            const candidateTitle = normalize(candidate.title);
-            return (
-              !!originalTitle &&
-              !!candidateTitle &&
-              originalTitle !== candidateTitle &&
-              !originalTitle.includes(candidateTitle) &&
-              !candidateTitle.includes(originalTitle)
-            );
-          })();
-          const formatMismatch = book.format !== candidate.format;
-          if (
-            !(candidate.fileHash && book.fileHash && candidate.fileHash === book.fileHash) &&
-            (titleMismatch || (formatMismatch && !authorsMatch))
-          ) {
-            const shouldContinue = await useMissingBookPromptStore.getState().showPrompt({
-              title: t("reader.reimportMismatchTitle", "这份文件看起来和原书不太一致"),
-              description: t(
-                "reader.reimportMismatchDescription",
-                "原书《{{originalTitle}}》与当前文件《{{candidateTitle}}》信息差异较大。仍要把它接回原来的笔记和阅读统计吗？",
-                {
-                  originalTitle: book.meta.title,
-                  candidateTitle: candidate.title || t("reader.unknownBook", "未命名书籍"),
-                },
-              ),
-              confirmLabel: t("reader.reimportContinue", "继续接回"),
-              cancelLabel: t("reader.reimportPickAnotherFile", "重新选择"),
-            });
-            if (!shouldContinue) return;
-          }
-        }
-      }
-
-      const restoredBook = await reimportDeletedBook(bookId, selectedPath);
-      if (!restoredBook) {
-        setError(t("reader.reimportFailed", "重新导入失败，请稍后再试。"));
-        return;
-      }
-
-      isInitializedRef.current = false;
-      setBookDoc(null);
-      setError(null);
-      setIsLoading(true);
-    } catch (err) {
-      console.error("[ReaderView] Failed to re-import missing book:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : t("reader.reimportFailed", "重新导入失败，请稍后再试。"),
-      );
-    } finally {
-      setIsReimporting(false);
-    }
-  }, [bookId, isReimporting, t]);
+  // handleReimportMissingBook removed
 
   const handleCloseMissingBookTab = useCallback(() => {
     closeAppTab(tabId);
