@@ -792,10 +792,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   );
   const isDoublePage = (viewSettings.paginatedLayout ?? "double") === "double";
   const fixedLayoutZoom = normalizeFixedLayoutZoom(viewSettings.fixedLayoutZoom ?? 1);
-      updateReadSettings({ fixedLayoutZoom: normalizeFixedLayoutZoom(zoom) });
-    },
-    [updateReadSettings],
-  );
   const toolbarVisible = controlsVisible || isToolbarPinned;
   const readingHeaderTitle = (readerTab?.chapterTitle || book?.meta.title || "").trim();
   const contentTopPadding = isToolbarPinned ? 78 : 56;
@@ -2059,41 +2055,4 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   );
 }
 
-// Separate component to use notebook store hook
-function NotebookSidebarWrapper({
-  bookId,
-  onGoToCfi,
-  onAddAnnotation,
-  onDeleteAnnotation,
-  panelWidth,
-  onResize,
-  onResizeStart,
-  onResizeEnd,
-}: {
-  bookId: string;
-  onGoToCfi: (cfi: string) => void;
-  onAddAnnotation: (cfi: string, color: string, note?: string) => void;
-  onDeleteAnnotation: (cfi: string) => void;
-  panelWidth: number;
-  onResize: (delta: number, side: "left" | "right") => void;
-  onResizeStart: () => void;
-  onResizeEnd: () => void;
-}) {
-  const isOpen = useNotebookStore((s) => s.isOpen);
 
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="relative mr-1 flex shrink-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm"
-      style={{ width: panelWidth }}
-    >
-      <ResizeHandle
-        side="right"
-        onResizeStart={onResizeStart}
-        onResize={(delta) => onResize(delta, "right")}
-        onResizeEnd={onResizeEnd}
-      />
-</div>
-  );
-}
