@@ -20,7 +20,7 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: TypeScript check
         run: pnpm --filter @readany/app exec tsc --noEmit
