@@ -177,8 +177,10 @@ export class DocumentLoader {
       href: `section-${i}.xhtml`,
       createDocument: async () => {
         const doc = document.implementation.createHTMLDocument(ch.title);
+        // Escape HTML to prevent XSS from TXT content
+        const escapeHTML = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         doc.body.innerHTML = ch.content.split('\n').map(p => 
-          p.trim() ? `<p>${p}</p>` : ''
+          p.trim() ? `<p>${escapeHTML(p)}</p>` : ''
         ).join('');
         return doc;
       }

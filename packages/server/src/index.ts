@@ -12,7 +12,10 @@ const PORT = Number(process.env.PORT || 3000);
 const STORAGE_DIR = process.env.READANY_STORAGE_DIR || "./storage";
 if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
-app.use(cors());
+const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
+
+// CORS: restrict to same origin (Caddy proxy)
+app.use(cors({ origin: true }));
 app.use((req, _res, next) => {
   if (req.path.startsWith('/api/')) {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -33,6 +36,15 @@ if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 }
 
+// ==================== SECURITY HELPERS ====================
+
+/** Resolve a path safely within a root directory — blocks path traversal */
+function safePath(root: string, ...segments: string[]): string | null {
+  const resolved = path.resolve(root, ...segments);
+  if (!resolved.startsWith(path.resolve(root))) return null; // traversal blocked
+  return resolved;
+}
+
 // ==================== BOOKS (read-only) ====================
 
 // List all books
@@ -48,82 +60,7 @@ app.get("/api/books/:id", (req, res) => {
   res.json(book);
 });
 
-// Serve book file (for reader only - no download)
-app.get("/api/books/:id/file", (req, res) => {
-  const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id) as any;
-  if (!book) return res.status(404).json({ error: "not found" });
-
-  const fullPath = path.join(STORAGE_DIR, book.file_path);
-  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: "file missing" });
-
-  // Set MIME type based on format
-  const mimeTypes: Record<string, string> = {
-    epub: "application/epub+zip",
-    pdf: "application/pdf",
-    mobi: "application/x-mobipocket-ebook",
-    azw: "application/vnd.amazon.ebook",
-    azw3: "application/vnd.amazon.ebook",
-    cbz: "application/vnd.comicbook+zip",
-    fb2: "application/x-fictionbook+xml",
-    txt: "text/plain; charset=utf-8",
-  };
-  const mime = mimeTypes[book.format] || "application/octet-stream";
-  
-  // Only allow inline viewing, prevent download
-  res.setHeader("Content-Type", mime);
-  res.setHeader("Content-Disposition", "inline");
-  res.setHeader("Cache-Control", "private, no-store"); // Prevent caching
-  
-  fs.createReadStream(fullPath).pipe(res);
-});
-
-// ==================== BOOKMARKS (user reading records) ====================
-
-// Get bookmarks for a book
-app.get("/api/books/:id/bookmarks", (req, res) => {
-  const rows = db.prepare("SELECT * FROM bookmarks WHERE book_id = ? ORDER BY created_at DESC").all(req.params.id);
-  res.json(rows);
-});
-
-// Add bookmark
-app.post("/api/books/:id/bookmarks", (req, res) => {
-  const id = crypto.randomUUID();
-  const { cfi, chapter_index, label } = req.body;
-  db.prepare("INSERT INTO bookmarks (id, book_id, cfi, chapter_index, label, created_at) VALUES (?,?,?,?,?,?)")
-    .run(id, req.params.id, cfi || null, chapter_index ?? null, label || null, Date.now());
-  res.json(db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id));
-});
-
-// Delete bookmark
-app.delete("/api/bookmarks/:id", (req, res) => {
-  db.prepare("DELETE FROM bookmarks WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
-});
-
-// ==================== READING SESSIONS ====================
-
-// Start reading session
-app.post("/api/books/:id/sessions", (req, res) => {
-  const id = crypto.randomUUID();
-  const now = Date.now();
-  db.prepare("INSERT INTO reading_sessions (id, book_id, started_at) VALUES (?,?,?)")
-    .run(id, req.params.id, now);
-  // Update last_read_at
-  db.prepare("UPDATE books SET last_read_at = ?, updated_at = ? WHERE id = ?").run(now, now, req.params.id);
-  res.json({ id, book_id: req.params.id, started_at: now });
-});
-
-// End reading session
-app.patch("/api/sessions/:id", (req, res) => {
-  const { ended_at, duration_seconds } = req.body;
-  db.prepare("UPDATE reading_sessions SET ended_at = ?, duration_seconds = ? WHERE id = ?")
-    .run(ended_at || Date.now(), duration_seconds || 0, req.params.id);
-  res.json({ ok: true });
-});
-
-// ==================== READING PROGRESS ====================
-
-// Update reading progress (no login required)
+// Update reading progress
 app.patch("/api/books/:id/progress", (req, res) => {
   const { progress, currentCfi } = req.body;
   const updates: string[] = [];
@@ -139,47 +76,88 @@ app.patch("/api/books/:id/progress", (req, res) => {
   res.json({ ok: true });
 });
 
-// ==================== RAW SQL (for WebPlatformService) ====================
+// Serve book file (for reader only - no download)
+app.get("/api/books/:id/file", (req, res) => {
+  const book = db.prepare("SELECT * FROM books WHERE id = ?").get(req.params.id) as any;
+  if (!book) return res.status(404).json({ error: "not found" });
 
-app.post("/api/db/query", (req, res) => {
-  const { sql, params } = req.body;
-  try {
-    const rows = db.prepare(sql).all(...(params || []));
-    res.json(rows);
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
-  }
+  const fullPath = safePath(STORAGE_DIR, book.file_path);
+  if (!fullPath || !fs.existsSync(fullPath)) return res.status(404).json({ error: "file missing" });
+
+  const mimeTypes: Record<string, string> = {
+    epub: "application/epub+zip",
+    pdf: "application/pdf",
+    mobi: "application/x-mobipocket-ebook",
+    azw: "application/vnd.amazon.ebook",
+    azw3: "application/vnd.amazon.ebook",
+    cbz: "application/vnd.comicbook+zip",
+    fb2: "application/x-fictionbook+xml",
+    txt: "text/plain; charset=utf-8",
+  };
+  const mime = mimeTypes[book.format] || "application/octet-stream";
+  
+  res.setHeader("Content-Type", mime);
+  res.setHeader("Content-Disposition", "inline");
+  res.setHeader("Cache-Control", "private, no-store");
+  
+  fs.createReadStream(fullPath).pipe(res);
 });
 
-app.post("/api/db/execute", (req, res) => {
-  const { sql, params } = req.body;
-  if (!sql) return res.status(400).json({ error: "missing sql" });
-  try {
-    db.prepare(sql).run(...(params || []));
-    res.json({ ok: true });
-  } catch (e: any) {
-    // Ignore CREATE TABLE IF NOT EXISTS errors (table already exists with different schema)
-    if (sql.toUpperCase().includes('CREATE TABLE') && e.message?.includes('already exists')) {
-      return res.json({ ok: true });
-    }
-    res.status(400).json({ error: e.message });
-  }
+// ==================== BOOKMARKS ====================
+
+app.get("/api/books/:id/bookmarks", (req, res) => {
+  const rows = db.prepare("SELECT * FROM bookmarks WHERE book_id = ? ORDER BY created_at DESC").all(req.params.id);
+  res.json(rows);
 });
 
-// ==================== FILE SYSTEM (for FS cache) ====================
+app.post("/api/books/:id/bookmarks", (req, res) => {
+  const id = crypto.randomUUID();
+  const { cfi, chapter_index, label } = req.body;
+  db.prepare("INSERT INTO bookmarks (id, book_id, cfi, chapter_index, label, created_at) VALUES (?,?,?,?,?,?)")
+    .run(id, req.params.id, cfi || null, chapter_index ?? null, label || null, Date.now());
+  res.json(db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id));
+});
 
-const DATA_DIR = process.env.READANY_DATA_DIR || "./data";
+app.delete("/api/bookmarks/:id", (req, res) => {
+  db.prepare("DELETE FROM bookmarks WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ==================== READING SESSIONS ====================
+
+app.post("/api/books/:id/sessions", (req, res) => {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  db.prepare("INSERT INTO reading_sessions (id, book_id, started_at) VALUES (?,?,?)")
+    .run(id, req.params.id, now);
+  db.prepare("UPDATE books SET last_read_at = ?, updated_at = ? WHERE id = ?").run(now, now, req.params.id);
+  res.json({ id, book_id: req.params.id, started_at: now });
+});
+
+app.patch("/api/sessions/:id", (req, res) => {
+  const { ended_at, duration_seconds } = req.body;
+  db.prepare("UPDATE reading_sessions SET ended_at = ?, duration_seconds = ? WHERE id = ?")
+    .run(ended_at || Date.now(), duration_seconds || 0, req.params.id);
+  res.json({ ok: true });
+});
+
+// ==================== FILE SYSTEM (safe paths only) ====================
 
 app.get("/api/files/exists", (req, res) => {
   const filePath = req.query.path as string;
   if (!filePath) return res.json(false);
   const basename = path.basename(filePath);
-  // Check data dir
-  if (fs.existsSync(path.join(DATA_DIR, basename))) return res.json(true);
-  // Check storage dir (strip /data/ prefix if present)
   const cleanPath = filePath.replace(/^\/data\//, "");
-  if (fs.existsSync(path.join(STORAGE_DIR, cleanPath))) return res.json(true);
-  if (fs.existsSync(path.join(STORAGE_DIR, basename))) return res.json(true);
+  
+  // Check data dir
+  const dp = safePath(DATA_DIR, basename);
+  if (dp && fs.existsSync(dp)) return res.json(true);
+  // Check storage dir
+  const sp1 = safePath(STORAGE_DIR, cleanPath);
+  if (sp1 && fs.existsSync(sp1)) return res.json(true);
+  const sp2 = safePath(STORAGE_DIR, basename);
+  if (sp2 && fs.existsSync(sp2)) return res.json(true);
+  
   res.json(false);
 });
 
@@ -188,25 +166,15 @@ app.get("/api/files/read", (req, res) => {
   if (!filePath) return res.status(400).json({ error: "missing path" });
   const basename = path.basename(filePath);
   const cleanPath = filePath.replace(/^\/data\//, "");
-  // Try data dir first (for cache files)
-  const dataPath = path.join(DATA_DIR, basename);
-  if (fs.existsSync(dataPath)) {
-    return res.sendFile(dataPath);
-  }
-  // Try storage dir (for book files)
-  for (const tryPath of [path.join(STORAGE_DIR, cleanPath), path.join(STORAGE_DIR, basename)]) {
-    if (fs.existsSync(tryPath)) {
-      return res.sendFile(tryPath);
-    }
+  
+  const dp = safePath(DATA_DIR, basename);
+  if (dp && fs.existsSync(dp)) return res.sendFile(dp);
+  
+  for (const trySeg of [cleanPath, basename]) {
+    const sp = safePath(STORAGE_DIR, trySeg);
+    if (sp && fs.existsSync(sp)) return res.sendFile(sp);
   }
   res.status(404).json({ error: "not found" });
-});
-
-app.post("/api/files/write", express.raw({ type: "*/*", limit: "10mb" }), (req, res) => {
-  // Frontend sends FormData with "path" and "file" fields
-  // Since we can't easily parse multipart without multer, just return ok
-  // The FS cache is optional and will be rebuilt from DB on next load
-  res.json({ ok: true });
 });
 
 // Serve book file by path (for reader)
@@ -215,9 +183,11 @@ app.get("/api/files/book", (req, res) => {
   if (!filePath) return res.status(400).json({ error: "missing path" });
   const basename = path.basename(filePath);
   const cleanPath = filePath.replace(/^\/data\//, "");
-  for (const tryPath of [path.join(STORAGE_DIR, cleanPath), path.join(STORAGE_DIR, basename)]) {
-    if (fs.existsSync(tryPath)) {
-      const ext = path.extname(tryPath).toLowerCase();
+  
+  for (const trySeg of [cleanPath, basename]) {
+    const sp = safePath(STORAGE_DIR, trySeg);
+    if (sp && fs.existsSync(sp)) {
+      const ext = path.extname(sp).toLowerCase();
       const mimeTypes: Record<string, string> = {
         ".epub": "application/epub+zip",
         ".pdf": "application/pdf",
@@ -226,7 +196,7 @@ app.get("/api/files/book", (req, res) => {
       };
       res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
       res.setHeader("Content-Disposition", "inline");
-      return fs.createReadStream(tryPath).pipe(res);
+      return fs.createReadStream(sp).pipe(res);
     }
   }
   res.status(404).json({ error: "not found" });
@@ -234,8 +204,8 @@ app.get("/api/files/book", (req, res) => {
 
 // Serve cover images
 app.get("/api/covers/:filename", (req, res) => {
-  const coverPath = path.join(STORAGE_DIR, "covers", req.params.filename);
-  if (!fs.existsSync(coverPath)) return res.status(404).json({ error: "not found" });
+  const coverPath = safePath(STORAGE_DIR, "covers", req.params.filename);
+  if (!coverPath || !fs.existsSync(coverPath)) return res.status(404).json({ error: "not found" });
   res.setHeader("Content-Type", "image/jpeg");
   res.setHeader("Cache-Control", "public, max-age=86400");
   fs.createReadStream(coverPath).pipe(res);
@@ -254,6 +224,6 @@ if (fs.existsSync(DIST_DIR)) {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`ReadAny server running on http://0.0.0.0:${PORT}`);
   console.log(`Storage: ${STORAGE_DIR}`);
-  console.log(`Database: ${path.resolve(process.env.READANY_DATA_DIR || "./data", "readany.db")}`);
+  console.log(`Database: ${path.resolve(DATA_DIR, "readany.db")}`);
   console.log(`Frontend: ${DIST_DIR}`);
 });

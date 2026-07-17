@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: TypeScript check
+        run: pnpm --filter @readany/app exec tsc --noEmit
+
       - name: Build frontend
         run: pnpm web:build
 

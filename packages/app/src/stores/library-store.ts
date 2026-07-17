@@ -876,11 +876,20 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           ? Array.from(new Set([...state.allTags, ...updates.tags])).sort()
           : state.allTags,
     }));
-    // Save progress to localStorage
+    // Save progress to localStorage and sync to server
     if (updates.progress !== undefined || updates.currentCfi !== undefined) {
       const book = get().books.find(b => b.id === bookId);
       if (book) {
         saveProgressToLocalStorage(bookId, updates.progress ?? book.progress, updates.currentCfi ?? book.currentCfi);
+        // Sync to server API
+        fetch(`/api/books/${bookId}/progress`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            progress: updates.progress ?? book.progress,
+            currentCfi: updates.currentCfi ?? book.currentCfi,
+          }),
+        }).catch(err => console.warn('[Library] Failed to sync progress to server:', err));
       }
     }
     // Update FS cache
