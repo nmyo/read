@@ -2,11 +2,6 @@ import { useAppStore } from "@/stores/app-store";
 import type { Book } from "@readany/core/types";
 import type { TFunction } from "i18next";
 
-interface OpenDesktopBookOptions {
-  book: Book;
-  t: TFunction;
-  initialCfi?: string;
-}
 
 function openReaderTab(book: Book, initialCfi?: string) {
   const { addTab, setActiveTab } = useAppStore.getState();
@@ -23,9 +18,9 @@ function openReaderTab(book: Book, initialCfi?: string) {
 
 export async function openDesktopBook({
   book,
-  t,
+
   initialCfi,
-}: OpenDesktopBookOptions): Promise<boolean> {
+}): Promise<boolean> {
   // In web mode, check if book file is accessible via API
   if (book.id) {
     try {
