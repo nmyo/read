@@ -35,7 +35,6 @@ import { throttle } from "@readany/core/utils/throttle";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookmarkRibbon } from "./BookmarkRibbon";
 import type { BookSelection, FoliateViewerHandle, RelocateDetail, TOCItem } from "./FoliateViewer";
 import { FoliateViewer } from "./FoliateViewer";
 import { FooterBar } from "./FooterBar";
@@ -1941,7 +1940,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
             )}
 
             {/* Bookmark ribbon */}
-            <BookmarkRibbon visible={isBookmarked} />
 
             {/* Selection popover */}
             {selection && (
