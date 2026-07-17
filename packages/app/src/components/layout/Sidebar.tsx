@@ -10,6 +10,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  Menu,
   ChevronsUpDown,
   Hash,
   MoreHorizontal,
@@ -78,16 +79,16 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
 
 
   return (
-    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-12' : 'w-48'}`}>
+    <aside className={`z-40 flex h-full min-h-0 shrink-0 select-none flex-col overflow-hidden transition-all duration-200 ${collapsed ? 'w-10' : 'w-48'}`}>
       {/* Toggle button */}
-      <div className="flex items-center justify-end px-2 py-1">
+      <div className={`flex items-center ${collapsed ? 'justify-center py-3' : 'justify-end px-2 py-1'}`}>
         <button
           type="button"
-          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           onClick={onToggle}
           title={collapsed ? "展开侧边栏" : "收起侧边栏"}
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          <Menu size={20} />
         </button>
       </div>
       {!collapsed && (<>
