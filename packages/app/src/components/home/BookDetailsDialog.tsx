@@ -266,7 +266,6 @@ function createComparableMetadataValues(values: BookMetadataFormValues) {
 
 export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialogProps) {
   const { t, i18n } = useTranslation();
-  const groups = useLibraryStore((state) => state.groups);
   const allTags = useLibraryStore((state) => state.allTags);
   const addTag = useLibraryStore((state) => state.addTag);
   const updateBook = useLibraryStore((state) => state.updateBook);
@@ -584,16 +583,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
 
               <div className="space-y-2.5 rounded-lg border bg-card/45 p-3 shadow-sm">
                 <InfoRow
-                  icon={<Cloud className="size-3.5" />}
-                  label={t("library.detailsSync", "Sync")}
-                  value={statusLabel(book.syncStatus, t)}
-                />
-                <InfoRow
-                  icon={<Folder className="size-3.5" />}
-                  label={t("library.group", "Group")}
-                  value={groupName}
-                />
-                <InfoRow
                   icon={<BookOpen className="size-3.5" />}
                   label={t("library.detailsReadingStatus", "Reading status")}
                   value={
@@ -606,15 +595,6 @@ export function BookDetailsDialog({ book, open, onOpenChange }: BookDetailsDialo
                   icon={<HardDrive className="size-3.5" />}
                   label={t("library.detailsFormat", "Format")}
                   value={book.format.toUpperCase()}
-                />
-                <InfoRow
-                  icon={<Database className="size-3.5" />}
-                  label={t("library.detailsVector", "Vector")}
-                  value={
-                    book.isVectorized
-                      ? t("home.vec_indexed", "Indexed")
-                      : t("home.notVectorized", "Not vectorized")
-                  }
                 />
                 <InfoRow
                   icon={<CalendarDays className="size-3.5" />}
