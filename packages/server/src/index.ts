@@ -49,8 +49,8 @@ function scanAndSyncBooks() {
       const coverPath = path.join(STORAGE_DIR, "covers", coverName);
       const coverUrl = fs.existsSync(coverPath) ? `covers/${coverName}` : null;
       
-      db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`)
-        .run(id, title, "", coverUrl, format, file, stat.size, Date.now(), Date.now());
+      db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`)
+        .run(id, title, "", coverUrl, format, file, stat.size, JSON.stringify([format]), Date.now(), Date.now());
       
       console.log(`[Scanner] Added book: ${title} (${format}, ${(stat.size / 1024 / 1024).toFixed(1)}MB)`);
       added++;
