@@ -792,8 +792,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   );
   const isDoublePage = (viewSettings.paginatedLayout ?? "double") === "double";
   const fixedLayoutZoom = normalizeFixedLayoutZoom(viewSettings.fixedLayoutZoom ?? 1);
-  const handleFixedLayoutZoomChange = useCallback(
-    (zoom: number) => {
       updateReadSettings({ fixedLayoutZoom: normalizeFixedLayoutZoom(zoom) });
     },
     [updateReadSettings],
@@ -1695,7 +1693,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     [navigateToCfi],
   );
 
-  const handleNavigateToCitation = useCallback(
     (citation: CitationPart) => {
       if (!citation.cfi || citation.cfi.trim() === "") {
         console.warn("Citation has no valid CFI, falling back to chapter index:", {
@@ -2083,7 +2080,6 @@ function NotebookSidebarWrapper({
   onResizeEnd: () => void;
 }) {
   const isOpen = useNotebookStore((s) => s.isOpen);
-  const closeNotebook = useNotebookStore((s) => s.closeNotebook);
 
   if (!isOpen) return null;
 
