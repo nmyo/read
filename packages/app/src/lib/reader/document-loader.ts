@@ -50,6 +50,7 @@ export interface BookDoc {
   sections?: SectionItem[];
   transformTarget?: EventTarget;
   splitTOCHref(href: string): Array<string | number>;
+  getTOCFragment?(doc: Document, id: string): Element | null;
   getCover(): Promise<Blob | null>;
 }
 
