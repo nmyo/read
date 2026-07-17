@@ -33,5 +33,11 @@ export async function openDesktopBook({
     initialCfi,
   });
   setActiveTab(tabId);
+  
+  // Update URL for browser back button support
+  const url = new URL(window.location.href);
+  url.pathname = `/book/${book.id}`;
+  window.history.pushState({ bookId: book.id, tabId }, '', url.toString());
+  
   return true;
 }

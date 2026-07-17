@@ -293,6 +293,25 @@ export function AppLayout() {
     });
   }, [activeTabId]);
 
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      if (state?.bookId && state?.tabId) {
+        // Navigate to the book
+        const appStore = useAppStore.getState();
+        appStore.setActiveTab(state.tabId);
+      } else {
+        // Go back to home
+        const appStore = useAppStore.getState();
+        appStore.setActiveTab(null);
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Clean hibernatedTabs when tabs are removed
   useEffect(() => {
     const currentIds = new Set(readerTabs.map((t) => t.id));

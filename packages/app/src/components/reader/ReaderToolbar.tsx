@@ -62,7 +62,7 @@ export function ReaderToolbar({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setActiveTab("home")}
+onClick={() => { window.history.back(); }}
           title={t("common.back")}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
