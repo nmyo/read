@@ -1,8 +1,10 @@
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user/UserMenu";
 import { useAppStore } from "@/stores/app-store";
+import { useLibraryStore } from "@/stores/library-store";
 
 interface HomeSidebarProps {
   collapsed?: boolean;
@@ -12,6 +14,8 @@ interface HomeSidebarProps {
 export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
   const { t } = useTranslation();
   const { activeTabId, setActiveTab } = useAppStore();
+  const { filter, setFilter } = useLibraryStore();
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
 
   // Determine which home sub-view is active
   const activeTab = useAppStore((s) => s.tabs.find((t) => t.id === activeTabId));
@@ -35,6 +39,44 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
         </button>
       </div>
       {!collapsed && (<>
+        {/* Search bar */}
+        <div className="px-2 pt-2">
+          {isSearchVisible ? (
+            <div className="flex w-full items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 transition-colors">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={`${t("common.search")}...`}
+                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                value={filter.search}
+                onChange={(e) => {
+                  setFilter({ search: e.target.value });
+                  if (e.target.value && activeType !== "home") setActiveTab("home");
+                }}
+                onBlur={() => {
+                  if (!filter.search) setIsSearchVisible(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setFilter({ search: "" });
+                    setIsSearchVisible(false);
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => setIsSearchVisible(true)}
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-sm">{t("common.search")}</span>
+            </button>
+          )}
+        </div>
+
         <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-1 pt-2 pl-2">
           <div>
             <div className="flex w-full items-center">
