@@ -1,7 +1,4 @@
-import {
-  BookOpen,
-  Menu,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user/UserMenu";
@@ -47,7 +44,6 @@ export function HomeSidebar({ collapsed = false, onToggle }: HomeSidebarProps) {
                 onClick={() => handleNavClick("home")}
               >
                 <div className="flex flex-1 items-center gap-2">
-                  <BookOpen size={16} className="shrink-0" />
                   <span className="font-medium text-sm">{t("sidebar.library")}</span>
                 </div>
               </button>
