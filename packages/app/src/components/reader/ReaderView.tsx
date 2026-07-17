@@ -54,7 +54,6 @@ const INITIAL_PROGRESS_RESTORE_GUARD_MS = 1800;
 const PROGRAMMATIC_NAV_GUARD_MS = 1200;
 const FIXED_LAYOUT_ZOOM_MIN = 0.5;
 const FIXED_LAYOUT_ZOOM_MAX = 3;
-const FIXED_LAYOUT_ZOOM_STEP = 0.1;
 const INITIAL_LOCATION_CHAPTER_PREFIX = "chapter:";
 const BOOK_IMPORT_FILTERS = [
   {
@@ -720,7 +719,7 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
-  const [isToolbarPinned, setIsToolbarPinned] = useState(() => {
+  const [isToolbarPinned] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(TOOLBAR_PIN_STORAGE_KEY) === "true";
   });
@@ -792,13 +791,6 @@ export function ReaderView({ bookId, tabId }: ReaderViewProps) {
     isFixedLayout,
   );
   const isDoublePage = (viewSettings.paginatedLayout ?? "double") === "double";
-  const fixedLayoutZoom = normalizeFixedLayoutZoom(viewSettings.fixedLayoutZoom ?? 1);
-  const handleFixedLayoutZoomChange = useCallback(
-    (zoom: number) => {
-      updateReadSettings({ fixedLayoutZoom: normalizeFixedLayoutZoom(zoom) });
-    },
-    [updateReadSettings],
-  );
   const toolbarVisible = controlsVisible || isToolbarPinned;
   const readingHeaderTitle = (readerTab?.chapterTitle || book?.meta.title || "").trim();
   const contentTopPadding = isToolbarPinned ? 78 : 56;
