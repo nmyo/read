@@ -46,21 +46,10 @@ export async function openDesktopBook({
     return false;
   }
 
-  if (book.syncStatus === "remote") {
+  // Skip sync in web mode - books are served directly from API
+  if (false) {
+    // Dead code for type compatibility
     const syncStore = useSyncStore.getState();
-    if (!syncStore.config) {
-      toast.error(t("settings.syncNotConfigured"));
-      return false;
-    }
-
-      const secretKey =
-      syncStore.config.type === "webdav" ? "sync_webdav_password" : "sync_s3_secret_key";
-    const password = await platform.kvGetItem(secretKey);
-    if (!password) {
-      toast.error(t("library.passwordNotFound", "未找到同步密码，请重新配置"));
-      return false;
-    }
-
     pendingDownloads.add(book.id);
     setBooks(
       books.map((item) => (item.id === book.id ? { ...item, syncStatus: "downloading" } : item)),
