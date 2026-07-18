@@ -105,6 +105,11 @@ try {
   console.warn("[Scanner] Could not watch directory:", err);
 }
 
+// Periodic rescan every 5 minutes (fallback for rclone mount events)
+setInterval(() => {
+  scanAndSyncBooks();
+}, 5 * 60 * 1000);
+
 const BOOK_MIME_TYPES: Record<string, string> = {
   epub: "application/epub+zip",
   pdf: "application/pdf",
