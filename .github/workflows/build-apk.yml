@@ -23,15 +23,24 @@ jobs:
       - name: Accept licenses
         run: yes | sdkmanager --licenses
 
-      - name: Build APK
+      - name: Decode keystore
         working-directory: android
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > readany.jks
+
+      - name: Build Release APK
+        working-directory: android
+        env:
+          KEYSTORE_PATH: readany.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: readany-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: readany-release
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
