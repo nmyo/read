@@ -18,6 +18,7 @@ db.exec(`
     format TEXT NOT NULL DEFAULT 'epub',
     file_size INTEGER,
     file_path TEXT,
+    file_hash TEXT,
     progress REAL DEFAULT 0,
     last_read_at INTEGER,
     created_at INTEGER NOT NULL,

@@ -25,10 +25,22 @@ const SUPPORTED_FORMATS = [".epub", ".pdf", ".mobi", ".txt", ".fb2", ".cbz"];
 
 function scanAndSyncBooks() {
   try {
-    const existingBooks = db.prepare("SELECT file_path FROM books").all() as { file_path: string }[];
+    // Ensure file_hash column exists
+    const columns = (db.prepare("PRAGMA table_info(books)").all() as { name: string }[]).map(c => c.name);
+    if (!columns.includes('file_hash')) {
+      db.exec("ALTER TABLE books ADD COLUMN file_hash TEXT");
+      console.log("[Scanner] Added file_hash column to books table");
+    }
+
+    const existingBooks = db.prepare("SELECT id, file_path, title, file_hash FROM books").all() as { id: string; file_path: string; title: string; file_hash: string | null }[];
     const existingPaths = new Set(existingBooks.map(b => b.file_path));
+    const existingHashes = new Map<string, typeof existingBooks[0]>();
+    for (const book of existingBooks) {
+      if (book.file_hash) existingHashes.set(book.file_hash, book);
+    }
     
     let added = 0;
+    let skipped = 0;
     
     // Scan main directory and subdirectories
     function scanDir(dir: string, relativePath: string = "") {
@@ -36,7 +48,6 @@ function scanAndSyncBooks() {
       try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
       } catch (err) {
-        // Skip directories that can't be read (e.g., OneDrive Personal Vault)
         return;
       }
       for (const entry of entries) {
@@ -44,7 +55,6 @@ function scanAndSyncBooks() {
         const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
         
         if (entry.isDirectory()) {
-          // Scan subdirectory
           scanDir(fullPath, relPath);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name).toLowerCase();
@@ -53,20 +63,54 @@ function scanAndSyncBooks() {
           
           const stat = fs.statSync(fullPath);
           const title = path.basename(entry.name, ext);
+          
+          // Compute MD5 hash
+          let fileHash = "";
+          try {
+            const buf = fs.readFileSync(fullPath);
+            fileHash = crypto.createHash("md5").update(buf).digest("hex");
+          } catch (e: any) {
+            console.warn(`[Scanner] Cannot hash ${relPath}: ${e.message}`);
+            continue;
+          }
+          
+          // Check for duplicate by hash
+          if (existingHashes.has(fileHash)) {
+            const dup = existingHashes.get(fileHash)!;
+            console.log(`[Scanner] Skipped duplicate (hash match): ${relPath} = ${dup.file_path}`);
+            skipped++;
+            continue;
+          }
+          
+          // Check for duplicate by base name (same title, same format)
+          const baseName = title.replace(/\s*[\(（]\d+[\)）]\s*$/, "").trim();
+          const isNameDup = existingBooks.some(b => {
+            const bExt = path.extname(b.file_path).toLowerCase();
+            const bBase = b.title.replace(/\s*[\(（]\d+[\)）]\s*$/, "").trim();
+            return bBase === baseName && bExt === ext;
+          });
+          if (isNameDup) {
+            console.log(`[Scanner] Skipped duplicate (name match): ${relPath}`);
+            skipped++;
+            continue;
+          }
+          
           const id = crypto.randomUUID();
           const format = ext.slice(1);
           
-          // Check for cover image (in covers/ subdirectory or alongside the file)
+          // Check for cover image
           const coverName = path.basename(entry.name, ext) + ".jpg";
           const coverPathInDir = path.join(dir, coverName);
           const coverPathInCovers = path.join(STORAGE_DIR, "covers", coverName);
           const coverUrl = fs.existsSync(coverPathInCovers) ? `covers/${coverName}` : 
                           fs.existsSync(coverPathInDir) ? `${relativePath ? relativePath + '/' : ''}${coverName}` : null;
           
-          db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, progress, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`)
-            .run(id, title, "", coverUrl, format, relPath, stat.size, JSON.stringify([format]), Date.now(), Date.now());
+          db.prepare(`INSERT INTO books (id, title, author, cover_url, format, file_path, file_size, file_hash, progress, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`)
+            .run(id, title, "", coverUrl, format, relPath, stat.size, fileHash, JSON.stringify([format]), Date.now(), Date.now());
           
           console.log(`[Scanner] Added book: ${title} (${format}, ${(stat.size / 1024).toFixed(0)}KB)`);
+          existingHashes.set(fileHash, { file_path: relPath, title, id, file_hash: fileHash });
+          existingPaths.add(relPath);
           added++;
         }
       }
@@ -74,8 +118,8 @@ function scanAndSyncBooks() {
     
     scanDir(STORAGE_DIR);
     
-    if (added > 0) {
-      console.log(`[Scanner] Added ${added} new book(s)`);
+    if (added > 0 || skipped > 0) {
+      console.log(`[Scanner] Added ${added} new book(s), skipped ${skipped} duplicate(s)`);
     }
   } catch (err) {
     console.error("[Scanner] Error scanning books:", err);
