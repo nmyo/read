@@ -3153,7 +3153,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Add bottom padding for better reading experience */
 body {
-  padding-bottom: 40px !important;
+  padding-bottom: 10px !important;
 }
 
 /* Prevent content bleeding between pages */
