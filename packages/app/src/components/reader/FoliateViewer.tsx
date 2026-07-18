@@ -3157,7 +3157,13 @@ body {
 }
 
 /* Prevent content bleeding between pages */
-.view {
+html, body {
+  overflow: hidden !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+}
+/* Also clip the paginator view containers */
+.view, [part="filter"] {
   overflow: hidden !important;
   clip-path: inset(0) !important;
 }
