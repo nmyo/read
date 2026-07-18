@@ -685,7 +685,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   filter: {
     search: "",
     tags: [],
-    sortField: "lastOpenedAt",
+    sortField: "addedAt",
     sortOrder: "desc",
   },
   viewMode: "grid",
